@@ -1,0 +1,44 @@
+### Register Customer
+POST https://localhost:7124/api/auth/register
+Content-Type: application/json
+
+{
+  "fullname": "Nguyen Van Customer",
+  "email": "customer@example.com",
+  "phone": "0900000001",
+  "password": "Password123!",
+  "role": "customer"
+}
+
+###
+
+### Register Nurse
+POST https://localhost:7124/api/auth/register
+Content-Type: application/json
+
+{
+  "fullname": "Nguyen Thi Nurse",
+  "email": "nurse@example.com",
+  "phone": "0900000002",
+  "password": "Password123!",
+  "role": "nurse"
+}
+
+###
+
+### Login
+POST https://localhost:7124/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer@example.com",
+  "password": "Password123!"
+}
+
+###
+
+### Get Current User (Protected - requires token)
+GET https://localhost:7124/api/auth/me
+Authorization: Bearer YOUR_TOKEN_HERE
+
+###

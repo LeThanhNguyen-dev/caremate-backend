@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MomCare")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fdce6e95fadecad08f9751eca9ca035215530c99")]
 [assembly: System.Reflection.AssemblyProductAttribute("MomCare")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MomCare")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

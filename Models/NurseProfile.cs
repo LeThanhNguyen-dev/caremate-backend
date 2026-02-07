@@ -26,6 +26,9 @@ public class NurseProfile
     [Column("is_verified")]
     public string IsVerified { get; set; } = "unverified";
 
+    [Column("confirmed_at")]
+    public DateTime? ConfirmedAt { get; set; }
+
     [ForeignKey("UserId")]
     public virtual User User { get; set; } = null!;
 

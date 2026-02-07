@@ -44,6 +44,7 @@ public class MomCareContext : DbContext
 
     // Auth - Refresh Tokens
     public DbSet<RefreshToken> RefreshTokens { get; set; }
+    public DbSet<OAuthProvider> OAuthProviders { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

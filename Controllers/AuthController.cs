@@ -16,7 +16,6 @@ public class AuthController : ControllerBase
     {
         _authService = authService;
     }
-
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
     {
@@ -25,6 +24,46 @@ public class AuthController : ControllerBase
         if (result == null)
         {
             return BadRequest(new { message = "Email already exists or invalid role provided" });
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("signup/customer")]
+    public async Task<IActionResult> RegisterCustomer([FromBody] RegisterDto registerDto)
+    {
+        registerDto.Role = "customer";
+        var result = await _authService.RegisterAsync(registerDto);
+        
+        if (result == null)
+        {
+            return BadRequest(new { message = "Email already exists" });
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("signup/nurse")]
+    public async Task<IActionResult> RegisterNurse([FromBody] RegisterNurseDto registerDto)
+    {
+        var result = await _authService.RegisterNurseAsync(registerDto);
+        
+        if (result == null)
+        {
+            return BadRequest(new { message = "Email already exists" });
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("login/external")]
+    public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginDto externalLoginDto)
+    {
+        var result = await _authService.ExternalLoginAsync(externalLoginDto);
+        
+        if (result == null)
+        {
+            return Unauthorized(new { message = "Invalid external token or login failed" });
         }
 
         return Ok(result);

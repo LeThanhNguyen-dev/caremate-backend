@@ -42,3 +42,67 @@ GET https://localhost:7124/api/auth/me
 Authorization: Bearer YOUR_TOKEN_HERE
 
 ###
+
+### [NEW] Register Customer Endpoint
+POST https://localhost:7124/api/auth/signup/customer
+Content-Type: application/json
+
+{
+  "fullname": "New Customer Flow",
+  "email": "cust_new@example.com",
+  "phone": "0900000003",
+  "password": "Password123!"
+}
+
+###
+
+### [NEW] Register Nurse Endpoint
+POST https://localhost:7124/api/auth/signup/nurse
+Content-Type: application/json
+
+{
+  "fullname": "New Nurse Flow",
+  "email": "nurse_new@example.com",
+  "phone": "0900000004",
+  "password": "Password123!",
+  "bio": "Expert Pediatric Nurse",
+  "yearsExperience": 7,
+  "serviceRadiusKm": 15
+}
+
+###
+
+### [NEW] External Login (Google)
+# Requires a valid Google ID Token obtained from frontend (Client)
+POST https://localhost:7124/api/auth/login/external
+Content-Type: application/json
+
+{
+  "provider": "google",
+  "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmYiLCJ0eXAiOiJKV1QifQ..."
+}
+
+###
+
+### [NEW] External Login (Facebook)
+# Requires a valid Facebook Access Token obtained from frontend (Client)
+POST https://localhost:7124/api/auth/login/external
+Content-Type: application/json
+
+{
+  "provider": "facebook",
+  "idToken": "EAAL........"
+}
+
+###
+
+### [NEW] Confirm Nurse (Admin Only)
+# Note: Replace {id} with actual Nurse User ID. Requires Admin Token.
+POST https://localhost:7124/api/admin/nurses/2/confirm
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+###
+
+### [NEW] Unconfirm Nurse (Admin Only)
+POST https://localhost:7124/api/admin/nurses/2/unconfirm
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE

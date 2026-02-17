@@ -10,5 +10,6 @@ public interface IUnitOfWork : IDisposable
     IGenericRepository<RefreshToken> RefreshTokens { get; }
     IGenericRepository<OAuthProvider> OAuthProviders { get; }
     IGenericRepository<NurseProfile> NurseProfiles { get; }
+    IGenericRepository<Document> Documents { get; }
     Task<int> CompleteAsync();
 }

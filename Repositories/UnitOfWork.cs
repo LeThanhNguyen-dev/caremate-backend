@@ -13,7 +13,8 @@ public class UnitOfWork : IUnitOfWork
     public IGenericRepository<RefreshToken> RefreshTokens { get; private set; }
     public IGenericRepository<OAuthProvider> OAuthProviders { get; private set; }
     public IGenericRepository<NurseProfile> NurseProfiles { get; private set; }
-
+    public IGenericRepository<Document> Documents { get; private set; }
+    
     public UnitOfWork(MomCareContext context)
     {
         _context = context;
@@ -23,6 +24,7 @@ public class UnitOfWork : IUnitOfWork
         RefreshTokens = new GenericRepository<RefreshToken>(_context);
         OAuthProviders = new GenericRepository<OAuthProvider>(_context);
         NurseProfiles = new GenericRepository<NurseProfile>(_context);
+        Documents = new GenericRepository<Document>(_context);
     }
 
     public async Task<int> CompleteAsync()

@@ -22,7 +22,6 @@ public class NurseProfile
     [Column("service_radius_km")]
     public int ServiceRadiusKm { get; set; }
 
-    // Status: unverified, pending, verified, rejected
     [Column("is_verified")]
     public string IsVerified { get; set; } = "unverified";
 

@@ -339,15 +339,17 @@ Authorization: Bearer {nurseToken}
 
 ### **Service Offering Management**
 
-#### Currently Missing ⚠️:
-- No dedicated endpoint to manage nurse services
-- No `POST /api/nurse/services` to add services
-- No `PUT /api/nurse/services/{id}` to update pricing
-- No `DELETE /api/nurse/services/{id}` to remove
+#### ✅ IMPLEMENTED:
+- ✅ `POST /api/nurse/services` - Add service offering
+- ✅ `GET /api/nurse/services` - List nurse's services
+- ✅ `PUT /api/nurse/services/{id}` - Update pricing/unit
+- ✅ `DELETE /api/nurse/services/{id}` - Remove service offering
 
-#### Workaround:
-- Services are created via seed data and admin
-- Nurses currently cannot self-manage pricing
+#### Features:
+✅ Nurses can self-manage their service offerings
+✅ Add custom pricing per service
+✅ Prevent duplicate service offerings
+✅ Full CRUD operations with validation
 
 ---
 
@@ -442,19 +444,22 @@ GET /api/admin/disputes
 
 ### ⚠️ **INCOMPLETE / TODO**:
 
-#### 1. **Nurse Service Management** ⚠️
-**Missing**: No REST endpoint for nurses to manage their own services
+#### 1. **Nurse Service Management** ✅
+**Status**: ✅ IMPLEMENTED - Full REST API
 ```
-POST /api/nurse/services/{serviceId}
-  - Add service offering with custom price/hour
+POST /api/nurse/services
+  - Add service offering with custom price
 
-PATCH /api/nurse/services/{serviceId}
-  - Update pricing
+GET /api/nurse/services
+  - List nurse's service offerings
 
-DELETE /api/nurse/services/{serviceId}
+PUT /api/nurse/services/{id}
+  - Update pricing and unit
+
+DELETE /api/nurse/services/{id}
   - Remove service offering
 ```
-**Impact**: Medium - Currently admin/seed only
+**Impact**: Medium - Now fully implemented ✅
 
 #### 2. **Payment Gateway Integration** ⚠️
 **Status**: Payment endpoint only tracks status, no actual integration
@@ -480,12 +485,14 @@ GET /api/nurses/{nurseId}/calendar?month=2026-03
 ```
 **Impact**: Low - Can be calculated from slots endpoint
 
-#### 5. **Booking Cancellation & Refund** ⚠️
-**Status**: Partial - Can cancel booking but no refund logic
-- ❌ No automatic refund on cancellation
-- ❌ No cancellation fee calculation
-- ❌ No cancellation policies per nurse
-**Impact**: HIGH - Needs business logic
+#### 5. **Booking Cancellation & Refund** ✅
+**Status**: ✅ COMPLETE - Full implementation
+- ✅ Automatic refund calculation on cancellation
+- ✅ Intelligent refund policy: 100% (≥24h), 50% (<24h), 0% (after)
+- ✅ Availability slot auto-release
+- ✅ Payment tracking with refund info
+- ✅ Notifications to both parties
+**Impact**: HIGH - Now fully implemented
 
 #### 6. **Real-time Booking Status** ⚠️
 **Status**: Notifications exist but no WebSocket streaming
@@ -561,9 +568,9 @@ Needed: REST endpoints for nurses to adjust their pricing/services
 ## 📝 **Recommended Next Steps**
 
 ### **Phase 1 - Critical (Before Launch)**:
-1. ✅ Integrate Stripe/PayPal for real payment
-2. ✅ Implement cancellation & refund logic
-3. ✅ Add nurse service management API
+1. ⏳ Integrate Stripe/PayPal for real payment (NEXT)
+2. ✅ Implement cancellation & refund logic (DONE)
+3. ✅ Add nurse service management API (DONE)
 
 ### **Phase 2 - Important (Month 1)**:
 1. ✅ Address validation with Maps API
@@ -582,20 +589,22 @@ Needed: REST endpoints for nurses to adjust their pricing/services
 | Area | Status | Notes |
 |------|--------|-------|
 | Authentication | ✅ Complete | JWT + OAuth ready |
-| Booking Lifecycle | ✅ Complete | Full status workflow |
-| Payment Tracking | ⚠️ Partial | Status only, no gateway |
+| Booking Lifecycle | ✅ Complete | Full status workflow + cancellation |
+| Payment Tracking | ⚠️ Partial | Status + refund tracking, gateway pending |
 | Communication | ✅ Complete | Chat + notifications |
-| Nurse Management | ⚠️ Partial | No service self-management |
+| Nurse Management | ✅ Complete | Services self-management implemented |
 | Availability | ✅ Complete | Full slot management |
 | Admin Features | ✅ Complete | Nurse verification, disputes |
-| **Overall** | **⚠️ 85-90%** | **Ready for MVP with payment integration** |
+| **Overall** | **⚠️ 90-92%** | **Ready for MVP - waiting for Stripe integration** |
 
 ---
 
 **Conclusion**: Your API is **production-ready for MVP** except for:
-1. Real payment processing (CRITICAL)
-2. Refund automation (CRITICAL) 
-3. Nurse service self-management (MEDIUM)
+1. Real payment processing (CRITICAL) - ⏳ NEXT PRIORITY
 
-Everything else for the "book nursing care" flow is **fully implemented**.
+✅ **COMPLETED** in this session:
+- Refund automation with intelligent 24-hour window policy
+- Nurse service self-management with full CRUD API
+
+✅ Everything else for the "book nursing care" flow is **fully implemented**.
 

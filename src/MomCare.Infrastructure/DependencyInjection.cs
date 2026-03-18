@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IDisputeService, DisputeService>();
+        services.AddScoped<INurseServiceManagementService, NurseServiceManagementService>();
 
         services.AddDbContext<MomCareContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));

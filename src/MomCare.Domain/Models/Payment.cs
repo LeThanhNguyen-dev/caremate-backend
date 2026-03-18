@@ -27,8 +27,21 @@ public class Payment
     [Column("transaction_id")]
     public string? TransactionId { get; set; }
 
+    // Refund tracking
+    [Column("refund_amount")]
+    public decimal? RefundAmount { get; set; }
+
+    [Column("refund_reason")]
+    public string? RefundReason { get; set; }
+
+    [Column("refund_status")]
+    public string? RefundStatus { get; set; } // null, pending, completed, failed
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("refunded_at")]
+    public DateTime? RefundedAt { get; set; }
 
     [ForeignKey("BookingId")]
     public virtual Booking Booking { get; set; } = null!;

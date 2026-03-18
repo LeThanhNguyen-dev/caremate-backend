@@ -285,4 +285,99 @@ public class BookingService : IBookingService
 
         return false;
     }
+
+    public async Task<bool> CancelBookingAsync(int actorUserId, int bookingId, CancelBookingDto dto)
+    {
+        var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
+        if (booking == null)
+        {
+            return false;
+        }
+
+        // Only customer or admin can cancel - for now just check if customer
+        if (booking.CustomerId != actorUserId)
+        {
+            return false;
+        }
+
+        // Can only cancel if pending or confirmed
+        if (booking.Status != BookingStatuses.PendingConfirm && booking.Status != BookingStatuses.Confirmed)
+        {
+            return false;
+        }
+
+        // Calculate refund based on cancellation window
+        decimal refundAmount = CalculateRefundAmount(booking);
+
+        // Mark booking as cancelled
+        booking.Status = BookingStatuses.Cancelled;
+        booking.UpdatedAt = DateTime.UtcNow;
+
+        _context.BookingStatusHistories.Add(new BookingStatusHistory
+        {
+            BookingId = booking.Id,
+            Status = BookingStatuses.Cancelled,
+            ChangedBy = actorUserId,
+            Note = dto.Note ?? dto.Reason,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        // Update or create payment with refund info
+        var payment = await _context.Payments.FirstOrDefaultAsync(p => p.BookingId == bookingId);
+        if (payment != null)
+        {
+            payment.RefundAmount = refundAmount;
+            payment.RefundReason = dto.Reason;
+            payment.RefundStatus = "pending";
+        }
+
+        // Release availability slots
+        var nurseProfile = await _context.NurseProfiles
+            .FirstOrDefaultAsync(np => np.UserId == booking.NurseId);
+
+        if (nurseProfile != null)
+        {
+            var slots = await _context.AvailabilitySlots
+                .Where(s => s.NurseProfileId == nurseProfile.Id &&
+                            s.IsBooked &&
+                            s.StartTime >= booking.StartTime &&
+                            s.EndTime <= booking.EndTime)
+                .ToListAsync();
+
+            foreach (var slot in slots)
+            {
+                slot.IsBooked = false;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Send notifications
+        await _notificationService.CreateAsync(booking.NurseId, "Booking cancelled",
+            $"Booking #{booking.Id} has been cancelled. Refund: {refundAmount}");
+        await _notificationService.CreateAsync(booking.CustomerId, "Booking cancelled",
+            $"Your booking #{booking.Id} has been cancelled. Refund: {refundAmount}");
+
+        return true;
+    }
+
+    private decimal CalculateRefundAmount(Booking booking)
+    {
+        var hoursUntilStart = (booking.StartTime - DateTime.UtcNow).TotalHours;
+
+        // If cancelled more than 24 hours before: full refund
+        if (hoursUntilStart >= 24)
+        {
+            return booking.TotalPrice;
+        }
+
+        // If cancelled less than 24 hours before: 50% refund
+        if (hoursUntilStart >= 0)
+        {
+            return booking.TotalPrice * 0.5m;
+        }
+
+        // If cancelled after service time: no refund
+        return 0;
+    }
 }

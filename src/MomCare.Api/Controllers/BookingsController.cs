@@ -81,6 +81,21 @@ public class BookingsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{id}/cancel")]
+    [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Admin}")]
+    public async Task<IActionResult> Cancel([FromRoute] int id, [FromBody] CancelBookingDto dto)
+    {
+        var userId = GetUserId();
+        var success = await _bookingService.CancelBookingAsync(userId, id, dto);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Cannot cancel this booking. It may not exist or is not in a cancellable state." });
+        }
+
+        return Ok(new { message = "Booking cancelled successfully" });
+    }
+
     private int GetUserId()
     {
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier)

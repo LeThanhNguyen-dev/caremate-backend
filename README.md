@@ -220,7 +220,7 @@ OpenAPI documentation is available at:
 - Change `https_port` in `launchSettings.json` (Properties/)
 - Or: `dotnet run --project src/MomCare.Api -- --urls="https://localhost:5002"`
 
-## 📝 Git Workflow
+## Git Workflow
 
 Before pushing, ensure:
 ```bash
@@ -231,15 +231,15 @@ dotnet build MomCare.sln
 git status
 ```
 
-## 📄 License
+## License
 
 [Specify your license here]
 
-## 👥 Contributors
+## Contributors
 
 [Team member names]
 
-## 📞 Support
+## Support
 
 For questions or issues, please contact the development team.
 

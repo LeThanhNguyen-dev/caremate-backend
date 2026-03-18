@@ -10,4 +10,3 @@ obj/
 
 # Environment files
 .env
-!.env.example

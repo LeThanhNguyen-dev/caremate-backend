@@ -84,10 +84,10 @@ public static class MomCareSeedData
         // Persist nurse profiles first so dependent rows use valid nurse_profile_id values.
         await context.SaveChangesAsync();
 
-        await EnsureDocumentAsync(context, nurseProfileA.Id, "id_card", "https://seed.local/docs/huong-id.pdf", "approved");
-        await EnsureDocumentAsync(context, nurseProfileA.Id, "hospital_certificate", "https://seed.local/docs/huong-hospital.pdf", "approved");
-        await EnsureDocumentAsync(context, nurseProfileB.Id, "id_card", "https://seed.local/docs/mai-id.pdf", "approved");
-        await EnsureDocumentAsync(context, nurseProfilePending.Id, "id_card", "https://seed.local/docs/ngoc-id.pdf", "pending_review");
+        await EnsureDocumentAsync(context, nurseProfileA.Id, DocumentTypes.IdCardFront, "seed_huong_id", "approved");
+        await EnsureDocumentAsync(context, nurseProfileA.Id, DocumentTypes.Certificate, "seed_huong_hospital", "approved");
+        await EnsureDocumentAsync(context, nurseProfileB.Id, DocumentTypes.IdCardFront, "seed_mai_id", "approved");
+        await EnsureDocumentAsync(context, nurseProfilePending.Id, DocumentTypes.IdCardFront, "seed_ngoc_id", "pending_review");
 
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, postpartum.Id, 550_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, babyCare.Id, 500_000m, "fixed", "enabled");
@@ -96,15 +96,28 @@ public static class MomCareSeedData
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, overnight.Id, 250_000m, "hourly", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, massage.Id, 750_000m, "fixed", "enabled");
 
+        // Use a stable reference date so re-running seed doesn't create duplicate slots.
+        // "today" is always the current UTC date; past slots are fixed, future slots shift forward.
         var today = DateTime.UtcNow.Date;
 
-        await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(-2).AddHours(8), today.AddDays(-2).AddHours(12), true);
-        await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(1).AddHours(8), today.AddDays(1).AddHours(12), false);
-        await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(2).AddHours(13), today.AddDays(2).AddHours(17), false);
+        // Clean up old seed availability slots (past) to avoid unbounded growth.
+        var oldSlots = context.AvailabilitySlots
+            .Where(s => s.EndTime < today)
+            .ToList();
+        if (oldSlots.Count > 0)
+        {
+            context.AvailabilitySlots.RemoveRange(oldSlots);
+        }
 
-        await EnsureAvailabilitySlotAsync(context, nurseProfileB.Id, today.AddDays(-1).AddHours(20), today.AddDays(0).AddHours(4), true);
-        await EnsureAvailabilitySlotAsync(context, nurseProfileB.Id, today.AddDays(1).AddHours(20), today.AddDays(2).AddHours(4), false);
-        await EnsureAvailabilitySlotAsync(context, nurseProfileB.Id, today.AddDays(3).AddHours(8), today.AddDays(3).AddHours(12), false);
+        // Nurse A: one past + two future
+        await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(-2).AddHours(8), today.AddDays(-2).AddHours(12));
+        await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(1).AddHours(8), today.AddDays(1).AddHours(12)); 
+        await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(2).AddHours(13), today.AddDays(2).AddHours(17));
+
+        // Nurse B: one past + two future
+        await EnsureAvailabilitySlotAsync(context, nurseProfileB.Id, today.AddDays(-1).AddHours(20), today.AddDays(0).AddHours(4));
+        await EnsureAvailabilitySlotAsync(context, nurseProfileB.Id, today.AddDays(1).AddHours(20), today.AddDays(2).AddHours(4));
+        await EnsureAvailabilitySlotAsync(context, nurseProfileB.Id, today.AddDays(3).AddHours(8), today.AddDays(3).AddHours(12));
 
         await context.SaveChangesAsync();
 
@@ -170,8 +183,8 @@ public static class MomCareSeedData
 
         var conversation = await EnsureConversationAsync(context, completedBooking.Id, customerA.Id, nurseA.Id);
         await context.SaveChangesAsync();
-        await EnsureChatMessageAsync(context, conversation.Id, customerA.Id, "Ch? d?n gi�p em l�c 9h nh�.", false, today.AddDays(-2).AddHours(8));
-        await EnsureChatMessageAsync(context, conversation.Id, nurseA.Id, "D? em d?n d�ng gi? ?.", true, today.AddDays(-2).AddHours(8).AddMinutes(5));
+        await EnsureChatMessageAsync(context, conversation.Id, customerA.Id, "Chị đến giúp em lúc 9h nhé.", false, today.AddDays(-2).AddHours(8));
+        await EnsureChatMessageAsync(context, conversation.Id, nurseA.Id, "Dạ em đến đúng giờ ạ.", true, today.AddDays(-2).AddHours(8).AddMinutes(5));
 
         await EnsureNotificationAsync(context, customerA.Id, "Booking completed", "Your booking has been completed successfully.", "booking");
         await EnsureNotificationAsync(context, nurseA.Id, "New review", "You received a new 5-star review.", "review");
@@ -443,25 +456,40 @@ public static class MomCareSeedData
         MomCareContext context,
         int nurseProfileId,
         string type,
-        string fileUrl,
+        string publicId,
         string status)
     {
-        var document = await context.Documents.FirstOrDefaultAsync(d => d.NurseProfileId == nurseProfileId && d.Type == type);
+        var normalizedType = NormalizeLegacyDocumentType(type);
+        var document = await context.Documents.FirstOrDefaultAsync(d => d.NurseProfileId == nurseProfileId && d.Type == normalizedType);
         if (document == null)
         {
             context.Documents.Add(new Document
             {
                 NurseProfileId = nurseProfileId,
-                Type = type,
-                FileUrl = fileUrl,
+                Type = normalizedType,
+                PublicId = publicId,
                 Status = status,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             });
             return;
         }
 
-        document.FileUrl = fileUrl;
+        document.Type = normalizedType;
+        document.PublicId = publicId;
         document.Status = status;
+        document.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static string NormalizeLegacyDocumentType(string type)
+    {
+        var normalized = type.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "id_card" => DocumentTypes.IdCardFront,
+            "hospital_certificate" => DocumentTypes.Certificate,
+            _ => normalized
+        };
     }
 
     private static async Task EnsureNurseServiceAsync(
@@ -497,8 +525,7 @@ public static class MomCareSeedData
         MomCareContext context,
         int nurseProfileId,
         DateTime start,
-        DateTime end,
-        bool isBooked)
+        DateTime end)
     {
         var slot = await context.AvailabilitySlots
             .FirstOrDefaultAsync(s => s.NurseProfileId == nurseProfileId && s.StartTime == start && s.EndTime == end);
@@ -509,13 +536,10 @@ public static class MomCareSeedData
             {
                 NurseProfileId = nurseProfileId,
                 StartTime = start,
-                EndTime = end,
-                IsBooked = isBooked
+                EndTime = end
             });
             return;
         }
-
-        slot.IsBooked = isBooked;
     }
 
     private static async Task<Booking> EnsureBookingAsync(

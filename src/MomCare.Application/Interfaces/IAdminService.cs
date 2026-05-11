@@ -1,5 +1,4 @@
 using MomCare.Dto;
-using MomCare.Models;
 
 namespace MomCare.Interfaces;
 
@@ -10,5 +9,5 @@ public interface IAdminService
     Task<bool> ReviewNurseAsync(int userId, ReviewNurseProfileDto reviewDto);
     Task<AdminDashboardDto> GetDashboardAsync();
     Task<IEnumerable<AdminBookingSummaryDto>> GetBookingsAsync(string? status);
-    Task<IEnumerable<Dispute>> GetDisputesAsync(string? status);
+    Task<IEnumerable<DisputeDto>> GetDisputesAsync(string? status);
 }

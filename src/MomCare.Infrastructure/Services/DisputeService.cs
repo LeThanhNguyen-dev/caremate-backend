@@ -17,7 +17,7 @@ public class DisputeService : IDisputeService
         _notificationService = notificationService;
     }
 
-    public async Task<Dispute?> CreateAsync(int actorUserId, CreateDisputeDto dto)
+    public async Task<DisputeDto?> CreateAsync(int actorUserId, CreateDisputeDto dto)
     {
         var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.Id == dto.BookingId);
         if (booking == null)
@@ -50,22 +50,28 @@ public class DisputeService : IDisputeService
         var receiverId = booking.CustomerId == actorUserId ? booking.NurseId : booking.CustomerId;
         await _notificationService.CreateAsync(receiverId, "Dispute opened", $"A dispute has been opened for booking #{booking.Id}.", "dispute");
 
-        return dispute;
+        return MapDispute(dispute);
     }
 
-    public async Task<IEnumerable<Dispute>> GetDisputesAsync(int actorUserId, bool isAdmin)
+    public async Task<IEnumerable<DisputeDto>> GetDisputesAsync(int actorUserId, bool isAdmin)
     {
+        List<Dispute> disputes;
+
         if (isAdmin)
         {
-            return await _context.Disputes
+            disputes = await _context.Disputes
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
+        }
+        else
+        {
+            disputes = await _context.Disputes
+                .Where(d => _context.Bookings.Any(b => b.Id == d.BookingId && (b.CustomerId == actorUserId || b.NurseId == actorUserId)))
                 .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
         }
 
-        return await _context.Disputes
-            .Where(d => _context.Bookings.Any(b => b.Id == d.BookingId && (b.CustomerId == actorUserId || b.NurseId == actorUserId)))
-            .OrderByDescending(d => d.CreatedAt)
-            .ToListAsync();
+        return disputes.Select(MapDispute).ToList();
     }
 
     public async Task<bool> UpdateStatusAsync(int disputeId, UpdateDisputeStatusDto dto)
@@ -90,4 +96,14 @@ public class DisputeService : IDisputeService
 
         return true;
     }
+
+    private static DisputeDto MapDispute(Dispute d) => new()
+    {
+        Id = d.Id,
+        BookingId = d.BookingId,
+        Reason = d.Reason,
+        Status = d.Status,
+        AdminNote = d.AdminNote,
+        CreatedAt = d.CreatedAt
+    };
 }

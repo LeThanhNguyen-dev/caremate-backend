@@ -40,6 +40,12 @@ public class NurseProfile
     [Column("confirmed_at")]
     public DateTime? ConfirmedAt { get; set; }
 
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
     [ForeignKey("UserId")]
     public virtual ApplicationUser User { get; set; } = null!;
 

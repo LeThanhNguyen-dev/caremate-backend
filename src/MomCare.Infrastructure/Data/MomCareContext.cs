@@ -182,6 +182,7 @@ public class MomCareContext : IdentityDbContext<
 
             entity.HasIndex(b => new { b.CustomerId, b.Status, b.StartTime });
             entity.HasIndex(b => new { b.NurseId, b.Status, b.StartTime });
+            entity.HasIndex(b => b.AvailabilitySlotId);
         });
 
         // 1-to-1 relationships for Booking components
@@ -224,6 +225,8 @@ public class MomCareContext : IdentityDbContext<
                 .WithMany()
                 .HasForeignKey(r => r.NurseId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(r => r.BookingId).IsUnique();
         });
 
         // --- Domain indexes for frequent queries ---
@@ -272,6 +275,7 @@ public class MomCareContext : IdentityDbContext<
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.Property(p => p.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(p => p.RefundAmount).HasColumnType("decimal(18,2)");
         });
 
         modelBuilder.Entity<Payout>(entity =>

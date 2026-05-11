@@ -19,6 +19,9 @@ public class Booking
     [Column("service_id")]
     public int ServiceId { get; set; }
 
+    [Column("availability_slot_id")]
+    public int? AvailabilitySlotId { get; set; }
+
     // Status: pending_confirm, confirmed, in_progress, completed, cancelled, rejected
     [Column("status")]
     public string Status { get; set; } = "pending_confirm";
@@ -29,7 +32,6 @@ public class Booking
     [Column("notes")]
     public string? Notes { get; set; }
 
-    // Store the address snapshot or address string
     [Column("address")]
     public string Address { get; set; } = string.Empty;
 
@@ -52,13 +54,13 @@ public class Booking
     public virtual ApplicationUser Nurse { get; set; } = null!;
 
     [ForeignKey("ServiceId")]
-    public virtual Service Service { get; set; } = null!; // Or NurseService? 
-    // Implementation plan said "ServiceId". If it's the generic service, we also need to store the price snapshot.
-    // TotalPrice handles the price. ServiceId tracks what kind of service it was.
+    public virtual Service Service { get; set; } = null!;
+
+    [ForeignKey("AvailabilitySlotId")]
+    public virtual AvailabilitySlot? AvailabilitySlot { get; set; }
 
     public virtual ICollection<BookingStatusHistory> StatusHistory { get; set; } = new List<BookingStatusHistory>();
     
-    // One-to-One relationships (to be configured in Context)
     public virtual Payment? Payment { get; set; }
     public virtual Review? Review { get; set; }
     public virtual Dispute? Dispute { get; set; }

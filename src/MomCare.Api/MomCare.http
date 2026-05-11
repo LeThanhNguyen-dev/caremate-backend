@@ -31,8 +31,8 @@ POST https://localhost:7124/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "customer@example.com",
-  "password": "Password123!"
+  "email": "lan.customer@momcare.local",
+  "password": "MomCare@123"
 }
 
 ###

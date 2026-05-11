@@ -9,10 +9,12 @@ namespace MomCare.Services;
 public class NurseDiscoveryService : INurseDiscoveryService
 {
     private readonly MomCareContext _context;
+    private readonly ICloudinaryService _cloudinaryService;
 
-    public NurseDiscoveryService(MomCareContext context)
+    public NurseDiscoveryService(MomCareContext context, ICloudinaryService cloudinaryService)
     {
         _context = context;
+        _cloudinaryService = cloudinaryService;
     }
 
     public async Task<IEnumerable<NurseDiscoveryDto>> SearchAsync(
@@ -50,12 +52,16 @@ public class NurseDiscoveryService : INurseDiscoveryService
             var start = startTime.Value;
             var end = endTime.Value;
 
+            // Availability check: Nurse must have an unbooked slot covering the range
             query = query.Where(np =>
                 _context.AvailabilitySlots.Any(a =>
                     a.NurseProfileId == np.Id &&
-                    !a.IsBooked &&
                     a.StartTime <= start &&
-                    a.EndTime >= end) &&
+                    a.EndTime >= end &&
+                    !_context.Bookings.Any(b => 
+                        b.AvailabilitySlotId == a.Id && 
+                        b.Status != BookingStatuses.Cancelled && 
+                        b.Status != BookingStatuses.Rejected)) &&
                 !_context.Bookings.Any(b =>
                     b.NurseId == np.UserId &&
                     b.Status != BookingStatuses.Cancelled &&
@@ -99,10 +105,34 @@ public class NurseDiscoveryService : INurseDiscoveryService
             .Include(np => np.Documents)
             .FirstOrDefaultAsync(np => np.UserId == userId && np.IsActive);
 
-        if (profile == null)
-        {
-            return null;
-        }
+        if (profile == null) return null;
+
+        // Get reviews
+        var reviews = await _context.Reviews
+            .Where(r => r.NurseId == userId && !r.IsDeleted)
+            .Include(r => r.Booking).ThenInclude(b => b.Service)
+            .Include(r => r.Customer)
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new ReviewDetailDto
+            {
+                Id = r.Id,
+                BookingId = r.BookingId,
+                CustomerId = r.CustomerId,
+                CustomerName = r.Customer.FullName,
+                CustomerAvatar = r.Customer.Avatar,
+                ServiceId = r.Booking.ServiceId,
+                ServiceName = r.Booking.Service.Name,
+                Rating = r.Rating,
+                Comment = r.Comment,
+                CreatedAt = r.CreatedAt
+            })
+            .ToListAsync();
+
+        var ratingDistribution = reviews
+            .GroupBy(r => r.Rating)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        for (int i = 1; i <= 5; i++) ratingDistribution.TryAdd(i, 0);
 
         return new NurseProfileDetailDto
         {
@@ -110,17 +140,26 @@ public class NurseDiscoveryService : INurseDiscoveryService
             FullName = profile.User.FullName,
             Email = profile.User.Email ?? string.Empty,
             Phone = profile.User.PhoneNumber,
+            Avatar = profile.User.Avatar,
             Bio = profile.Bio,
+            Specialization = profile.Specialization,
             YearsExperience = profile.YearsExperience,
             ServiceRadiusKm = profile.ServiceRadiusKm,
             IsVerified = profile.IsVerified,
+            AverageRating = profile.AverageRating,
+            TotalReviews = reviews.Count,
+            RatingDistribution = ratingDistribution,
             Documents = profile.Documents.Select(d => new NurseDocumentDto
             {
                 Id = d.Id,
                 Type = d.Type,
-                FileUrl = d.FileUrl,
-                Status = d.Status
-            }).ToList()
+                FileUrl = string.Empty, // Publicly, we don't expose private document URLs without explicit requests
+                PublicId = d.PublicId,
+                Status = d.Status,
+                CreatedAt = d.CreatedAt,
+                UpdatedAt = d.UpdatedAt
+            }).ToList(),
+            Reviews = reviews
         };
     }
 }

@@ -11,6 +11,9 @@ public class CreateBookingDto
     public int ServiceId { get; set; }
 
     [Required]
+    public int AvailabilitySlotId { get; set; }
+
+    [Required]
     public DateTime StartTime { get; set; }
 
     [Required]

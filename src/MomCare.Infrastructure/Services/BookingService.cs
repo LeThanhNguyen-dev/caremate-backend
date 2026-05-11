@@ -4,6 +4,7 @@ using MomCare.Dto;
 using MomCare.Enums;
 using MomCare.Interfaces;
 using MomCare.Models;
+using System.Data;
 
 namespace MomCare.Services;
 
@@ -11,11 +12,17 @@ public class BookingService : IBookingService
 {
     private readonly MomCareContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IRealtimeNotifier _realtimeNotifier;
+    private const int MaxRetryCount = 3;
 
-    public BookingService(MomCareContext context, INotificationService notificationService)
+    public BookingService(
+        MomCareContext context,
+        INotificationService notificationService,
+        IRealtimeNotifier realtimeNotifier)
     {
         _context = context;
         _notificationService = notificationService;
+        _realtimeNotifier = realtimeNotifier;
     }
 
     public async Task<BookingDetailDto?> CreateBookingAsync(int customerId, CreateBookingDto dto)
@@ -25,115 +32,126 @@ public class BookingService : IBookingService
             return null;
         }
 
-        var nurseProfile = await _context.NurseProfiles
-            .Include(np => np.NurseServices)
-            .FirstOrDefaultAsync(np => np.UserId == dto.NurseId && np.IsActive && np.IsVerified == "verified");
+        var strategy = _context.Database.CreateExecutionStrategy();
 
-        if (nurseProfile == null)
+        return await strategy.ExecuteAsync(async () =>
         {
-            return null;
-        }
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            try
+            {
+                var nurseProfile = await _context.NurseProfiles
+                    .Include(np => np.NurseServices)
+                    .FirstOrDefaultAsync(np => np.UserId == dto.NurseId && np.IsActive && np.IsVerified == "verified");
 
-        var service = await _context.Services.FirstOrDefaultAsync(s => s.Id == dto.ServiceId && s.Status == "active");
-        if (service == null)
-        {
-            return null;
-        }
+                if (nurseProfile == null) return null;
 
-        var hasRequiredService = nurseProfile.NurseServices.Any(ns => ns.ServiceId == dto.ServiceId && ns.Status == "enabled");
-        if (!hasRequiredService)
-        {
-            return null;
-        }
+                var service = await _context.Services.FirstOrDefaultAsync(s => s.Id == dto.ServiceId && s.Status == "active");
+                if (service == null) return null;
 
-        var hasAvailability = await _context.AvailabilitySlots.AnyAsync(a =>
-            a.NurseProfileId == nurseProfile.Id &&
-            !a.IsBooked &&
-            a.StartTime <= dto.StartTime &&
-            a.EndTime >= dto.EndTime);
+                var hasRequiredService = nurseProfile.NurseServices.Any(ns => ns.ServiceId == dto.ServiceId && ns.Status == "enabled");
+                if (!hasRequiredService) return null;
 
-        if (!hasAvailability)
-        {
-            return null;
-        }
+                // 1. Verify slot exists for this nurse
+                var slot = await _context.AvailabilitySlots
+                    .FirstOrDefaultAsync(a => a.Id == dto.AvailabilitySlotId && a.NurseProfileId == nurseProfile.Id);
 
-        var overlap = await _context.Bookings.AnyAsync(b =>
-            b.NurseId == dto.NurseId &&
-            b.Status != BookingStatuses.Cancelled &&
-            b.Status != BookingStatuses.Rejected &&
-            dto.StartTime < b.EndTime &&
-            dto.EndTime > b.StartTime);
+                if (slot == null) return null;
 
-        if (overlap)
-        {
-            return null;
-        }
+                // 2. Verify requested time is WITHIN the slot
+                if (dto.StartTime < slot.StartTime || dto.EndTime > slot.EndTime)
+                {
+                    return null;
+                }
 
-        var nurseService = nurseProfile.NurseServices.First(ns => ns.ServiceId == dto.ServiceId);
-        var totalPrice = nurseService.Unit == "hourly"
-            ? nurseService.Price * (decimal)(dto.EndTime - dto.StartTime).TotalHours
-            : nurseService.Price;
+                // 3. Verify NO EXISTING BOOKING for this slot (one booking per slot)
+                var slotIsTaken = await _context.Bookings.AnyAsync(b => 
+                    b.AvailabilitySlotId == dto.AvailabilitySlotId && 
+                    b.Status != BookingStatuses.Cancelled && 
+                    b.Status != BookingStatuses.Rejected);
 
-        var booking = new Booking
-        {
-            CustomerId = customerId,
-            NurseId = dto.NurseId,
-            ServiceId = dto.ServiceId,
-            Status = BookingStatuses.PendingConfirm,
-            TotalPrice = totalPrice,
-            Address = dto.Address,
-            Notes = dto.Notes,
-            StartTime = dto.StartTime,
-            EndTime = dto.EndTime,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
+                if (slotIsTaken) return null;
 
-        _context.Bookings.Add(booking);
-        await _context.SaveChangesAsync();
+                // 4. Overlap validation: Prevent booking if time overlaps with ANY existing booking for this nurse
+                // (newStart < existingEnd && newEnd > existingStart)
+                var overlap = await _context.Bookings.AnyAsync(b =>
+                    b.NurseId == dto.NurseId &&
+                    b.Status != BookingStatuses.Cancelled &&
+                    b.Status != BookingStatuses.Rejected &&
+                    dto.StartTime < b.EndTime &&
+                    dto.EndTime > b.StartTime);
 
-        _context.BookingStatusHistories.Add(new BookingStatusHistory
-        {
-            BookingId = booking.Id,
-            Status = booking.Status,
-            ChangedBy = customerId,
-            Note = "Booking created",
-            CreatedAt = DateTime.UtcNow
+                if (overlap) return null;
+
+                var nurseService = nurseProfile.NurseServices.First(ns => ns.ServiceId == dto.ServiceId);
+                var totalPrice = nurseService.Unit == "hourly"
+                    ? nurseService.Price * (decimal)(dto.EndTime - dto.StartTime).TotalHours
+                    : nurseService.Price;
+
+                var booking = new Booking
+                {
+                    CustomerId = customerId,
+                    NurseId = dto.NurseId,
+                    ServiceId = dto.ServiceId,
+                    AvailabilitySlotId = dto.AvailabilitySlotId,
+                    Status = BookingStatuses.PendingConfirm,
+                    TotalPrice = totalPrice,
+                    Address = dto.Address,
+                    Notes = dto.Notes,
+                    StartTime = dto.StartTime,
+                    EndTime = dto.EndTime,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.Bookings.Add(booking);
+                await _context.SaveChangesAsync();
+
+                _context.BookingStatusHistories.Add(new BookingStatusHistory
+                {
+                    BookingId = booking.Id,
+                    Status = booking.Status,
+                    ChangedBy = customerId,
+                    Note = "Booking created",
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                var bookingDetail = new BookingDetailDto
+                {
+                    Id = booking.Id,
+                    CustomerId = booking.CustomerId,
+                    NurseId = booking.NurseId,
+                    ServiceId = booking.ServiceId,
+                    ServiceName = service.Name,
+                    Status = booking.Status,
+                    TotalPrice = booking.TotalPrice,
+                    StartTime = booking.StartTime,
+                    EndTime = booking.EndTime,
+                    Address = booking.Address,
+                    Notes = booking.Notes,
+                    AvailabilitySlotId = booking.AvailabilitySlotId
+                };
+
+                await _notificationService.CreateAsync(dto.NurseId, "New booking request", $"Booking #{booking.Id} is waiting for your confirmation.");
+                await _realtimeNotifier.NotifyBookingCreatedAsync(dto.NurseId, bookingDetail);
+
+                return bookingDetail;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw; // Strategy will handle retry if it's a transient failure
+            }
         });
-
-        var coveringSlots = await _context.AvailabilitySlots
-            .Where(a => a.NurseProfileId == nurseProfile.Id && !a.IsBooked && a.StartTime <= dto.StartTime && a.EndTime >= dto.EndTime)
-            .ToListAsync();
-
-        foreach (var slot in coveringSlots)
-        {
-            slot.IsBooked = true;
-        }
-
-        await _context.SaveChangesAsync();
-
-        await _notificationService.CreateAsync(dto.NurseId, "New booking request", $"Booking #{booking.Id} is waiting for your confirmation.");
-
-        return new BookingDetailDto
-        {
-            Id = booking.Id,
-            CustomerId = booking.CustomerId,
-            NurseId = booking.NurseId,
-            ServiceId = booking.ServiceId,
-            ServiceName = service.Name,
-            Status = booking.Status,
-            TotalPrice = booking.TotalPrice,
-            StartTime = booking.StartTime,
-            EndTime = booking.EndTime,
-            Address = booking.Address,
-            Notes = booking.Notes
-        };
     }
 
     public async Task<IEnumerable<BookingDetailDto>> GetCustomerBookingsAsync(int customerId)
     {
         return await _context.Bookings
             .Include(b => b.Service)
+            .Include(b => b.Nurse)
             .Where(b => b.CustomerId == customerId)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new BookingDetailDto
@@ -143,12 +161,14 @@ public class BookingService : IBookingService
                 NurseId = b.NurseId,
                 ServiceId = b.ServiceId,
                 ServiceName = b.Service.Name,
+                NurseName = b.Nurse.FullName,
                 Status = b.Status,
                 TotalPrice = b.TotalPrice,
                 StartTime = b.StartTime,
                 EndTime = b.EndTime,
                 Address = b.Address,
-                Notes = b.Notes
+                Notes = b.Notes,
+                AvailabilitySlotId = b.AvailabilitySlotId
             })
             .ToListAsync();
     }
@@ -157,6 +177,7 @@ public class BookingService : IBookingService
     {
         return await _context.Bookings
             .Include(b => b.Service)
+            .Include(b => b.Nurse)
             .Where(b => b.NurseId == nurseId)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new BookingDetailDto
@@ -166,12 +187,14 @@ public class BookingService : IBookingService
                 NurseId = b.NurseId,
                 ServiceId = b.ServiceId,
                 ServiceName = b.Service.Name,
+                NurseName = b.Nurse.FullName,
                 Status = b.Status,
                 TotalPrice = b.TotalPrice,
                 StartTime = b.StartTime,
                 EndTime = b.EndTime,
                 Address = b.Address,
-                Notes = b.Notes
+                Notes = b.Notes,
+                AvailabilitySlotId = b.AvailabilitySlotId
             })
             .ToListAsync();
     }
@@ -180,17 +203,12 @@ public class BookingService : IBookingService
     {
         var booking = await _context.Bookings
             .Include(b => b.Service)
+            .Include(b => b.Nurse)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        if (booking == null)
-        {
-            return null;
-        }
+        if (booking == null) return null;
 
-        if (!isAdmin && booking.CustomerId != actorUserId && booking.NurseId != actorUserId)
-        {
-            return null;
-        }
+        if (!isAdmin && booking.CustomerId != actorUserId && booking.NurseId != actorUserId) return null;
 
         return new BookingDetailDto
         {
@@ -199,33 +217,29 @@ public class BookingService : IBookingService
             NurseId = booking.NurseId,
             ServiceId = booking.ServiceId,
             ServiceName = booking.Service.Name,
+            NurseName = booking.Nurse.FullName,
             Status = booking.Status,
             TotalPrice = booking.TotalPrice,
             StartTime = booking.StartTime,
             EndTime = booking.EndTime,
             Address = booking.Address,
-            Notes = booking.Notes
+            Notes = booking.Notes,
+            AvailabilitySlotId = booking.AvailabilitySlotId
         };
     }
 
     public async Task<bool> UpdateBookingStatusAsync(int actorUserId, bool isAdmin, UpdateBookingStatusDto dto, int bookingId)
     {
-        var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
-        if (booking == null)
-        {
-            return false;
-        }
+        var booking = await _context.Bookings
+            .Include(b => b.Service)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        if (!isAdmin && booking.CustomerId != actorUserId && booking.NurseId != actorUserId)
-        {
-            return false;
-        }
+        if (booking == null) return false;
+
+        if (!isAdmin && booking.CustomerId != actorUserId && booking.NurseId != actorUserId) return false;
 
         var nextStatus = dto.Status.Trim().ToLowerInvariant();
-        if (!IsTransitionAllowed(booking, actorUserId, isAdmin, nextStatus))
-        {
-            return false;
-        }
+        if (!IsTransitionAllowed(booking, actorUserId, isAdmin, nextStatus)) return false;
 
         booking.Status = nextStatus;
         booking.UpdatedAt = DateTime.UtcNow;
@@ -241,20 +255,37 @@ public class BookingService : IBookingService
 
         await _context.SaveChangesAsync();
 
+        var targetUserId = booking.CustomerId == actorUserId ? booking.NurseId : booking.CustomerId;
+
         await _notificationService.CreateAsync(
-            booking.CustomerId == actorUserId ? booking.NurseId : booking.CustomerId,
+            targetUserId,
             "Booking status updated",
             $"Booking #{booking.Id} changed to '{nextStatus}'.");
+
+        var bookingDetail = new BookingDetailDto
+        {
+            Id = booking.Id,
+            CustomerId = booking.CustomerId,
+            NurseId = booking.NurseId,
+            ServiceId = booking.ServiceId,
+            ServiceName = booking.Service.Name,
+            Status = booking.Status,
+            TotalPrice = booking.TotalPrice,
+            StartTime = booking.StartTime,
+            EndTime = booking.EndTime,
+            Address = booking.Address,
+            Notes = booking.Notes,
+            AvailabilitySlotId = booking.AvailabilitySlotId
+        };
+
+        await _realtimeNotifier.NotifyBookingStatusChangedAsync(targetUserId, bookingDetail);
 
         return true;
     }
 
     private static bool IsTransitionAllowed(Booking booking, int actorUserId, bool isAdmin, string nextStatus)
     {
-        if (isAdmin)
-        {
-            return true;
-        }
+        if (isAdmin) return true;
 
         var isCustomer = booking.CustomerId == actorUserId;
         var isNurse = booking.NurseId == actorUserId;
@@ -286,30 +317,20 @@ public class BookingService : IBookingService
         return false;
     }
 
-    public async Task<bool> CancelBookingAsync(int actorUserId, int bookingId, CancelBookingDto dto)
+    public async Task<bool> CancelBookingAsync(int actorUserId, bool isAdmin, int bookingId, CancelBookingDto dto)
     {
-        var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
-        if (booking == null)
-        {
-            return false;
-        }
+        var booking = await _context.Bookings
+            .Include(b => b.Service)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        // Only customer or admin can cancel - for now just check if customer
-        if (booking.CustomerId != actorUserId)
-        {
-            return false;
-        }
+        if (booking == null) return false;
 
-        // Can only cancel if pending or confirmed
-        if (booking.Status != BookingStatuses.PendingConfirm && booking.Status != BookingStatuses.Confirmed)
-        {
-            return false;
-        }
+        if (!isAdmin && booking.CustomerId != actorUserId) return false;
 
-        // Calculate refund based on cancellation window
+        if (booking.Status != BookingStatuses.PendingConfirm && booking.Status != BookingStatuses.Confirmed) return false;
+
         decimal refundAmount = CalculateRefundAmount(booking);
 
-        // Mark booking as cancelled
         booking.Status = BookingStatuses.Cancelled;
         booking.UpdatedAt = DateTime.UtcNow;
 
@@ -322,7 +343,6 @@ public class BookingService : IBookingService
             CreatedAt = DateTime.UtcNow
         });
 
-        // Update or create payment with refund info
         var payment = await _context.Payments.FirstOrDefaultAsync(p => p.BookingId == bookingId);
         if (payment != null)
         {
@@ -331,32 +351,32 @@ public class BookingService : IBookingService
             payment.RefundStatus = "pending";
         }
 
-        // Release availability slots
-        var nurseProfile = await _context.NurseProfiles
-            .FirstOrDefaultAsync(np => np.UserId == booking.NurseId);
-
-        if (nurseProfile != null)
-        {
-            var slots = await _context.AvailabilitySlots
-                .Where(s => s.NurseProfileId == nurseProfile.Id &&
-                            s.IsBooked &&
-                            s.StartTime >= booking.StartTime &&
-                            s.EndTime <= booking.EndTime)
-                .ToListAsync();
-
-            foreach (var slot in slots)
-            {
-                slot.IsBooked = false;
-            }
-        }
-
         await _context.SaveChangesAsync();
 
-        // Send notifications
         await _notificationService.CreateAsync(booking.NurseId, "Booking cancelled",
             $"Booking #{booking.Id} has been cancelled. Refund: {refundAmount}");
         await _notificationService.CreateAsync(booking.CustomerId, "Booking cancelled",
             $"Your booking #{booking.Id} has been cancelled. Refund: {refundAmount}");
+
+        var bookingDetail = new BookingDetailDto
+        {
+            Id = booking.Id,
+            CustomerId = booking.CustomerId,
+            NurseId = booking.NurseId,
+            ServiceId = booking.ServiceId,
+            ServiceName = booking.Service.Name,
+            Status = booking.Status,
+            TotalPrice = booking.TotalPrice,
+            StartTime = booking.StartTime,
+            EndTime = booking.EndTime,
+            Address = booking.Address,
+            Notes = booking.Notes,
+            AvailabilitySlotId = booking.AvailabilitySlotId
+        };
+
+        await _realtimeNotifier.NotifyBookingStatusChangedAsync(booking.NurseId, bookingDetail);
+        await _realtimeNotifier.NotifyBookingStatusChangedAsync(booking.CustomerId, bookingDetail);
+        await _realtimeNotifier.NotifyAvailabilityChangedAsync(booking.NurseId);
 
         return true;
     }
@@ -365,19 +385,8 @@ public class BookingService : IBookingService
     {
         var hoursUntilStart = (booking.StartTime - DateTime.UtcNow).TotalHours;
 
-        // If cancelled more than 24 hours before: full refund
-        if (hoursUntilStart >= 24)
-        {
-            return booking.TotalPrice;
-        }
-
-        // If cancelled less than 24 hours before: 50% refund
-        if (hoursUntilStart >= 0)
-        {
-            return booking.TotalPrice * 0.5m;
-        }
-
-        // If cancelled after service time: no refund
+        if (hoursUntilStart >= 24) return booking.TotalPrice;
+        if (hoursUntilStart >= 0) return booking.TotalPrice * 0.5m;
         return 0;
     }
 }

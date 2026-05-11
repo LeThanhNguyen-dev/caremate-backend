@@ -17,7 +17,7 @@ public class PaymentService : IPaymentService
         _notificationService = notificationService;
     }
 
-    public async Task<Payment?> UpsertPaymentAsync(int actorUserId, bool isAdmin, int bookingId, UpdatePaymentStatusDto dto)
+    public async Task<PaymentDto?> UpsertPaymentAsync(int actorUserId, bool isAdmin, int bookingId, UpdatePaymentStatusDto dto)
     {
         var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
         if (booking == null)
@@ -57,6 +57,21 @@ public class PaymentService : IPaymentService
         await _notificationService.CreateAsync(booking.NurseId, "Payment updated", $"Payment for booking #{bookingId} is now '{payment.Status}'.", "payment");
         await _notificationService.CreateAsync(booking.CustomerId, "Payment updated", $"Your payment for booking #{bookingId} is now '{payment.Status}'.", "payment");
 
-        return payment;
+        return MapPayment(payment);
     }
+
+    private static PaymentDto MapPayment(Payment p) => new()
+    {
+        Id = p.Id,
+        BookingId = p.BookingId,
+        Amount = p.Amount,
+        Method = p.Method,
+        Status = p.Status,
+        TransactionId = p.TransactionId,
+        RefundAmount = p.RefundAmount,
+        RefundReason = p.RefundReason,
+        RefundStatus = p.RefundStatus,
+        CreatedAt = p.CreatedAt,
+        RefundedAt = p.RefundedAt
+    };
 }

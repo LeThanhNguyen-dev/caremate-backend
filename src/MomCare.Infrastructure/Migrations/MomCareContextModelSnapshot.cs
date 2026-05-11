@@ -369,10 +369,6 @@ namespace MomCare.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("end_time");
 
-                    b.Property<bool>("IsBooked")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_booked");
-
                     b.Property<int>("NurseProfileId")
                         .HasColumnType("int")
                         .HasColumnName("nurse_profile_id");
@@ -401,6 +397,10 @@ namespace MomCare.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("address");
+
+                    b.Property<int?>("AvailabilitySlotId")
+                        .HasColumnType("int")
+                        .HasColumnName("availability_slot_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2")
@@ -444,6 +444,8 @@ namespace MomCare.Migrations
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AvailabilitySlotId");
 
                     b.HasIndex("ServiceId");
 
@@ -621,14 +623,14 @@ namespace MomCare.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("FileUrl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("file_url");
-
                     b.Property<int>("NurseProfileId")
                         .HasColumnType("int")
                         .HasColumnName("nurse_profile_id");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("public_id");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -639,6 +641,10 @@ namespace MomCare.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
@@ -717,6 +723,10 @@ namespace MomCare.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("confirmed_at");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -735,6 +745,10 @@ namespace MomCare.Migrations
                     b.Property<string>("Specialization")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("specialization");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int")
@@ -966,6 +980,10 @@ namespace MomCare.Migrations
                         .HasColumnType("int")
                         .HasColumnName("customer_id");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_deleted");
+
                     b.Property<int>("NurseId")
                         .HasColumnType("int")
                         .HasColumnName("nurse_id");
@@ -973,6 +991,10 @@ namespace MomCare.Migrations
                     b.Property<int>("Rating")
                         .HasColumnType("int")
                         .HasColumnName("rating");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
@@ -1108,6 +1130,10 @@ namespace MomCare.Migrations
 
             modelBuilder.Entity("MomCare.Models.Booking", b =>
                 {
+                    b.HasOne("MomCare.Models.AvailabilitySlot", "AvailabilitySlot")
+                        .WithMany()
+                        .HasForeignKey("AvailabilitySlotId");
+
                     b.HasOne("MomCare.Models.ApplicationUser", "Customer")
                         .WithMany()
                         .HasForeignKey("CustomerId")
@@ -1125,6 +1151,8 @@ namespace MomCare.Migrations
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("AvailabilitySlot");
 
                     b.Navigation("Customer");
 

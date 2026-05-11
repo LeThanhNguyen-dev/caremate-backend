@@ -19,9 +19,6 @@ public class AvailabilitySlot
     [Column("end_time")]
     public DateTime EndTime { get; set; }
 
-    [Column("is_booked")]
-    public bool IsBooked { get; set; } = false;
-
     [ForeignKey("NurseProfileId")]
     public virtual NurseProfile NurseProfile { get; set; } = null!;
 }

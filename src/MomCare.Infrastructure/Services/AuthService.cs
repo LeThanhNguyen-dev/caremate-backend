@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using MomCare.Data;
@@ -53,6 +54,9 @@ public class AuthService : IAuthService
 
     public async Task<TokenResponseDto?> RegisterAsync(RegisterDto registerDto)
     {
+        var normalizedEmail = registerDto.Email.Trim();
+        var normalizedPhone = NormalizePhone(registerDto.Phone);
+
         // Public register should only create customers.
         var roleCode = (registerDto.Role ?? AppRoles.Customer).ToLowerInvariant();
         if (roleCode != AppRoles.Customer)
@@ -60,8 +64,13 @@ public class AuthService : IAuthService
             return null;
         }
 
-        var existing = await _userManager.FindByEmailAsync(registerDto.Email);
+        var existing = await _userManager.FindByEmailAsync(normalizedEmail);
         if (existing != null)
+        {
+            return null;
+        }
+
+        if (await IsPhoneTakenAsync(normalizedPhone))
         {
             return null;
         }
@@ -69,16 +78,25 @@ public class AuthService : IAuthService
         var user = new ApplicationUser
         {
             FullName = registerDto.FullName,
-            Email = registerDto.Email,
-            UserName = registerDto.Email,
-            PhoneNumber = registerDto.Phone,
+            Email = normalizedEmail,
+            UserName = normalizedEmail,
+            PhoneNumber = normalizedPhone,
             Status = "active",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
             EmailConfirmed = true
         };
 
-        var createResult = await _userManager.CreateAsync(user, registerDto.Password);
+        IdentityResult createResult;
+        try
+        {
+            createResult = await _userManager.CreateAsync(user, registerDto.Password);
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            return null;
+        }
+
         if (!createResult.Succeeded)
         {
             return null;
@@ -96,8 +114,16 @@ public class AuthService : IAuthService
 
     public async Task<TokenResponseDto?> RegisterNurseAsync(RegisterNurseDto registerDto)
     {
-        var existing = await _userManager.FindByEmailAsync(registerDto.Email);
+        var normalizedEmail = registerDto.Email.Trim();
+        var normalizedPhone = NormalizePhone(registerDto.Phone);
+
+        var existing = await _userManager.FindByEmailAsync(normalizedEmail);
         if (existing != null)
+        {
+            return null;
+        }
+
+        if (await IsPhoneTakenAsync(normalizedPhone))
         {
             return null;
         }
@@ -105,16 +131,25 @@ public class AuthService : IAuthService
         var user = new ApplicationUser
         {
             FullName = registerDto.FullName,
-            Email = registerDto.Email,
-            UserName = registerDto.Email,
-            PhoneNumber = registerDto.Phone,
+            Email = normalizedEmail,
+            UserName = normalizedEmail,
+            PhoneNumber = normalizedPhone,
             Status = "active",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
             EmailConfirmed = true
         };
 
-        var createResult = await _userManager.CreateAsync(user, registerDto.Password);
+        IdentityResult createResult;
+        try
+        {
+            createResult = await _userManager.CreateAsync(user, registerDto.Password);
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            return null;
+        }
+
         if (!createResult.Succeeded)
         {
             return null;
@@ -200,6 +235,72 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task<bool> LogoutAsync(int userId, string refreshToken)
+    {
+        var storedRefreshToken = await _context.RefreshTokens
+            .FirstOrDefaultAsync(r => r.UserId == userId && r.Token == refreshToken && r.RevokedAt == null);
+
+        if (storedRefreshToken == null)
+        {
+            return false;
+        }
+
+        storedRefreshToken.RevokedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto dto)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            return false;
+        }
+
+        var result = await _userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
+        if (!result.Succeeded)
+        {
+            return false;
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        return true;
+    }
+
+    public async Task<string?> GenerateResetPasswordTokenAsync(string email)
+    {
+        var user = await _userManager.FindByEmailAsync(email.Trim());
+        if (user == null)
+        {
+            return null;
+        }
+
+        return await _userManager.GeneratePasswordResetTokenAsync(user);
+    }
+
+    public async Task<bool> ResetPasswordAsync(ResetPasswordDto dto)
+    {
+        var user = await _userManager.FindByEmailAsync(dto.Email.Trim());
+        if (user == null)
+        {
+            return false;
+        }
+
+        var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
+        if (!result.Succeeded)
+        {
+            return false;
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        return true;
+    }
+
     public async Task<TokenResponseDto?> ExternalLoginAsync(ExternalLoginDto externalLoginDto)
     {
         var provider = externalLoginDto.Provider.ToLowerInvariant();
@@ -255,7 +356,16 @@ public class AuthService : IAuthService
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                var createResult = await _userManager.CreateAsync(user);
+                IdentityResult createResult;
+                try
+                {
+                    createResult = await _userManager.CreateAsync(user);
+                }
+                catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+                {
+                    return null;
+                }
+
                 if (!createResult.Succeeded)
                 {
                     return null;
@@ -448,5 +558,32 @@ public class AuthService : IAuthService
 
         [System.Text.Json.Serialization.JsonPropertyName("is_valid")]
         public bool IsValid { get; set; }
+    }
+
+    private async Task<bool> IsPhoneTakenAsync(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            return false;
+        }
+
+        return await _userManager.Users.AnyAsync(u =>
+            u.PhoneNumber != null &&
+            u.PhoneNumber.Replace(" ", string.Empty).Replace("-", string.Empty) == phone);
+    }
+
+    private static string? NormalizePhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            return null;
+        }
+
+        return phone.Trim().Replace(" ", string.Empty).Replace("-", string.Empty);
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+    {
+        return ex.InnerException is SqlException sqlEx && (sqlEx.Number == 2601 || sqlEx.Number == 2627);
     }
 }

@@ -23,7 +23,7 @@ public class AuthController : ControllerBase
         
         if (result == null)
         {
-            return BadRequest(new { message = "Email already exists or invalid role provided" });
+            return BadRequest(new { message = "Email/phone already exists or invalid role provided" });
         }
 
         return Ok(result);
@@ -37,7 +37,7 @@ public class AuthController : ControllerBase
         
         if (result == null)
         {
-            return BadRequest(new { message = "Email already exists" });
+            return BadRequest(new { message = "Email or phone already exists" });
         }
 
         return Ok(result);
@@ -50,7 +50,7 @@ public class AuthController : ControllerBase
         
         if (result == null)
         {
-            return BadRequest(new { message = "Email already exists" });
+            return BadRequest(new { message = "Email or phone already exists" });
         }
 
         return Ok(result);
@@ -114,5 +114,70 @@ public class AuthController : ControllerBase
             email,
             role
         });
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout([FromBody] LogoutDto dto)
+    {
+        var userId = GetUserId();
+        var ok = await _authService.LogoutAsync(userId, dto.RefreshToken);
+        if (!ok)
+        {
+            return BadRequest(new { message = "Invalid refresh token" });
+        }
+
+        return Ok(new { message = "Logged out successfully" });
+    }
+
+    [HttpPatch("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        var userId = GetUserId();
+        var ok = await _authService.ChangePasswordAsync(userId, dto);
+        if (!ok)
+        {
+            return BadRequest(new { message = "Change password failed. Please check current password and password policy." });
+        }
+
+        return Ok(new { message = "Password changed successfully" });
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+    {
+        var token = await _authService.GenerateResetPasswordTokenAsync(dto.Email);
+
+        // For school-project/demo mode: return token directly for easy testing.
+        if (token == null)
+        {
+            return Ok(new { message = "If the email exists, reset instructions have been generated." });
+        }
+
+        return Ok(new
+        {
+            message = "Reset token generated",
+            resetToken = token
+        });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        var ok = await _authService.ResetPasswordAsync(dto);
+        if (!ok)
+        {
+            return BadRequest(new { message = "Reset password failed. Token may be invalid or expired." });
+        }
+
+        return Ok(new { message = "Password reset successfully" });
+    }
+
+    private int GetUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+        return int.Parse(raw ?? "0");
     }
 }

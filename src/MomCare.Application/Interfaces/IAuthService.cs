@@ -9,4 +9,8 @@ public interface IAuthService
     Task<TokenResponseDto?> RegisterNurseAsync(RegisterNurseDto registerDto);
     Task<TokenResponseDto?> ExternalLoginAsync(ExternalLoginDto externalLoginDto);
     Task<TokenResponseDto?> RefreshTokenAsync(RefreshTokenRequestDto request);
+    Task<bool> LogoutAsync(int userId, string refreshToken);
+    Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto dto);
+    Task<string?> GenerateResetPasswordTokenAsync(string email);
+    Task<bool> ResetPasswordAsync(ResetPasswordDto dto);
 }

@@ -25,6 +25,14 @@ public class NotificationsController : ControllerBase
         return Ok(data);
     }
 
+    [HttpGet("mine/unread-count")]
+    public async Task<IActionResult> GetUnreadCount()
+    {
+        var userId = GetUserId();
+        var count = await _notificationQueryService.GetUnreadCountAsync(userId);
+        return Ok(new { unreadCount = count });
+    }
+
     [HttpPatch("{id:int}/read")]
     public async Task<IActionResult> MarkAsRead(int id)
     {
@@ -36,6 +44,35 @@ public class NotificationsController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    [HttpPatch("read-all")]
+    public async Task<IActionResult> MarkAllAsRead()
+    {
+        var userId = GetUserId();
+        var markedCount = await _notificationQueryService.MarkAllAsReadAsync(userId);
+        return Ok(new { markedCount });
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var userId = GetUserId();
+        var ok = await _notificationQueryService.DeleteAsync(userId, id);
+        if (!ok)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
+    }
+
+    [HttpDelete]
+    public async Task<IActionResult> DeleteAll()
+    {
+        var userId = GetUserId();
+        var deletedCount = await _notificationQueryService.DeleteAllAsync(userId);
+        return Ok(new { deletedCount });
     }
 
     private int GetUserId()

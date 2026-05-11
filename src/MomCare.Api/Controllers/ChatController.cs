@@ -32,10 +32,10 @@ public class ChatController : ControllerBase
     }
 
     [HttpGet("conversations/{conversationId:int}/messages")]
-    public async Task<IActionResult> GetMessages(int conversationId)
+    public async Task<IActionResult> GetMessages(int conversationId, [FromQuery] int limit = 50, [FromQuery] int? lastMessageId = null)
     {
         var userId = GetUserId();
-        var messages = await _chatService.GetMessagesAsync(userId, conversationId);
+        var messages = await _chatService.GetMessagesAsync(userId, conversationId, limit, lastMessageId);
         return Ok(messages);
     }
 

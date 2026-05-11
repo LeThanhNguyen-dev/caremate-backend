@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MomCare.Dto;
 using MomCare.Enums;
 using MomCare.Interfaces;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace MomCare.Controllers;
@@ -25,7 +26,7 @@ public class NurseController : ControllerBase
         var userId = GetUserId();
         var profile = await _nurseService.GetProfileAsync(userId);
         
-        if (profile == null) return NotFound("Profile not found");
+        if (profile == null) return NotFound(new { message = "Profile not found" });
 
         return Ok(profile);
     }
@@ -36,20 +37,83 @@ public class NurseController : ControllerBase
         var userId = GetUserId();
         var result = await _nurseService.UpdateProfileAsync(userId, updateDto);
         
-        if (!result) return BadRequest("Update failed");
+        if (!result) return BadRequest(new { message = "Update failed" });
 
         return Ok(new { message = "Profile updated successfully" });
     }
 
+    /// <summary>
+    /// Upload a document (ID card front/back or certificate) to Cloudinary with private access.
+    /// </summary>
     [HttpPost("documents")]
-    public async Task<IActionResult> UploadDocument([FromBody] UploadDocumentDto uploadDto)
+    [EnableRateLimiting("upload")]
+    [RequestSizeLimit(5 * 1024 * 1024)] // 5MB max
+    public async Task<IActionResult> UploadDocument([FromForm] UploadDocumentDto uploadDto)
+    {
+        try
+        {
+            var userId = GetUserId();
+            var result = await _nurseService.UploadDocumentAsync(userId, uploadDto);
+
+            if (result == null) return BadRequest(new { message = "Upload failed. Nurse profile not found." });
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Replace an existing document with a new file.
+    /// </summary>
+    [HttpPut("documents/{documentId:int}")]
+    [EnableRateLimiting("upload")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> ReplaceDocument(int documentId, [FromForm] UploadDocumentDto uploadDto)
+    {
+        try
+        {
+            var userId = GetUserId();
+            var result = await _nurseService.ReplaceDocumentAsync(userId, documentId, uploadDto);
+
+            if (result == null) return NotFound(new { message = "Document not found" });
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Delete a document and remove it from Cloudinary.
+    /// </summary>
+    [HttpDelete("documents/{documentId:int}")]
+    public async Task<IActionResult> DeleteDocument(int documentId)
     {
         var userId = GetUserId();
-        var result = await _nurseService.AddDocumentAsync(userId, uploadDto);
-        
-        if (!result) return BadRequest("Upload failed");
+        var result = await _nurseService.DeleteDocumentAsync(userId, documentId);
 
-        return Ok(new { message = "Document uploaded successfully" });
+        if (!result) return NotFound(new { message = "Document not found" });
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Get a temporary signed URL for a private document.
+    /// </summary>
+    [HttpGet("documents/{documentId:int}/url")]
+    public async Task<IActionResult> GetDocumentUrl(int documentId)
+    {
+        var userId = GetUserId();
+        var url = await _nurseService.GetDocumentSignedUrlAsync(userId, documentId);
+
+        if (url == null) return NotFound(new { message = "Document not found" });
+
+        return Ok(new { url });
     }
 
     private int GetUserId()

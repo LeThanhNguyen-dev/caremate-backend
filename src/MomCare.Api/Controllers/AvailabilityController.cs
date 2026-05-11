@@ -19,6 +19,9 @@ public class AvailabilityController : ControllerBase
         _availabilityService = availabilityService;
     }
 
+    /// <summary>
+    /// Get all my slots (booked + available). Nurse only.
+    /// </summary>
     [HttpGet("my-slots")]
     public async Task<IActionResult> GetMySlots([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
@@ -27,6 +30,10 @@ public class AvailabilityController : ControllerBase
         return Ok(slots);
     }
 
+    /// <summary>
+    /// Create a new availability slot, optionally linked to specific services.
+    /// If no ServiceIds provided, the slot covers all nurse's enabled services.
+    /// </summary>
     [HttpPost("slots")]
     public async Task<IActionResult> CreateSlot([FromBody] CreateAvailabilitySlotDto dto)
     {
@@ -40,6 +47,9 @@ public class AvailabilityController : ControllerBase
         return Ok(slot);
     }
 
+    /// <summary>
+    /// Delete an unbooked availability slot.
+    /// </summary>
     [HttpDelete("slots/{slotId:int}")]
     public async Task<IActionResult> DeleteSlot(int slotId)
     {

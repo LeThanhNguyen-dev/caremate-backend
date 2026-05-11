@@ -6,7 +6,9 @@ public class BookingDetailDto
     public int CustomerId { get; set; }
     public int NurseId { get; set; }
     public int ServiceId { get; set; }
+    public int? AvailabilitySlotId { get; set; }
     public string ServiceName { get; set; } = string.Empty;
+    public string? NurseName { get; set; }
     public string Status { get; set; } = string.Empty;
     public decimal TotalPrice { get; set; }
     public DateTime StartTime { get; set; }

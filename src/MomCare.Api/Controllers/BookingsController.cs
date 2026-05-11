@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using MomCare.Dto;
 using MomCare.Enums;
 using MomCare.Interfaces;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MomCare.Controllers;
 
@@ -21,6 +22,7 @@ public class BookingsController : ControllerBase
 
     [HttpPost]
     [Authorize(Roles = AppRoles.Customer)]
+    [EnableRateLimiting("booking")]
     public async Task<IActionResult> Create([FromBody] CreateBookingDto dto)
     {
         var customerId = GetUserId();
@@ -86,7 +88,8 @@ public class BookingsController : ControllerBase
     public async Task<IActionResult> Cancel([FromRoute] int id, [FromBody] CancelBookingDto dto)
     {
         var userId = GetUserId();
-        var success = await _bookingService.CancelBookingAsync(userId, id, dto);
+        var isAdmin = User.IsInRole(AppRoles.Admin);
+        var success = await _bookingService.CancelBookingAsync(userId, isAdmin, id, dto);
 
         if (!success)
         {

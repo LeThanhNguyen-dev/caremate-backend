@@ -6,5 +6,5 @@ public class AvailabilitySlotDto
     public int NurseProfileId { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
-    public bool IsBooked { get; set; }
+    public bool IsAvailable { get; set; } // Derived field: true if no active booking exists
 }

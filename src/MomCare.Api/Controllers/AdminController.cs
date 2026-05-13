@@ -37,10 +37,17 @@ public class AdminController : ControllerBase
     [HttpPost("nurses/{id}/review")]
     public async Task<IActionResult> ReviewNurse(int id, [FromBody] ReviewNurseProfileDto reviewDto)
     {
-        var result = await _adminService.ReviewNurseAsync(id, reviewDto);
-        if (!result) return BadRequest("Review failed");
+        try
+        {
+            var result = await _adminService.ReviewNurseAsync(id, reviewDto);
+            if (!result) return BadRequest("Review failed");
 
-        return Ok(new { message = reviewDto.IsApproved ? "Nurse confirmed" : "Nurse rejected" });
+            return Ok(new { message = reviewDto.IsApproved ? "Nurse confirmed" : "Nurse rejected" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("dashboard")]

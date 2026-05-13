@@ -40,6 +40,14 @@ public class NurseProfile
     [Column("confirmed_at")]
     public DateTime? ConfirmedAt { get; set; }
 
+    [Column("rejection_reason")]
+    [MaxLength(1000)]
+    public string? RejectionReason { get; set; }
+
+    [Column("verification_submission_status")]
+    [MaxLength(30)]
+    public string VerificationSubmissionStatus { get; set; } = "draft";
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

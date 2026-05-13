@@ -12,6 +12,8 @@ public class NurseProfileDetailDto
     public int YearsExperience { get; set; }
     public int ServiceRadiusKm { get; set; }
     public string IsVerified { get; set; } = "unverified";
+    public string? RejectionReason { get; set; }
+    public string VerificationSubmissionStatus { get; set; } = "draft";
 
     // Rating aggregation
     public decimal AverageRating { get; set; }

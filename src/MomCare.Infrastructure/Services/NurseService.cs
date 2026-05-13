@@ -79,6 +79,8 @@ public class NurseService : INurseService
             ServiceRadiusKm = profile.ServiceRadiusKm,
             IsVerified = profile.IsVerified,
             AverageRating = profile.AverageRating,
+            RejectionReason = profile.RejectionReason,
+            VerificationSubmissionStatus = profile.VerificationSubmissionStatus,
             TotalReviews = reviews.Count,
             RatingDistribution = ratingDistribution,
             Documents = profile.Documents.Select(d => new NurseDocumentDto
@@ -138,6 +140,13 @@ public class NurseService : INurseService
         };
 
         _context.Documents.Add(document);
+        if (profile.IsVerified == "rejected")
+        {
+            profile.IsVerified = "unverified";
+            profile.RejectionReason = null;
+            profile.ConfirmedAt = null;
+            profile.UpdatedAt = DateTime.UtcNow;
+        }
         await _context.SaveChangesAsync();
 
         return new NurseDocumentDto
@@ -150,6 +159,99 @@ public class NurseService : INurseService
             CreatedAt = document.CreatedAt,
             UpdatedAt = document.UpdatedAt
         };
+    }
+
+    public async Task<IReadOnlyList<NurseDocumentDto>> UploadDocumentsAsync(int userId, UploadDocumentsDto uploadDto)
+    {
+        var normalizedType = NormalizeIncomingDocumentType(uploadDto.Type);
+        if (!DocumentTypes.IsValid(normalizedType))
+        {
+            throw new ArgumentException($"Invalid document type: {uploadDto.Type}");
+        }
+
+        if (uploadDto.Files == null || uploadDto.Files.Count == 0)
+        {
+            throw new ArgumentException("Please select at least one file.");
+        }
+
+        var profile = await _context.NurseProfiles
+            .Include(np => np.Documents)
+            .FirstOrDefaultAsync(np => np.UserId == userId);
+
+        if (profile == null) return Array.Empty<NurseDocumentDto>();
+
+        var createdDocs = new List<Document>();
+        var folder = $"caremate/nurses/{userId}/documents";
+
+        foreach (var file in uploadDto.Files)
+        {
+            ValidateDocumentLimits(profile.Documents, normalizedType);
+
+            var uploadResult = await _cloudinaryService.UploadPrivateAsync(file, folder);
+            var document = new Document
+            {
+                NurseProfileId = profile.Id,
+                Type = normalizedType,
+                PublicId = uploadResult.PublicId,
+                Status = DocumentStatuses.PendingReview,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.Documents.Add(document);
+            profile.Documents.Add(document);
+
+            createdDocs.Add(document);
+        }
+
+        if (profile.IsVerified == "rejected")
+        {
+            profile.IsVerified = "unverified";
+            profile.RejectionReason = null;
+            profile.ConfirmedAt = null;
+            profile.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+        return createdDocs.Select(document => new NurseDocumentDto
+        {
+            Id = document.Id,
+            Type = document.Type,
+            FileUrl = _cloudinaryService.GetSignedUrl(document.PublicId),
+            PublicId = document.PublicId,
+            Status = document.Status,
+            CreatedAt = document.CreatedAt,
+            UpdatedAt = document.UpdatedAt
+        }).ToList();
+    }
+
+    public async Task<bool> SubmitVerificationAsync(int userId)
+    {
+        var profile = await _context.NurseProfiles
+            .Include(np => np.Documents)
+            .FirstOrDefaultAsync(np => np.UserId == userId);
+        if (profile == null) return false;
+
+        var hasFront = profile.Documents.Any(d => d.Type == DocumentTypes.IdCardFront);
+        var hasBack = profile.Documents.Any(d => d.Type == DocumentTypes.IdCardBack);
+        var hasCertificate = profile.Documents.Any(d => d.Type == DocumentTypes.Certificate);
+        if (!hasFront || !hasBack || !hasCertificate)
+        {
+            throw new ArgumentException("Verification dossier is incomplete. Required: ID card front, ID card back, and certificate.");
+        }
+
+        profile.VerificationSubmissionStatus = "submitted";
+        profile.IsVerified = "unverified";
+        profile.RejectionReason = null;
+        profile.ConfirmedAt = null;
+        profile.UpdatedAt = DateTime.UtcNow;
+        foreach (var doc in profile.Documents)
+        {
+            doc.Status = DocumentStatuses.PendingReview;
+            doc.UpdatedAt = DateTime.UtcNow;
+        }
+
+        return await _context.SaveChangesAsync() > 0;
     }
 
     public async Task<NurseDocumentDto?> ReplaceDocumentAsync(int userId, int documentId, UploadDocumentDto uploadDto)
@@ -180,6 +282,13 @@ public class NurseService : INurseService
         existingDoc.Type = normalizedType;
         existingDoc.Status = DocumentStatuses.PendingReview;
         existingDoc.UpdatedAt = DateTime.UtcNow;
+        if (profile.IsVerified == "rejected")
+        {
+            profile.IsVerified = "unverified";
+            profile.RejectionReason = null;
+            profile.ConfirmedAt = null;
+            profile.UpdatedAt = DateTime.UtcNow;
+        }
 
         await _context.SaveChangesAsync();
 

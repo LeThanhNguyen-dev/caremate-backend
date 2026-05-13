@@ -34,7 +34,7 @@ public class AdminService : IAdminService
 
         var profiles = await _context.NurseProfiles
             .Include(np => np.Documents)
-            .Where(np => userIds.Contains(np.UserId))
+            .Where(np => userIds.Contains(np.UserId) && np.VerificationSubmissionStatus == "submitted")
             .ToListAsync();
 
         var userMap = users.ToDictionary(u => u.Id, u => u);
@@ -52,6 +52,8 @@ public class AdminService : IAdminService
                 YearsExperience = profile.YearsExperience,
                 ServiceRadiusKm = profile.ServiceRadiusKm,
                 IsVerified = profile.IsVerified,
+                RejectionReason = profile.RejectionReason,
+                VerificationSubmissionStatus = profile.VerificationSubmissionStatus,
                 Documents = profile.Documents.Select(d => new NurseDocumentDto
                 {
                     Id = d.Id,
@@ -87,6 +89,8 @@ public class AdminService : IAdminService
             YearsExperience = profile.YearsExperience,
             ServiceRadiusKm = profile.ServiceRadiusKm,
             IsVerified = profile.IsVerified,
+            RejectionReason = profile.RejectionReason,
+            VerificationSubmissionStatus = profile.VerificationSubmissionStatus,
             Documents = profile.Documents.Select(d => new NurseDocumentDto
             {
                 Id = d.Id,
@@ -126,16 +130,29 @@ public class AdminService : IAdminService
             }
 
             profile.IsVerified = "verified";
+            profile.VerificationSubmissionStatus = "approved";
             profile.ConfirmedAt = DateTime.UtcNow;
 
             foreach (var doc in profile.Documents) doc.Status = "approved";
         }
         else
         {
+            if (string.IsNullOrWhiteSpace(reviewDto.Comment))
+            {
+                throw new ArgumentException("Rejection reason is required when rejecting a nurse profile.");
+            }
+
             profile.IsVerified = "rejected";
+            profile.VerificationSubmissionStatus = "rejected";
             profile.ConfirmedAt = null;
+            profile.RejectionReason = reviewDto.Comment.Trim();
 
             foreach (var doc in profile.Documents.Where(d => d.Status == "pending_review")) doc.Status = "rejected";
+        }
+
+        if (reviewDto.IsApproved)
+        {
+            profile.RejectionReason = null;
         }
 
         profile.UpdatedAt = DateTime.UtcNow;

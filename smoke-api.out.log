@@ -1,0 +1,616 @@
+Using launch settings from src\MomCare.Api\Properties\launchSettings.json...
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (25ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT 1
+info: Microsoft.EntityFrameworkCore.Migrations[20411]
+      Acquiring an exclusive lock for migration application. See https://aka.ms/efcore-docs-migrations-lock for more information if this takes too long.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (31ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      DECLARE @result int;
+      EXEC @result = sp_getapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session', @LockMode = 'Exclusive';
+      SELECT @result
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
+      BEGIN
+          CREATE TABLE [__EFMigrationsHistory] (
+              [MigrationId] nvarchar(150) NOT NULL,
+              [ProductVersion] nvarchar(32) NOT NULL,
+              CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+          );
+      END;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT OBJECT_ID(N'[__EFMigrationsHistory]');
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (7ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT [MigrationId], [ProductVersion]
+      FROM [__EFMigrationsHistory]
+      ORDER BY [MigrationId];
+info: Microsoft.EntityFrameworkCore.Migrations[20405]
+      No migrations were applied. The database is already up to date.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (5ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      DECLARE @result int;
+      EXEC @result = sp_releaseapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session';
+      SELECT @result
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (64ms) [Parameters=[@__normalizedName_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [r].[id], [r].[concurrency_stamp], [r].[name], [r].[code], [r].[normalized_code]
+      FROM [roles] AS [r]
+      WHERE [r].[normalized_code] = @__normalizedName_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__normalizedName_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [r].[id], [r].[concurrency_stamp], [r].[name], [r].[code], [r].[normalized_code]
+      FROM [roles] AS [r]
+      WHERE [r].[normalized_code] = @__normalizedName_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__normalizedName_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [r].[id], [r].[concurrency_stamp], [r].[name], [r].[code], [r].[normalized_code]
+      FROM [roles] AS [r]
+      WHERE [r].[normalized_code] = @__normalizedName_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__normalizedName_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [r].[id], [r].[concurrency_stamp], [r].[name], [r].[code], [r].[normalized_code]
+      FROM [roles] AS [r]
+      WHERE [r].[normalized_code] = @__normalizedName_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__normalizedName_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [r].[id], [r].[concurrency_stamp], [r].[name], [r].[code], [r].[normalized_code]
+      FROM [roles] AS [r]
+      WHERE [r].[normalized_code] = @__normalizedName_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (6ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (5ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__userId_0='?' (DbType = Int32), @__type_1='?' (Size = 4000), @__isDefault_2='?' (DbType = Boolean)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[district], [a].[full_address], [a].[is_default], [a].[latitude], [a].[longitude], [a].[type], [a].[user_id], [a].[ward]
+      FROM [addresses] AS [a]
+      WHERE [a].[user_id] = @__userId_0 AND [a].[type] = @__type_1 AND [a].[is_default] = @__isDefault_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__userId_0='?' (DbType = Int32), @__type_1='?' (Size = 4000), @__isDefault_2='?' (DbType = Boolean)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[district], [a].[full_address], [a].[is_default], [a].[latitude], [a].[longitude], [a].[type], [a].[user_id], [a].[ward]
+      FROM [addresses] AS [a]
+      WHERE [a].[user_id] = @__userId_0 AND [a].[type] = @__type_1 AND [a].[is_default] = @__isDefault_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32), @__type_1='?' (Size = 4000), @__isDefault_2='?' (DbType = Boolean)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[district], [a].[full_address], [a].[is_default], [a].[latitude], [a].[longitude], [a].[type], [a].[user_id], [a].[ward]
+      FROM [addresses] AS [a]
+      WHERE [a].[user_id] = @__userId_0 AND [a].[type] = @__type_1 AND [a].[is_default] = @__isDefault_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32), @__type_1='?' (Size = 4000), @__isDefault_2='?' (DbType = Boolean)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[district], [a].[full_address], [a].[is_default], [a].[latitude], [a].[longitude], [a].[type], [a].[user_id], [a].[ward]
+      FROM [addresses] AS [a]
+      WHERE [a].[user_id] = @__userId_0 AND [a].[type] = @__type_1 AND [a].[is_default] = @__isDefault_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__name_0='?' (Size = 450)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [s].[id], [s].[base_price], [s].[created_at], [s].[description], [s].[estimated_duration_minutes], [s].[name], [s].[status]
+      FROM [services] AS [s]
+      WHERE [s].[name] = @__name_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__name_0='?' (Size = 450)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [s].[id], [s].[base_price], [s].[created_at], [s].[description], [s].[estimated_duration_minutes], [s].[name], [s].[status]
+      FROM [services] AS [s]
+      WHERE [s].[name] = @__name_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__name_0='?' (Size = 450)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [s].[id], [s].[base_price], [s].[created_at], [s].[description], [s].[estimated_duration_minutes], [s].[name], [s].[status]
+      FROM [services] AS [s]
+      WHERE [s].[name] = @__name_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__name_0='?' (Size = 450)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [s].[id], [s].[base_price], [s].[created_at], [s].[description], [s].[estimated_duration_minutes], [s].[name], [s].[status]
+      FROM [services] AS [s]
+      WHERE [s].[name] = @__name_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__name_0='?' (Size = 450)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [s].[id], [s].[base_price], [s].[created_at], [s].[description], [s].[estimated_duration_minutes], [s].[name], [s].[status]
+      FROM [services] AS [s]
+      WHERE [s].[name] = @__name_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[average_rating], [n].[bio], [n].[certificates], [n].[confirmed_at], [n].[created_at], [n].[is_active], [n].[is_verified], [n].[service_radius_km], [n].[specialization], [n].[updated_at], [n].[user_id], [n].[years_experience]
+      FROM [nurse_profiles] AS [n]
+      WHERE [n].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[average_rating], [n].[bio], [n].[certificates], [n].[confirmed_at], [n].[created_at], [n].[is_active], [n].[is_verified], [n].[service_radius_km], [n].[specialization], [n].[updated_at], [n].[user_id], [n].[years_experience]
+      FROM [nurse_profiles] AS [n]
+      WHERE [n].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[average_rating], [n].[bio], [n].[certificates], [n].[confirmed_at], [n].[created_at], [n].[is_active], [n].[is_verified], [n].[service_radius_km], [n].[specialization], [n].[updated_at], [n].[user_id], [n].[years_experience]
+      FROM [nurse_profiles] AS [n]
+      WHERE [n].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__normalizedType_1='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [d].[id], [d].[created_at], [d].[nurse_profile_id], [d].[public_id], [d].[status], [d].[type], [d].[updated_at]
+      FROM [documents] AS [d]
+      WHERE [d].[nurse_profile_id] = @__nurseProfileId_0 AND [d].[type] = @__normalizedType_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__normalizedType_1='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [d].[id], [d].[created_at], [d].[nurse_profile_id], [d].[public_id], [d].[status], [d].[type], [d].[updated_at]
+      FROM [documents] AS [d]
+      WHERE [d].[nurse_profile_id] = @__nurseProfileId_0 AND [d].[type] = @__normalizedType_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__normalizedType_1='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [d].[id], [d].[created_at], [d].[nurse_profile_id], [d].[public_id], [d].[status], [d].[type], [d].[updated_at]
+      FROM [documents] AS [d]
+      WHERE [d].[nurse_profile_id] = @__nurseProfileId_0 AND [d].[type] = @__normalizedType_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__normalizedType_1='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [d].[id], [d].[created_at], [d].[nurse_profile_id], [d].[public_id], [d].[status], [d].[type], [d].[updated_at]
+      FROM [documents] AS [d]
+      WHERE [d].[nurse_profile_id] = @__nurseProfileId_0 AND [d].[type] = @__normalizedType_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__serviceId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[nurse_profile_id], [n].[price], [n].[service_id], [n].[status], [n].[unit]
+      FROM [nurse_services] AS [n]
+      WHERE [n].[nurse_profile_id] = @__nurseProfileId_0 AND [n].[service_id] = @__serviceId_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__serviceId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[nurse_profile_id], [n].[price], [n].[service_id], [n].[status], [n].[unit]
+      FROM [nurse_services] AS [n]
+      WHERE [n].[nurse_profile_id] = @__nurseProfileId_0 AND [n].[service_id] = @__serviceId_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__serviceId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[nurse_profile_id], [n].[price], [n].[service_id], [n].[status], [n].[unit]
+      FROM [nurse_services] AS [n]
+      WHERE [n].[nurse_profile_id] = @__nurseProfileId_0 AND [n].[service_id] = @__serviceId_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__serviceId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[nurse_profile_id], [n].[price], [n].[service_id], [n].[status], [n].[unit]
+      FROM [nurse_services] AS [n]
+      WHERE [n].[nurse_profile_id] = @__nurseProfileId_0 AND [n].[service_id] = @__serviceId_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__serviceId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[nurse_profile_id], [n].[price], [n].[service_id], [n].[status], [n].[unit]
+      FROM [nurse_services] AS [n]
+      WHERE [n].[nurse_profile_id] = @__nurseProfileId_0 AND [n].[service_id] = @__serviceId_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__serviceId_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [n].[id], [n].[nurse_profile_id], [n].[price], [n].[service_id], [n].[status], [n].[unit]
+      FROM [nurse_services] AS [n]
+      WHERE [n].[nurse_profile_id] = @__nurseProfileId_0 AND [n].[service_id] = @__serviceId_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__today_0='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SELECT [a].[id], [a].[end_time], [a].[nurse_profile_id], [a].[start_time]
+      FROM [availability_slots] AS [a]
+      WHERE [a].[end_time] < @__today_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__start_1='?' (DbType = DateTime2), @__end_2='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[end_time], [a].[nurse_profile_id], [a].[start_time]
+      FROM [availability_slots] AS [a]
+      WHERE [a].[nurse_profile_id] = @__nurseProfileId_0 AND [a].[start_time] = @__start_1 AND [a].[end_time] = @__end_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__start_1='?' (DbType = DateTime2), @__end_2='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[end_time], [a].[nurse_profile_id], [a].[start_time]
+      FROM [availability_slots] AS [a]
+      WHERE [a].[nurse_profile_id] = @__nurseProfileId_0 AND [a].[start_time] = @__start_1 AND [a].[end_time] = @__end_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__start_1='?' (DbType = DateTime2), @__end_2='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[end_time], [a].[nurse_profile_id], [a].[start_time]
+      FROM [availability_slots] AS [a]
+      WHERE [a].[nurse_profile_id] = @__nurseProfileId_0 AND [a].[start_time] = @__start_1 AND [a].[end_time] = @__end_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__start_1='?' (DbType = DateTime2), @__end_2='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[end_time], [a].[nurse_profile_id], [a].[start_time]
+      FROM [availability_slots] AS [a]
+      WHERE [a].[nurse_profile_id] = @__nurseProfileId_0 AND [a].[start_time] = @__start_1 AND [a].[end_time] = @__end_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__start_1='?' (DbType = DateTime2), @__end_2='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[end_time], [a].[nurse_profile_id], [a].[start_time]
+      FROM [availability_slots] AS [a]
+      WHERE [a].[nurse_profile_id] = @__nurseProfileId_0 AND [a].[start_time] = @__start_1 AND [a].[end_time] = @__end_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__nurseProfileId_0='?' (DbType = Int32), @__start_1='?' (DbType = DateTime2), @__end_2='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [a].[id], [a].[end_time], [a].[nurse_profile_id], [a].[start_time]
+      FROM [availability_slots] AS [a]
+      WHERE [a].[nurse_profile_id] = @__nurseProfileId_0 AND [a].[start_time] = @__start_1 AND [a].[end_time] = @__end_2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (18ms) [Parameters=[@p0='?' (DbType = Int32), @p2='?' (DbType = Int32), @p1='?' (DbType = DateTime2), @p4='?' (DbType = Int32), @p3='?' (DbType = DateTime2), @p6='?' (DbType = Int32), @p5='?' (DbType = DateTime2), @p8='?' (DbType = Int32), @p7='?' (DbType = DateTime2), @p9='?' (DbType = Int32), @p10='?' (DbType = DateTime2), @p11='?' (DbType = Int32), @p12='?' (DbType = DateTime2), @p13='?' (DbType = DateTime2), @p14='?' (DbType = Int32), @p15='?' (DbType = DateTime2), @p16='?' (DbType = DateTime2), @p17='?' (DbType = Int32), @p18='?' (DbType = DateTime2), @p19='?' (DbType = DateTime2), @p20='?' (DbType = Int32), @p21='?' (DbType = DateTime2), @p22='?' (DbType = DateTime2), @p23='?' (DbType = Int32), @p24='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SET NOCOUNT ON;
+      DELETE FROM [availability_slots]
+      OUTPUT 1
+      WHERE [id] = @p0;
+      UPDATE [documents] SET [updated_at] = @p1
+      OUTPUT 1
+      WHERE [id] = @p2;
+      UPDATE [documents] SET [updated_at] = @p3
+      OUTPUT 1
+      WHERE [id] = @p4;
+      UPDATE [documents] SET [updated_at] = @p5
+      OUTPUT 1
+      WHERE [id] = @p6;
+      UPDATE [documents] SET [updated_at] = @p7
+      OUTPUT 1
+      WHERE [id] = @p8;
+      DELETE FROM [availability_slots]
+      OUTPUT 1
+      WHERE [id] = @p9;
+      MERGE [availability_slots] USING (
+      VALUES (@p10, @p11, @p12, 0),
+      (@p13, @p14, @p15, 1),
+      (@p16, @p17, @p18, 2),
+      (@p19, @p20, @p21, 3),
+      (@p22, @p23, @p24, 4)) AS i ([end_time], [nurse_profile_id], [start_time], _Position) ON 1=0
+      WHEN NOT MATCHED THEN
+      INSERT ([end_time], [nurse_profile_id], [start_time])
+      VALUES (i.[end_time], i.[nurse_profile_id], i.[start_time])
+      OUTPUT INSERTED.[id], i._Position;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__seedKey_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [b].[id], [b].[address], [b].[availability_slot_id], [b].[created_at], [b].[customer_id], [b].[end_time], [b].[notes], [b].[nurse_id], [b].[service_id], [b].[start_time], [b].[status], [b].[total_price], [b].[updated_at]
+      FROM [bookings] AS [b]
+      WHERE [b].[notes] = @__seedKey_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__seedKey_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [b].[id], [b].[address], [b].[availability_slot_id], [b].[created_at], [b].[customer_id], [b].[end_time], [b].[notes], [b].[nurse_id], [b].[service_id], [b].[start_time], [b].[status], [b].[total_price], [b].[updated_at]
+      FROM [bookings] AS [b]
+      WHERE [b].[notes] = @__seedKey_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__seedKey_0='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [b].[id], [b].[address], [b].[availability_slot_id], [b].[created_at], [b].[customer_id], [b].[end_time], [b].[notes], [b].[nurse_id], [b].[service_id], [b].[start_time], [b].[status], [b].[total_price], [b].[updated_at]
+      FROM [bookings] AS [b]
+      WHERE [b].[notes] = @__seedKey_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (6ms) [Parameters=[@p3='?' (DbType = Int32), @p0='?' (DbType = DateTime2), @p1='?' (DbType = DateTime2), @p2='?' (DbType = DateTime2), @p7='?' (DbType = Int32), @p4='?' (DbType = DateTime2), @p5='?' (DbType = DateTime2), @p6='?' (DbType = DateTime2), @p11='?' (DbType = Int32), @p8='?' (DbType = DateTime2), @p9='?' (DbType = DateTime2), @p10='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SET NOCOUNT ON;
+      UPDATE [bookings] SET [end_time] = @p0, [start_time] = @p1, [updated_at] = @p2
+      OUTPUT 1
+      WHERE [id] = @p3;
+      UPDATE [bookings] SET [end_time] = @p4, [start_time] = @p5, [updated_at] = @p6
+      OUTPUT 1
+      WHERE [id] = @p7;
+      UPDATE [bookings] SET [end_time] = @p8, [start_time] = @p9, [updated_at] = @p10
+      OUTPUT 1
+      WHERE [id] = @p11;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__bookingId_0='?' (DbType = Int32), @__status_1='?' (Size = 4000), @__note_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [booking_status_history] AS [b]
+              WHERE [b].[booking_id] = @__bookingId_0 AND [b].[status] = @__status_1 AND [b].[note] = @__note_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__bookingId_0='?' (DbType = Int32), @__status_1='?' (Size = 4000), @__note_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [booking_status_history] AS [b]
+              WHERE [b].[booking_id] = @__bookingId_0 AND [b].[status] = @__status_1 AND [b].[note] = @__note_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__bookingId_0='?' (DbType = Int32), @__status_1='?' (Size = 4000), @__note_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [booking_status_history] AS [b]
+              WHERE [b].[booking_id] = @__bookingId_0 AND [b].[status] = @__status_1 AND [b].[note] = @__note_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__bookingId_0='?' (DbType = Int32), @__status_1='?' (Size = 4000), @__note_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [booking_status_history] AS [b]
+              WHERE [b].[booking_id] = @__bookingId_0 AND [b].[status] = @__status_1 AND [b].[note] = @__note_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__bookingId_0='?' (DbType = Int32), @__status_1='?' (Size = 4000), @__note_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [booking_status_history] AS [b]
+              WHERE [b].[booking_id] = @__bookingId_0 AND [b].[status] = @__status_1 AND [b].[note] = @__note_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__bookingId_0='?' (DbType = Int32), @__status_1='?' (Size = 4000), @__note_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [booking_status_history] AS [b]
+              WHERE [b].[booking_id] = @__bookingId_0 AND [b].[status] = @__status_1 AND [b].[note] = @__note_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__bookingId_0='?' (DbType = Int32), @__status_1='?' (Size = 4000), @__note_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [booking_status_history] AS [b]
+              WHERE [b].[booking_id] = @__bookingId_0 AND [b].[status] = @__status_1 AND [b].[note] = @__note_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__bookingId_0='?' (DbType = Int32), @__status_1='?' (Size = 4000), @__note_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [booking_status_history] AS [b]
+              WHERE [b].[booking_id] = @__bookingId_0 AND [b].[status] = @__status_1 AND [b].[note] = @__note_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__bookingId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [p].[id], [p].[amount], [p].[booking_id], [p].[created_at], [p].[method], [p].[refund_amount], [p].[refund_reason], [p].[refund_status], [p].[refunded_at], [p].[status], [p].[transaction_id]
+      FROM [payments] AS [p]
+      WHERE [p].[booking_id] = @__bookingId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__bookingId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [p].[id], [p].[amount], [p].[booking_id], [p].[created_at], [p].[method], [p].[refund_amount], [p].[refund_reason], [p].[refund_status], [p].[refunded_at], [p].[status], [p].[transaction_id]
+      FROM [payments] AS [p]
+      WHERE [p].[booking_id] = @__bookingId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__bookingId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [p].[id], [p].[amount], [p].[booking_id], [p].[created_at], [p].[method], [p].[refund_amount], [p].[refund_reason], [p].[refund_status], [p].[refunded_at], [p].[status], [p].[transaction_id]
+      FROM [payments] AS [p]
+      WHERE [p].[booking_id] = @__bookingId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__bookingId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [p].[id], [p].[amount], [p].[booking_id], [p].[created_at], [p].[nurse_id], [p].[platform_fee], [p].[released_at], [p].[status]
+      FROM [payouts] AS [p]
+      WHERE [p].[booking_id] = @__bookingId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__bookingId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [p].[id], [p].[amount], [p].[booking_id], [p].[created_at], [p].[nurse_id], [p].[platform_fee], [p].[released_at], [p].[status]
+      FROM [payouts] AS [p]
+      WHERE [p].[booking_id] = @__bookingId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__bookingId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [r].[id], [r].[booking_id], [r].[comment], [r].[created_at], [r].[customer_id], [r].[is_deleted], [r].[nurse_id], [r].[rating], [r].[updated_at]
+      FROM [reviews] AS [r]
+      WHERE [r].[booking_id] = @__bookingId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__bookingId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [d].[id], [d].[admin_note], [d].[booking_id], [d].[created_at], [d].[reason], [d].[status]
+      FROM [disputes] AS [d]
+      WHERE [d].[booking_id] = @__bookingId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__bookingId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(1) [c].[id], [c].[booking_id], [c].[created_at], [c].[user1_id], [c].[user2_id]
+      FROM [conversations] AS [c]
+      WHERE [c].[booking_id] = @__bookingId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@p1='?' (DbType = Int32), @p0='?' (DbType = DateTime2)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      UPDATE [payouts] SET [released_at] = @p0
+      OUTPUT 1
+      WHERE [id] = @p1;
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__conversationId_0='?' (DbType = Int32), @__senderId_1='?' (DbType = Int32), @__content_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [chat_messages] AS [c]
+              WHERE [c].[conversation_id] = @__conversationId_0 AND [c].[sender_id] = @__senderId_1 AND [c].[content] = @__content_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__conversationId_0='?' (DbType = Int32), @__senderId_1='?' (DbType = Int32), @__content_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [chat_messages] AS [c]
+              WHERE [c].[conversation_id] = @__conversationId_0 AND [c].[sender_id] = @__senderId_1 AND [c].[content] = @__content_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__userId_0='?' (DbType = Int32), @__title_1='?' (Size = 4000), @__content_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [notifications] AS [n]
+              WHERE [n].[user_id] = @__userId_0 AND [n].[title] = @__title_1 AND [n].[content] = @__content_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32), @__title_1='?' (Size = 4000), @__content_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [notifications] AS [n]
+              WHERE [n].[user_id] = @__userId_0 AND [n].[title] = @__title_1 AND [n].[content] = @__content_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (0ms) [Parameters=[@__userId_0='?' (DbType = Int32), @__title_1='?' (Size = 4000), @__content_2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT CASE
+          WHEN EXISTS (
+              SELECT 1
+              FROM [notifications] AS [n]
+              WHERE [n].[user_id] = @__userId_0 AND [n].[title] = @__title_1 AND [n].[content] = @__content_2) THEN CAST(1 AS bit)
+          ELSE CAST(0 AS bit)
+      END
+info: MomCareSeedData[0]
+      Seed data completed successfully.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5244
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: G:\caremate-backend\MomCare\src\MomCare.Api
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (5ms) [Parameters=[@p0='?' (DbType = DateTime2), @p1='?' (DbType = DateTime2), @p2='?' (DbType = DateTime2), @p3='?' (Size = 450), @p4='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      INSERT INTO [refresh_tokens] ([created_at], [expires_at], [revoked_at], [token], [user_id])
+      OUTPUT INSERTED.[id]
+      VALUES (@p0, @p1, @p2, @p3, @p4);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p0='?' (DbType = DateTime2), @p1='?' (DbType = DateTime2), @p2='?' (DbType = DateTime2), @p3='?' (Size = 450), @p4='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      INSERT INTO [refresh_tokens] ([created_at], [expires_at], [revoked_at], [token], [user_id])
+      OUTPUT INSERTED.[id]
+      VALUES (@p0, @p1, @p2, @p3, @p4);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__normalizedEmail_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [u].[id], [u].[access_failed_count], [u].[avatar], [u].[concurrency_stamp], [u].[created_at], [u].[email], [u].[email_confirmed], [u].[full_name], [u].[lockout_enabled], [u].[lockout_end], [u].[normalized_email], [u].[normalized_user_name], [u].[password_hash], [u].[phone], [u].[phone_confirmed], [u].[security_stamp], [u].[status], [u].[two_factor_enabled], [u].[updated_at], [u].[user_name]
+      FROM [users] AS [u]
+      WHERE [u].[normalized_email] = @__normalizedEmail_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [r].[code]
+      FROM [user_roles] AS [u]
+      INNER JOIN [roles] AS [r] ON [u].[role_id] = [r].[id]
+      WHERE [u].[user_id] = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[@p0='?' (DbType = DateTime2), @p1='?' (DbType = DateTime2), @p2='?' (DbType = DateTime2), @p3='?' (Size = 450), @p4='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SET IMPLICIT_TRANSACTIONS OFF;
+      SET NOCOUNT ON;
+      INSERT INTO [refresh_tokens] ([created_at], [expires_at], [revoked_at], [token], [user_id])
+      OUTPUT INSERTED.[id]
+      VALUES (@p0, @p1, @p2, @p3, @p4);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__userId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM [notifications] AS [n]
+      WHERE [n].[user_id] = @__userId_0 AND [n].[is_read] = CAST(0 AS bit)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT [s].[id] AS [Id], [s].[name] AS [Name], [s].[description] AS [Description], [s].[base_price] AS [BasePrice], [s].[estimated_duration_minutes] AS [EstimatedDurationMinutes], [s].[status] AS [Status]
+      FROM [services] AS [s]
+      ORDER BY [s].[name]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (5ms) [Parameters=[@__customerId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[id] AS [Id], [b].[customer_id] AS [CustomerId], [b].[nurse_id] AS [NurseId], [b].[service_id] AS [ServiceId], [s].[name] AS [ServiceName], [u].[full_name] AS [NurseName], [b].[status] AS [Status], [b].[total_price] AS [TotalPrice], [b].[start_time] AS [StartTime], [b].[end_time] AS [EndTime], [b].[address] AS [Address], [b].[notes] AS [Notes], [b].[availability_slot_id] AS [AvailabilitySlotId]
+      FROM [bookings] AS [b]
+      INNER JOIN [services] AS [s] ON [b].[service_id] = [s].[id]
+      INNER JOIN [users] AS [u] ON [b].[nurse_id] = [u].[id]
+      WHERE [b].[customer_id] = @__customerId_0
+      ORDER BY [b].[created_at] DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (4ms) [Parameters=[@__nurseId_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [b].[id] AS [Id], [b].[customer_id] AS [CustomerId], [b].[nurse_id] AS [NurseId], [b].[service_id] AS [ServiceId], [s].[name] AS [ServiceName], [u].[full_name] AS [NurseName], [b].[status] AS [Status], [b].[total_price] AS [TotalPrice], [b].[start_time] AS [StartTime], [b].[end_time] AS [EndTime], [b].[address] AS [Address], [b].[notes] AS [Notes], [b].[availability_slot_id] AS [AvailabilitySlotId]
+      FROM [bookings] AS [b]
+      INNER JOIN [services] AS [s] ON [b].[service_id] = [s].[id]
+      INNER JOIN [users] AS [u] ON [b].[nurse_id] = [u].[id]
+      WHERE [b].[nurse_id] = @__nurseId_0
+      ORDER BY [b].[created_at] DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM [users] AS [u]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM [nurse_profiles] AS [n]
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (2ms) [Parameters=[@__normalizedRoleName_0='?' (Size = 256)], CommandType='Text', CommandTimeout='30']
+      SELECT TOP(2) [r].[id], [r].[concurrency_stamp], [r].[name], [r].[code], [r].[normalized_code]
+      FROM [roles] AS [r]
+      WHERE [r].[normalized_code] = @__normalizedRoleName_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (3ms) [Parameters=[@__role_Id_0='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT [u0].[id], [u0].[access_failed_count], [u0].[avatar], [u0].[concurrency_stamp], [u0].[created_at], [u0].[email], [u0].[email_confirmed], [u0].[full_name], [u0].[lockout_enabled], [u0].[lockout_end], [u0].[normalized_email], [u0].[normalized_user_name], [u0].[password_hash], [u0].[phone], [u0].[phone_confirmed], [u0].[security_stamp], [u0].[status], [u0].[two_factor_enabled], [u0].[updated_at], [u0].[user_name]
+      FROM [user_roles] AS [u]
+      INNER JOIN [users] AS [u0] ON [u].[user_id] = [u0].[id]
+      WHERE [u].[role_id] = @__role_Id_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM [disputes] AS [d]
+      WHERE [d].[status] = N'open'
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM [bookings] AS [b]
+      WHERE [b].[status] = N'pending_confirm'

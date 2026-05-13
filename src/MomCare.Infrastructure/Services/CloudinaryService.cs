@@ -74,11 +74,10 @@ public class CloudinaryService : ICloudinaryService
 
     public string GetSignedUrl(string publicId, int expiresInSeconds = 300)
     {
-        // For authenticated assets, we can generate a signed URL with expiration
+        // For authenticated assets, return a signed delivery URL that browsers can render in <img>.
         var url = _cloudinary.Api.UrlImgUp
             .Signed(true)
             .Type("authenticated")
-            .Action("download") // Often used for secure retrieval
             .BuildUrl(publicId);
 
         // Note: For true TTL, Cloudinary usually requires a signature with a timestamp.

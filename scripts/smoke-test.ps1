@@ -1,6 +1,9 @@
 param(
     [string]$BaseUrl = "http://localhost:5244",
-    [string]$Password = "MomCare@123"
+    [string]$Password = "MomCare@123",
+    [string]$CustomerEmail = "lan.customer@momcare.local",
+    [string]$NurseEmail = "huong.nurse@momcare.local",
+    [string]$AdminEmail = "admin@momcare.local"
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,9 +28,9 @@ function Invoke-Api([string]$Method, [string]$Path, [string]$Token, $Body = $nul
     return Invoke-RestMethod -Method $Method -Uri "$BaseUrl$Path" -Headers $headers
 }
 
-$customerToken = Login "lan.customer@momcare.local"
-$nurseToken = Login "huong.nurse@momcare.local"
-$adminToken = Login "admin@momcare.local"
+$customerToken = Login $CustomerEmail
+$nurseToken = Login $NurseEmail
+$adminToken = Login $AdminEmail
 
 $results = [System.Collections.Generic.List[object]]::new()
 

@@ -65,6 +65,23 @@ public class NurseController : ControllerBase
         }
     }
 
+    [HttpPost("documents/batch")]
+    [EnableRateLimiting("upload")]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<IActionResult> UploadDocumentsBatch([FromForm] UploadDocumentsDto uploadDto)
+    {
+        try
+        {
+            var userId = GetUserId();
+            var result = await _nurseService.UploadDocumentsAsync(userId, uploadDto);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     /// <summary>
     /// Replace an existing document with a new file.
     /// </summary>
@@ -114,6 +131,22 @@ public class NurseController : ControllerBase
         if (url == null) return NotFound(new { message = "Document not found" });
 
         return Ok(new { url });
+    }
+
+    [HttpPost("verification/submit")]
+    public async Task<IActionResult> SubmitVerification()
+    {
+        try
+        {
+            var userId = GetUserId();
+            var ok = await _nurseService.SubmitVerificationAsync(userId);
+            if (!ok) return BadRequest(new { message = "Submit verification failed." });
+            return Ok(new { message = "Verification dossier submitted successfully." });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     private int GetUserId()

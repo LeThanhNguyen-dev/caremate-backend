@@ -1,0 +1,15 @@
+namespace MomCare.Dto;
+
+public class HealthCheckInHistoryDto
+{
+    public Guid CheckInId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public double SleepHours { get; set; }
+    public int PainLevel { get; set; }
+    public string Mood { get; set; } = string.Empty;
+    public string MilkStatus { get; set; } = string.Empty;
+    public string BabyFeeding { get; set; } = string.Empty;
+    public string BabySleep { get; set; } = string.Empty;
+    public string? Note { get; set; }
+    public HealthAnalysisResponse? Analysis { get; set; }
+}

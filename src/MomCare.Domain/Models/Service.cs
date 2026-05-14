@@ -16,6 +16,9 @@ public class Service
     [Column("description")]
     public string? Description { get; set; }
 
+    [Column("category")]
+    public string Category { get; set; } = "cham-soc-sau-sinh";
+
     [Column("base_price")]
     public decimal BasePrice { get; set; }
 

@@ -40,6 +40,8 @@ public class MomCareContext : IdentityDbContext<
     // Feedback & Review
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<Dispute> Disputes => Set<Dispute>();
+    public DbSet<HealthCheckIn> HealthCheckIns => Set<HealthCheckIn>();
+    public DbSet<AiHealthAnalysis> AiHealthAnalyses => Set<AiHealthAnalysis>();
 
     // Communication
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -265,6 +267,26 @@ public class MomCareContext : IdentityDbContext<
         {
             entity.ToTable(t => t.HasCheckConstraint("CK_reviews_rating", "[rating] >= 1 AND [rating] <= 5"));
             entity.HasIndex(r => new { r.NurseId, r.CreatedAt });
+        });
+
+        modelBuilder.Entity<HealthCheckIn>(entity =>
+        {
+            entity.HasOne(h => h.User)
+                .WithMany()
+                .HasForeignKey(h => h.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(h => new { h.UserId, h.CreatedAt });
+        });
+
+        modelBuilder.Entity<AiHealthAnalysis>(entity =>
+        {
+            entity.HasOne(a => a.HealthCheckIn)
+                .WithOne(h => h.Analysis)
+                .HasForeignKey<AiHealthAnalysis>(a => a.HealthCheckInId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(a => a.HealthCheckInId).IsUnique();
         });
 
         modelBuilder.Entity<ChatMessage>(entity =>

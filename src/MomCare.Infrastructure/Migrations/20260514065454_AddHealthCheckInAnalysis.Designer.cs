@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomCare.Data;
 
@@ -11,9 +12,11 @@ using MomCare.Data;
 namespace MomCare.Migrations
 {
     [DbContext(typeof(MomCareContext))]
-    partial class MomCareContextModelSnapshot : ModelSnapshot
+    [Migration("20260514065454_AddHealthCheckInAnalysis")]
+    partial class AddHealthCheckInAnalysis
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1136,11 +1139,6 @@ namespace MomCare.Migrations
                     b.Property<decimal>("BasePrice")
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("base_price");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("category");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2")

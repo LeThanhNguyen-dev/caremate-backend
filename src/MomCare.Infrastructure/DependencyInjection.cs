@@ -30,6 +30,8 @@ public static class DependencyInjection
         services.AddScoped<IDisputeService, DisputeService>();
         services.AddScoped<INurseServiceManagementService, NurseServiceManagementService>();
         services.AddScoped<ICloudinaryService, CloudinaryService>();
+        services.AddScoped<IHealthCheckInService, HealthCheckInService>();
+        services.AddHttpClient<IOpenAiHealthAnalysisService, OpenAiHealthAnalysisService>();
 
         services.AddDbContext<MomCareContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));

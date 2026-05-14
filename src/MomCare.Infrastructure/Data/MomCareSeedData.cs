@@ -37,11 +37,17 @@ public static class MomCareSeedData
         await EnsureAddressAsync(context, nurseA.Id, "5 Le Van Sy, Phu Nhuan, HCMC", "Ward 12", "Phu Nhuan", true, "nurse_base");
         await EnsureAddressAsync(context, nurseB.Id, "88 Dien Bien Phu, Binh Thanh, HCMC", "Ward 15", "Binh Thanh", true, "nurse_base");
 
-        var postpartum = await EnsureServiceAsync(context, "Postpartum Care", "Home postpartum support for mothers", 500_000m, 120, "active");
-        var babyCare = await EnsureServiceAsync(context, "Baby Care", "Newborn and infant care at home", 450_000m, 120, "active");
-        var overnight = await EnsureServiceAsync(context, "Overnight Baby Care", "Night shift baby care support", 900_000m, 480, "active");
-        var lactation = await EnsureServiceAsync(context, "Lactation Support", "Breastfeeding consultation and support", 600_000m, 90, "active");
-        var massage = await EnsureServiceAsync(context, "Mother Recovery Massage", "Postpartum massage for recovery", 700_000m, 90, "active");
+        var postpartum = await EnsureServiceAsync(context, "Chăm sóc mẹ sau sinh tại nhà", "Hỗ trợ mẹ nghỉ ngơi, theo dõi hồi phục và chăm sóc hằng ngày sau sinh.", "cham-me-sau-sinh", 500_000m, 120, "active");
+        var babyCare = await EnsureServiceAsync(context, "Chăm sóc bé sơ sinh tại nhà", "Hỗ trợ chăm bé, thay tã, bế ẵm và theo dõi nhịp sinh hoạt của bé.", "cham-be-so-sinh", 450_000m, 120, "active");
+        var overnight = await EnsureServiceAsync(context, "Chăm bé ban đêm", "Điều dưỡng hỗ trợ chăm bé vào ban đêm để mẹ có thêm thời gian nghỉ ngơi.", "cham-be-so-sinh", 900_000m, 480, "active");
+        var lactation = await EnsureServiceAsync(context, "Tư vấn hỗ trợ cho bé bú", "Tư vấn tư thế bú, lịch bú và hỗ trợ các vấn đề thường gặp khi cho bé bú.", "tu-van-tai-nha", 600_000m, 90, "active");
+        var massage = await EnsureServiceAsync(context, "Massage phục hồi sau sinh", "Liệu trình massage hỗ trợ mẹ thư giãn và phục hồi sau sinh.", "phuc-hoi-suc-khoe", 700_000m, 90, "active");
+        var woundCare = await EnsureServiceAsync(context, "Theo dõi vết mổ sau sinh", "Hỗ trợ quan sát vết mổ, nhắc chăm sóc và theo dõi dấu hiệu bất thường.", "phuc-hoi-suc-khoe", 650_000m, 60, "active");
+        var nutrition = await EnsureServiceAsync(context, "Tư vấn dinh dưỡng sau sinh", "Gợi ý chế độ ăn phù hợp cho mẹ sau sinh và trong giai đoạn cho con bú.", "tu-van-tai-nha", 550_000m, 60, "active");
+        var babyBath = await EnsureServiceAsync(context, "Tắm bé tại nhà", "Hỗ trợ tắm bé, vệ sinh cơ bản và hướng dẫn gia đình chăm bé an toàn.", "cham-be-so-sinh", 320_000m, 45, "active");
+        var mentalWellness = await EnsureServiceAsync(context, "Hỗ trợ tinh thần sau sinh", "Lắng nghe, đồng hành và hỗ trợ mẹ giảm căng thẳng trong giai đoạn đầu sau sinh.", "ho-tro-tinh-than", 500_000m, 60, "active");
+        var breastCare = await EnsureServiceAsync(context, "Chăm sóc bầu ngực sau sinh", "Hỗ trợ chăm sóc bầu ngực, giảm khó chịu và theo dõi tình trạng tiết sữa.", "phuc-hoi-suc-khoe", 450_000m, 60, "active");
+        var babySleep = await EnsureServiceAsync(context, "Hướng dẫn xây dựng nếp ngủ cho bé", "Hướng dẫn gia đình xây dựng nhịp ngủ phù hợp cho bé sơ sinh và nhũ nhi.", "tu-van-tai-nha", 520_000m, 75, "active");
 
         await context.SaveChangesAsync();
 
@@ -92,9 +98,15 @@ public static class MomCareSeedData
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, postpartum.Id, 550_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, babyCare.Id, 500_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, lactation.Id, 650_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, woundCare.Id, 700_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, nutrition.Id, 580_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, breastCare.Id, 500_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, babyCare.Id, 470_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, overnight.Id, 250_000m, "hourly", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, massage.Id, 750_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, babyBath.Id, 350_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, babySleep.Id, 540_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, mentalWellness.Id, 520_000m, "fixed", "enabled");
 
         // Use a stable reference date so re-running seed doesn't create duplicate slots.
         // "today" is always the current UTC date; past slots are fixed, future slots shift forward.
@@ -378,6 +390,7 @@ public static class MomCareSeedData
         MomCareContext context,
         string name,
         string description,
+        string category,
         decimal basePrice,
         int durationMinutes,
         string status)
@@ -388,6 +401,7 @@ public static class MomCareSeedData
             service = new Service
             {
                 Name = name,
+                Category = category,
                 Description = description,
                 BasePrice = basePrice,
                 EstimatedDurationMinutes = durationMinutes,
@@ -398,6 +412,7 @@ public static class MomCareSeedData
             return service;
         }
 
+        service.Category = category;
         service.Description = description;
         service.BasePrice = basePrice;
         service.EstimatedDurationMinutes = durationMinutes;

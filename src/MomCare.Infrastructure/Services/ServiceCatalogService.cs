@@ -37,6 +37,7 @@ public class ServiceCatalogService : IServiceCatalogService
             {
                 Id = s.Id,
                 Name = s.Name,
+                Category = s.Category,
                 Description = s.Description,
                 BasePrice = s.BasePrice,
                 EstimatedDurationMinutes = s.EstimatedDurationMinutes,
@@ -53,6 +54,7 @@ public class ServiceCatalogService : IServiceCatalogService
             {
                 Id = s.Id,
                 Name = s.Name,
+                Category = s.Category,
                 Description = s.Description,
                 BasePrice = s.BasePrice,
                 EstimatedDurationMinutes = s.EstimatedDurationMinutes,
@@ -66,6 +68,7 @@ public class ServiceCatalogService : IServiceCatalogService
         var service = new Service
         {
             Name = dto.Name,
+            Category = dto.Category,
             Description = dto.Description,
             BasePrice = dto.BasePrice,
             EstimatedDurationMinutes = dto.EstimatedDurationMinutes,
@@ -80,6 +83,7 @@ public class ServiceCatalogService : IServiceCatalogService
         {
             Id = service.Id,
             Name = service.Name,
+            Category = service.Category,
             Description = service.Description,
             BasePrice = service.BasePrice,
             EstimatedDurationMinutes = service.EstimatedDurationMinutes,
@@ -96,6 +100,7 @@ public class ServiceCatalogService : IServiceCatalogService
         }
 
         service.Name = dto.Name;
+        service.Category = dto.Category;
         service.Description = dto.Description;
         service.BasePrice = dto.BasePrice;
         service.EstimatedDurationMinutes = dto.EstimatedDurationMinutes;

@@ -48,7 +48,7 @@ public class DisputeService : IDisputeService
         await _context.SaveChangesAsync();
 
         var receiverId = booking.CustomerId == actorUserId ? booking.NurseId : booking.CustomerId;
-        await _notificationService.CreateAsync(receiverId, "Dispute opened", $"A dispute has been opened for booking #{booking.Id}.", "dispute");
+        await _notificationService.CreateAsync(receiverId, "Khiếu nại mới", $"Một khiếu nại đã được mở cho lịch hẹn #{booking.Id}.", "dispute");
 
         return MapDispute(dispute);
     }
@@ -90,8 +90,9 @@ public class DisputeService : IDisputeService
 
         if (booking != null)
         {
-            await _notificationService.CreateAsync(booking.CustomerId, "Dispute updated", $"Dispute for booking #{booking.Id} is now '{dispute.Status}'.", "dispute");
-            await _notificationService.CreateAsync(booking.NurseId, "Dispute updated", $"Dispute for booking #{booking.Id} is now '{dispute.Status}'.", "dispute");
+            var statusText = NotificationVietnameseText.DisputeStatus(dispute.Status);
+            await _notificationService.CreateAsync(booking.CustomerId, "Cập nhật khiếu nại", $"Khiếu nại của lịch hẹn #{booking.Id} hiện {statusText}.", "dispute");
+            await _notificationService.CreateAsync(booking.NurseId, "Cập nhật khiếu nại", $"Khiếu nại của lịch hẹn #{booking.Id} hiện {statusText}.", "dispute");
         }
 
         return true;

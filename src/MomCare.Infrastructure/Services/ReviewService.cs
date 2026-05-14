@@ -55,8 +55,8 @@ public class ReviewService : IReviewService
 
         await _notificationService.CreateAsync(
             booking.NurseId,
-            "New review",
-            $"You received a {dto.Rating}-star review for booking #{booking.Id}.",
+            "Đánh giá mới",
+            $"Bạn vừa nhận được đánh giá {dto.Rating} sao cho lịch hẹn #{booking.Id}.",
             "review");
 
         var customer = await _context.Users.FindAsync(customerId);

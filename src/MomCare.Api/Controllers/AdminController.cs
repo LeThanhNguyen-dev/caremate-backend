@@ -19,6 +19,31 @@ public class AdminController : ControllerBase
         _adminService = adminService;
     }
 
+    [HttpGet("users")]
+    public async Task<IActionResult> GetUsers()
+    {
+        var result = await _adminService.GetUsersAsync();
+        return Ok(result);
+    }
+
+    [HttpPost("users")]
+    public async Task<IActionResult> CreateUser([FromBody] CreateAdminUserDto dto)
+    {
+        var result = await _adminService.CreateUserAsync(dto);
+        if (result == null) return BadRequest(new { message = "Unable to create user" });
+
+        return CreatedAtAction(nameof(GetUsers), new { id = result.UserId }, result);
+    }
+
+    [HttpPatch("users/{id}/status")]
+    public async Task<IActionResult> UpdateUserStatus(int id, [FromBody] UpdateAdminUserStatusDto dto)
+    {
+        var result = await _adminService.UpdateUserStatusAsync(id, dto);
+        if (result == null) return BadRequest(new { message = "Unable to update user status" });
+
+        return Ok(result);
+    }
+
     [HttpGet("nurses/pending")]
     public async Task<IActionResult> GetPendingNurses()
     {

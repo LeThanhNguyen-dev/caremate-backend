@@ -129,7 +129,7 @@ public class ChatService : IChatService
         await _context.SaveChangesAsync();
 
         var receiverId = actorUserId == conversation.User1Id ? conversation.User2Id : conversation.User1Id;
-        await _notificationService.CreateAsync(receiverId, "New message", "You have a new chat message.", "chat");
+        await _notificationService.CreateAsync(receiverId, "Tin nhắn mới", "Bạn có một tin nhắn mới.", "chat");
 
         var messageDto = MapMessage(message);
         await _realtimeNotifier.NotifyChatMessageReceivedAsync(conversationId, messageDto);

@@ -43,6 +43,11 @@ public class AuthService : IAuthService
             return null;
         }
 
+        if (user.Status != "active")
+        {
+            return null;
+        }
+
         var isPasswordValid = await _userManager.CheckPasswordAsync(user, loginDto.Password);
         if (!isPasswordValid)
         {
@@ -206,6 +211,11 @@ public class AuthService : IAuthService
 
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user == null)
+        {
+            return null;
+        }
+
+        if (user.Status != "active")
         {
             return null;
         }
@@ -388,6 +398,11 @@ public class AuthService : IAuthService
                     return null;
                 }
             }
+        }
+
+        if (user.Status != "active")
+        {
+            return null;
         }
 
         return await BuildTokenResponseAsync(user);

@@ -54,8 +54,9 @@ public class PaymentService : IPaymentService
 
         await _context.SaveChangesAsync();
 
-        await _notificationService.CreateAsync(booking.NurseId, "Payment updated", $"Payment for booking #{bookingId} is now '{payment.Status}'.", "payment");
-        await _notificationService.CreateAsync(booking.CustomerId, "Payment updated", $"Your payment for booking #{bookingId} is now '{payment.Status}'.", "payment");
+        var statusText = NotificationVietnameseText.PaymentStatus(payment.Status);
+        await _notificationService.CreateAsync(booking.NurseId, "Cập nhật thanh toán", $"Thanh toán cho lịch hẹn #{bookingId} hiện {statusText}.", "payment");
+        await _notificationService.CreateAsync(booking.CustomerId, "Cập nhật thanh toán", $"Thanh toán của bạn cho lịch hẹn #{bookingId} hiện {statusText}.", "payment");
 
         return MapPayment(payment);
     }

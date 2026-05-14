@@ -186,9 +186,9 @@ public static class MomCareSeedData
         await EnsureChatMessageAsync(context, conversation.Id, customerA.Id, "Chị đến giúp em lúc 9h nhé.", false, today.AddDays(-2).AddHours(8));
         await EnsureChatMessageAsync(context, conversation.Id, nurseA.Id, "Dạ em đến đúng giờ ạ.", true, today.AddDays(-2).AddHours(8).AddMinutes(5));
 
-        await EnsureNotificationAsync(context, customerA.Id, "Booking completed", "Your booking has been completed successfully.", "booking");
-        await EnsureNotificationAsync(context, nurseA.Id, "New review", "You received a new 5-star review.", "review");
-        await EnsureNotificationAsync(context, admin.Id, "Open dispute", "There is an open dispute that needs review.", "system");
+        await EnsureNotificationAsync(context, customerA.Id, "Lịch hẹn đã hoàn thành", "Lịch hẹn của bạn đã được hoàn thành thành công.", "booking");
+        await EnsureNotificationAsync(context, nurseA.Id, "Đánh giá mới", "Bạn vừa nhận được một đánh giá 5 sao.", "review");
+        await EnsureNotificationAsync(context, admin.Id, "Khiếu nại đang mở", "Có một khiếu nại đang chờ quản trị viên xem xét.", "system");
 
         await context.SaveChangesAsync();
 

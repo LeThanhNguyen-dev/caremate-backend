@@ -4,6 +4,9 @@ namespace MomCare.Interfaces;
 
 public interface IAdminService
 {
+    Task<IEnumerable<AdminUserDto>> GetUsersAsync();
+    Task<AdminUserDto?> CreateUserAsync(CreateAdminUserDto dto);
+    Task<AdminUserDto?> UpdateUserStatusAsync(int userId, UpdateAdminUserStatusDto dto);
     Task<IEnumerable<NurseProfileDetailDto>> GetPendingNursesAsync();
     Task<NurseProfileDetailDto?> GetNurseDetailsAsync(int userId);
     Task<bool> ReviewNurseAsync(int userId, ReviewNurseProfileDto reviewDto);

@@ -134,7 +134,7 @@ public class BookingService : IBookingService
                     AvailabilitySlotId = booking.AvailabilitySlotId
                 };
 
-                await _notificationService.CreateAsync(dto.NurseId, "New booking request", $"Booking #{booking.Id} is waiting for your confirmation.");
+                await _notificationService.CreateAsync(dto.NurseId, "Yêu cầu đặt lịch mới", $"Lịch hẹn #{booking.Id} đang chờ bạn xác nhận.");
                 await _realtimeNotifier.NotifyBookingCreatedAsync(dto.NurseId, bookingDetail);
 
                 return bookingDetail;
@@ -259,8 +259,8 @@ public class BookingService : IBookingService
 
         await _notificationService.CreateAsync(
             targetUserId,
-            "Booking status updated",
-            $"Booking #{booking.Id} changed to '{nextStatus}'.");
+            "Cập nhật trạng thái lịch hẹn",
+            $"Lịch hẹn #{booking.Id} đã chuyển sang trạng thái {NotificationVietnameseText.BookingStatus(nextStatus)}.");
 
         var bookingDetail = new BookingDetailDto
         {
@@ -353,10 +353,10 @@ public class BookingService : IBookingService
 
         await _context.SaveChangesAsync();
 
-        await _notificationService.CreateAsync(booking.NurseId, "Booking cancelled",
-            $"Booking #{booking.Id} has been cancelled. Refund: {refundAmount}");
-        await _notificationService.CreateAsync(booking.CustomerId, "Booking cancelled",
-            $"Your booking #{booking.Id} has been cancelled. Refund: {refundAmount}");
+        await _notificationService.CreateAsync(booking.NurseId, "Lịch hẹn đã bị hủy",
+            $"Lịch hẹn #{booking.Id} đã bị hủy. Số tiền hoàn dự kiến: {refundAmount:N0}.");
+        await _notificationService.CreateAsync(booking.CustomerId, "Lịch hẹn đã bị hủy",
+            $"Lịch hẹn #{booking.Id} của bạn đã bị hủy. Số tiền hoàn dự kiến: {refundAmount:N0}.");
 
         var bookingDetail = new BookingDetailDto
         {

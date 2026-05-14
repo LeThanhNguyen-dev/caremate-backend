@@ -10,3 +10,4 @@ obj/
 
 # Environment files
 .env
+.vs/

@@ -27,6 +27,198 @@ public class AdminService : IAdminService
         _cloudinaryService = cloudinaryService;
     }
 
+    public async Task<IEnumerable<AdminUserDto>> GetUsersAsync()
+    {
+        var users = await _userManager.Users
+            .AsNoTracking()
+            .OrderByDescending(u => u.CreatedAt)
+            .ToListAsync();
+
+        var userIds = users.Select(u => u.Id).ToList();
+
+        var rolesByUserId = await (
+            from userRole in _context.Set<ApplicationUserRole>().AsNoTracking()
+            join role in _roleManager.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+            where userIds.Contains(userRole.UserId)
+            select new
+            {
+                userRole.UserId,
+                RoleCode = role.Name
+            })
+            .ToListAsync();
+
+        var adminUserIds = rolesByUserId
+            .Where(x => x.RoleCode == AppRoles.Admin)
+            .Select(x => x.UserId)
+            .ToHashSet();
+
+        users = users
+            .Where(u => !adminUserIds.Contains(u.Id))
+            .ToList();
+
+        userIds = users.Select(u => u.Id).ToList();
+
+        var primaryRoleByUserId = rolesByUserId
+            .GroupBy(x => x.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.RoleCode)
+                    .OrderByDescending(GetRolePriority)
+                    .FirstOrDefault() ?? AppRoles.Customer);
+
+        var nurseProfilesByUserId = await _context.NurseProfiles
+            .AsNoTracking()
+            .Where(np => userIds.Contains(np.UserId))
+            .ToDictionaryAsync(np => np.UserId);
+
+        var bookingCountsByUserId = await _context.Bookings
+            .AsNoTracking()
+            .Where(b => userIds.Contains(b.CustomerId) || userIds.Contains(b.NurseId))
+            .GroupBy(b => b.CustomerId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var nurseBookingCountsByUserId = await _context.Bookings
+            .AsNoTracking()
+            .Where(b => userIds.Contains(b.NurseId))
+            .GroupBy(b => b.NurseId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var combinedBookingCounts = bookingCountsByUserId
+            .Concat(nurseBookingCountsByUserId)
+            .GroupBy(x => x.UserId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Count));
+
+        return users.Select(user =>
+        {
+            nurseProfilesByUserId.TryGetValue(user.Id, out var nurseProfile);
+            primaryRoleByUserId.TryGetValue(user.Id, out var role);
+            combinedBookingCounts.TryGetValue(user.Id, out var bookingCount);
+
+            return new AdminUserDto
+            {
+                UserId = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                Phone = user.PhoneNumber,
+                Role = role ?? AppRoles.Customer,
+                Status = user.Status,
+                AverageRating = nurseProfile?.AverageRating,
+                YearsExperience = nurseProfile?.YearsExperience,
+                IsVerified = nurseProfile?.IsVerified,
+                BookingCount = bookingCount,
+                Bio = nurseProfile?.Bio
+            };
+        }).ToList();
+    }
+
+    public async Task<AdminUserDto?> CreateUserAsync(CreateAdminUserDto dto)
+    {
+        var roleCode = NormalizeManagedUserRole(dto.Role);
+        if (roleCode == null)
+        {
+            return null;
+        }
+
+        var normalizedEmail = dto.Email.Trim();
+        if (await _userManager.FindByEmailAsync(normalizedEmail) != null)
+        {
+            return null;
+        }
+
+        var normalizedPhone = NormalizePhone(dto.Phone);
+        if (await IsPhoneTakenAsync(normalizedPhone))
+        {
+            return null;
+        }
+
+        var user = new ApplicationUser
+        {
+            FullName = dto.FullName.Trim(),
+            Email = normalizedEmail,
+            UserName = normalizedEmail,
+            PhoneNumber = normalizedPhone,
+            Status = "active",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            EmailConfirmed = true
+        };
+
+        var createResult = await _userManager.CreateAsync(user, dto.Password);
+        if (!createResult.Succeeded)
+        {
+            return null;
+        }
+
+        await EnsureRoleExistsAsync(roleCode, GetRoleDisplayName(roleCode));
+        var roleResult = await _userManager.AddToRoleAsync(user, roleCode);
+        if (!roleResult.Succeeded)
+        {
+            return null;
+        }
+
+        if (roleCode == AppRoles.NurseUnconfirmed)
+        {
+            _context.NurseProfiles.Add(new NurseProfile
+            {
+                UserId = user.Id,
+                YearsExperience = 0,
+                ServiceRadiusKm = 0,
+                IsVerified = "unverified",
+                VerificationSubmissionStatus = "draft"
+            });
+            await _context.SaveChangesAsync();
+        }
+
+        return (await GetUsersAsync()).FirstOrDefault(x => x.UserId == user.Id);
+    }
+
+    public async Task<AdminUserDto?> UpdateUserStatusAsync(int userId, UpdateAdminUserStatusDto dto)
+    {
+        var normalizedStatus = dto.Status.Trim().ToLowerInvariant();
+        if (normalizedStatus is not ("active" or "blocked"))
+        {
+            return null;
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            return null;
+        }
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
+        {
+            return null;
+        }
+
+        user.Status = normalizedStatus;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            return null;
+        }
+
+        if (normalizedStatus == "blocked")
+        {
+            var activeRefreshTokens = await _context.RefreshTokens
+                .Where(token => token.UserId == user.Id && token.RevokedAt == null)
+                .ToListAsync();
+
+            foreach (var token in activeRefreshTokens)
+            {
+                token.RevokedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        return (await GetUsersAsync()).FirstOrDefault(x => x.UserId == user.Id);
+    }
+
     public async Task<IEnumerable<NurseProfileDetailDto>> GetPendingNursesAsync()
     {
         var users = await _userManager.GetUsersInRoleAsync(AppRoles.NurseUnconfirmed);
@@ -258,5 +450,56 @@ public class AdminService : IAdminService
                 CreatedAt = d.CreatedAt
             })
             .ToListAsync();
+    }
+
+    private static int GetRolePriority(string? roleCode) => roleCode switch
+    {
+        AppRoles.Admin => 4,
+        AppRoles.NurseConfirmed => 3,
+        AppRoles.NurseUnconfirmed => 2,
+        AppRoles.Nurse => 1,
+        AppRoles.Customer => 0,
+        _ => -1
+    };
+
+    private static string? NormalizeManagedUserRole(string? roleCode)
+    {
+        var normalized = roleCode?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            AppRoles.Customer => AppRoles.Customer,
+            AppRoles.Nurse => AppRoles.NurseUnconfirmed,
+            AppRoles.NurseUnconfirmed => AppRoles.NurseUnconfirmed,
+            _ => null
+        };
+    }
+
+    private static string GetRoleDisplayName(string roleCode) => roleCode switch
+    {
+        AppRoles.Customer => "Customer",
+        AppRoles.NurseUnconfirmed => "Nurse (Unconfirmed)",
+        _ => roleCode
+    };
+
+    private async Task<bool> IsPhoneTakenAsync(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            return false;
+        }
+
+        return await _userManager.Users.AnyAsync(u =>
+            u.PhoneNumber != null &&
+            u.PhoneNumber.Replace(" ", string.Empty).Replace("-", string.Empty) == phone);
+    }
+
+    private static string? NormalizePhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            return null;
+        }
+
+        return phone.Trim().Replace(" ", string.Empty).Replace("-", string.Empty);
     }
 }

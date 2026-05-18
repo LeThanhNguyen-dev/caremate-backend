@@ -8,6 +8,7 @@ public class BookingDetailDto
     public int ServiceId { get; set; }
     public int? AvailabilitySlotId { get; set; }
     public string ServiceName { get; set; } = string.Empty;
+    public string ServiceKind { get; set; } = "single";
     public string? NurseName { get; set; }
     public string Status { get; set; } = string.Empty;
     public decimal TotalPrice { get; set; }
@@ -15,4 +16,8 @@ public class BookingDetailDto
     public DateTime EndTime { get; set; }
     public string Address { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    
+    // Package specific
+    public int? PackageDays { get; set; }
+    public int CompletedSessions { get; set; }
 }

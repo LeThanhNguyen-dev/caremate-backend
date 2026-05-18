@@ -26,13 +26,13 @@ public class BookingsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateBookingDto dto)
     {
         var customerId = GetUserId();
-        var booking = await _bookingService.CreateBookingAsync(customerId, dto);
-        if (booking == null)
+        var result = await _bookingService.CreateBookingAsync(customerId, dto);
+        if (!result.Success)
         {
-            return BadRequest(new { message = "Invalid booking request or slot unavailable" });
+            return BadRequest(new { message = result.Error });
         }
 
-        return Ok(booking);
+        return Ok(result.Data);
     }
 
     [HttpGet("my/customer")]
@@ -74,10 +74,10 @@ public class BookingsController : ControllerBase
         var userId = GetUserId();
         var isAdmin = User.IsInRole(AppRoles.Admin);
 
-        var ok = await _bookingService.UpdateBookingStatusAsync(userId, isAdmin, dto, id);
-        if (!ok)
+        var result = await _bookingService.UpdateBookingStatusAsync(userId, isAdmin, dto, id);
+        if (!result.Success)
         {
-            return BadRequest(new { message = "Status transition is not allowed" });
+            return BadRequest(new { message = result.Error });
         }
 
         return NoContent();
@@ -89,11 +89,11 @@ public class BookingsController : ControllerBase
     {
         var userId = GetUserId();
         var isAdmin = User.IsInRole(AppRoles.Admin);
-        var success = await _bookingService.CancelBookingAsync(userId, isAdmin, id, dto);
+        var result = await _bookingService.CancelBookingAsync(userId, isAdmin, id, dto);
 
-        if (!success)
+        if (!result.Success)
         {
-            return BadRequest(new { message = "Cannot cancel this booking. It may not exist or is not in a cancellable state." });
+            return BadRequest(new { message = result.Error });
         }
 
         return Ok(new { message = "Booking cancelled successfully" });

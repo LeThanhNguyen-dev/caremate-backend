@@ -65,4 +65,5 @@ public class Booking
     public virtual Review? Review { get; set; }
     public virtual Dispute? Dispute { get; set; }
     public virtual Conversation? Conversation { get; set; }
+    public virtual ICollection<PackageSessionLog> SessionLogs { get; set; } = new List<PackageSessionLog>();
 }

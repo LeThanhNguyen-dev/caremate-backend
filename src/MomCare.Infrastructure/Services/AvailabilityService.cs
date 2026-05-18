@@ -39,15 +39,33 @@ public class AvailabilityService : IAvailabilityService
             .Select(b => b.AvailabilitySlotId)
             .ToListAsync();
 
+        var packageSessions = await _context.PackageSessionLogs
+            .Include(session => session.Booking)
+            .ThenInclude(booking => booking.Service)
+            .Where(session =>
+                session.Booking.NurseId == nurseUserId &&
+                session.Booking.Status != BookingStatuses.Cancelled &&
+                session.Booking.Status != BookingStatuses.Rejected &&
+                session.Status != "skipped")
+            .ToListAsync();
+
         return slots
-            .Where(s => !bookedSlotIds.Contains(s.Id)) // Only unbooked slots
-            .Select(s => new AvailabilitySlotDto
+            .Select(s =>
             {
-                Id = s.Id,
-                NurseProfileId = s.NurseProfileId,
-                StartTime = s.StartTime,
-                EndTime = s.EndTime,
-                IsAvailable = true
+                var overlapsPackageSession = packageSessions.Any(session =>
+                {
+                    var sessionEnd = session.SessionDate.AddMinutes(Math.Max(session.Booking.Service.EstimatedDurationMinutes, 1));
+                    return s.StartTime < sessionEnd && s.EndTime > session.SessionDate;
+                });
+
+                return new AvailabilitySlotDto
+                {
+                    Id = s.Id,
+                    NurseProfileId = s.NurseProfileId,
+                    StartTime = s.StartTime,
+                    EndTime = s.EndTime,
+                    IsAvailable = !bookedSlotIds.Contains(s.Id) && !overlapsPackageSession
+                };
             });
     }
 

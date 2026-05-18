@@ -25,6 +25,20 @@ public class Service
     [Column("estimated_duration_minutes")]
     public int EstimatedDurationMinutes { get; set; }
 
+    // Kind: "single", "package"
+    [Column("service_kind")]
+    public string ServiceKind { get; set; } = "single";
+
+    [Column("package_days")]
+    public int? PackageDays { get; set; }
+
+    [Column("included_service_keys")]
+    public string? IncludedServiceKeys { get; set; }
+
+    // JSON: [{"day":1,"title":"...","description":"...","serviceKeys":"..."}]
+    [Column("package_schedule_json")]
+    public string? PackageScheduleJson { get; set; }
+
     // Status: "active", "inactive"
     [Column("status")]
     public string Status { get; set; } = "active";

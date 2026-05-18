@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomCare.Data;
 
@@ -11,9 +12,11 @@ using MomCare.Data;
 namespace MomCare.Migrations
 {
     [DbContext(typeof(MomCareContext))]
-    partial class MomCareContextModelSnapshot : ModelSnapshot
+    [Migration("20260514152403_AddServicePackageMetadata")]
+    partial class AddServicePackageMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -922,74 +925,6 @@ namespace MomCare.Migrations
                     b.ToTable("nurse_services");
                 });
 
-            modelBuilder.Entity("MomCare.Models.PackageSessionLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BookingId")
-                        .HasColumnType("int")
-                        .HasColumnName("booking_id");
-
-                    b.Property<DateTime?>("CheckInTime")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("check_in_time");
-
-                    b.Property<DateTime?>("CheckOutTime")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("check_out_time");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("description");
-
-                    b.Property<string>("NurseNote")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("nurse_note");
-
-                    b.Property<string>("PlannedServiceKeys")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("planned_service_keys");
-
-                    b.Property<DateTime>("SessionDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("session_date");
-
-                    b.Property<int>("SessionNumber")
-                        .HasColumnType("int")
-                        .HasColumnName("session_number");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("status");
-
-                    b.Property<string>("Title")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("title");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BookingId", "SessionDate");
-
-                    b.HasIndex("BookingId", "SessionNumber")
-                        .IsUnique();
-
-                    b.ToTable("package_session_logs");
-                });
-
             modelBuilder.Entity("MomCare.Models.Payment", b =>
                 {
                     b.Property<int>("Id")
@@ -1234,10 +1169,6 @@ namespace MomCare.Migrations
                     b.Property<int?>("PackageDays")
                         .HasColumnType("int")
                         .HasColumnName("package_days");
-
-                    b.Property<string>("PackageScheduleJson")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("package_schedule_json");
 
                     b.Property<string>("ServiceKind")
                         .IsRequired()
@@ -1516,17 +1447,6 @@ namespace MomCare.Migrations
                     b.Navigation("Service");
                 });
 
-            modelBuilder.Entity("MomCare.Models.PackageSessionLog", b =>
-                {
-                    b.HasOne("MomCare.Models.Booking", "Booking")
-                        .WithMany("SessionLogs")
-                        .HasForeignKey("BookingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Booking");
-                });
-
             modelBuilder.Entity("MomCare.Models.Payment", b =>
                 {
                     b.HasOne("MomCare.Models.Booking", "Booking")
@@ -1604,8 +1524,6 @@ namespace MomCare.Migrations
                     b.Navigation("Payment");
 
                     b.Navigation("Review");
-
-                    b.Navigation("SessionLogs");
 
                     b.Navigation("StatusHistory");
                 });

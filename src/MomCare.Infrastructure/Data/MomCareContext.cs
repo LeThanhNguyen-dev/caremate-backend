@@ -32,6 +32,7 @@ public class MomCareContext : IdentityDbContext<
     // Booking Core
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<BookingStatusHistory> BookingStatusHistories => Set<BookingStatusHistory>();
+    public DbSet<PackageSessionLog> PackageSessionLogs => Set<PackageSessionLog>();
 
     // Finance
     public DbSet<Payment> Payments => Set<Payment>();
@@ -235,8 +236,10 @@ public class MomCareContext : IdentityDbContext<
         modelBuilder.Entity<Service>(entity =>
         {
             entity.Property(s => s.BasePrice).HasColumnType("decimal(18,2)");
+            entity.Property(s => s.ServiceKind).HasDefaultValue("single");
             entity.HasIndex(s => s.Name);
             entity.HasIndex(s => s.Status);
+            entity.HasIndex(s => s.ServiceKind);
         });
 
         modelBuilder.Entity<NurseService>(entity =>
@@ -292,6 +295,17 @@ public class MomCareContext : IdentityDbContext<
         modelBuilder.Entity<ChatMessage>(entity =>
         {
             entity.HasIndex(c => new { c.ConversationId, c.CreatedAt });
+        });
+
+        modelBuilder.Entity<PackageSessionLog>(entity =>
+        {
+            entity.HasOne(p => p.Booking)
+                .WithMany(b => b.SessionLogs)
+                .HasForeignKey(p => p.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(p => new { p.BookingId, p.SessionNumber }).IsUnique();
+            entity.HasIndex(p => new { p.BookingId, p.SessionDate });
         });
 
         modelBuilder.Entity<Payment>(entity =>

@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<INurseServiceManagementService, NurseServiceManagementService>();
         services.AddScoped<ICloudinaryService, CloudinaryService>();
         services.AddScoped<IHealthCheckInService, HealthCheckInService>();
+        services.AddScoped<IPackageSessionService, PackageSessionService>();
         services.AddHttpClient<IOpenAiHealthAnalysisService, OpenAiHealthAnalysisService>();
 
         services.AddDbContext<MomCareContext>(options =>

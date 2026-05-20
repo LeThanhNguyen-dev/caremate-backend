@@ -118,6 +118,15 @@ public class NurseServiceManagementService : INurseServiceManagementService
 
         nurseService.Price = dto.Price;
         nurseService.Unit = dto.Unit;
+        if (!string.IsNullOrWhiteSpace(dto.Status))
+        {
+            nurseService.Status = dto.Status.Trim().ToLowerInvariant() switch
+            {
+                "enabled" => "enabled",
+                "disabled" => "disabled",
+                _ => nurseService.Status
+            };
+        }
 
         await _context.SaveChangesAsync();
 

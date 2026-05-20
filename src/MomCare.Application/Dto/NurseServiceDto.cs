@@ -23,4 +23,5 @@ public class UpdateNurseServiceDto
 {
     public decimal Price { get; set; }
     public string Unit { get; set; } = "fixed";
+    public string? Status { get; set; }
 }

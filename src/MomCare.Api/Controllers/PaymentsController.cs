@@ -19,6 +19,31 @@ public class PaymentsController : ControllerBase
         _paymentService = paymentService;
     }
 
+    [HttpPost("booking/payos-link")]
+    [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Admin}")]
+    public async Task<IActionResult> CreatePayOSLinkForBooking([FromBody] CreatePayOSBookingPaymentDto dto)
+    {
+        var userId = GetUserId();
+        var paymentLink = await _paymentService.CreatePayOSBookingPaymentLinkAsync(userId, dto);
+        return Ok(paymentLink);
+    }
+
+    [HttpPost("booking/{bookingId:int}/payos-link")]
+    [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Admin}")]
+    public async Task<IActionResult> CreatePayOSLink(int bookingId, [FromBody] CreatePayOSPaymentLinkDto dto)
+    {
+        var userId = GetUserId();
+        var isAdmin = User.IsInRole(AppRoles.Admin);
+
+        var paymentLink = await _paymentService.CreatePayOSPaymentLinkAsync(userId, isAdmin, bookingId, dto);
+        if (paymentLink == null)
+        {
+            return BadRequest(new { message = "Cannot create payment link for this booking" });
+        }
+
+        return Ok(paymentLink);
+    }
+
     [HttpPut("booking/{bookingId:int}")]
     public async Task<IActionResult> Upsert(int bookingId, [FromBody] UpdatePaymentStatusDto dto)
     {
@@ -32,6 +57,19 @@ public class PaymentsController : ControllerBase
         }
 
         return Ok(payment);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("webhook/payos")]
+    public async Task<IActionResult> HandlePayOSWebhook([FromBody] PayOSWebhookDto webhook)
+    {
+        var updated = await _paymentService.HandlePayOSWebhookAsync(webhook);
+        if (!updated)
+        {
+            return NotFound(new { message = "Payment not found for webhook" });
+        }
+
+        return Ok(new { message = "OK" });
     }
 
     private int GetUserId()

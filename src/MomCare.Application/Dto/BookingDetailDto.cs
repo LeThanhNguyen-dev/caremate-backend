@@ -16,8 +16,13 @@ public class BookingDetailDto
     public DateTime EndTime { get; set; }
     public string Address { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public string? PaymentStatus { get; set; }
+    public decimal? RefundAmount { get; set; }
+    public string? RefundReason { get; set; }
+    public string? RefundStatus { get; set; }
+    public DateTime? RefundedAt { get; set; }
     
-    // Package specific
+    // Package specific 
     public int? PackageDays { get; set; }
     public int CompletedSessions { get; set; }
 }

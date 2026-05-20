@@ -73,6 +73,9 @@ public class NurseService : INurseService
             Email = nurse.Email ?? string.Empty,
             Phone = nurse.PhoneNumber,
             Avatar = nurse.Avatar,
+            BankBin = nurse.BankBin,
+            BankAccountNumber = nurse.BankAccountNumber,
+            BankAccountName = nurse.BankAccountName,
             Bio = profile.Bio,
             Specialization = profile.Specialization,
             YearsExperience = profile.YearsExperience,
@@ -101,11 +104,18 @@ public class NurseService : INurseService
     {
         var profile = await _context.NurseProfiles.FirstOrDefaultAsync(np => np.UserId == userId);
         if (profile == null) return false;
+        var nurse = await _userManager.FindByIdAsync(userId.ToString());
+        if (nurse == null) return false;
 
         profile.Bio = updateDto.Bio;
         profile.YearsExperience = updateDto.YearsExperience;
         profile.ServiceRadiusKm = updateDto.ServiceRadiusKm;
         profile.UpdatedAt = DateTime.UtcNow;
+
+        nurse.BankBin = string.IsNullOrWhiteSpace(updateDto.BankBin) ? null : updateDto.BankBin.Trim();
+        nurse.BankAccountNumber = string.IsNullOrWhiteSpace(updateDto.BankAccountNumber) ? null : updateDto.BankAccountNumber.Trim();
+        nurse.BankAccountName = string.IsNullOrWhiteSpace(updateDto.BankAccountName) ? null : updateDto.BankAccountName.Trim();
+        nurse.UpdatedAt = DateTime.UtcNow;
 
         return await _context.SaveChangesAsync() > 0;
     }

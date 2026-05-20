@@ -35,6 +35,9 @@ public class UsersController : ControllerBase
             email = user.Email,
             phoneNumber = user.PhoneNumber,
             avatar = user.Avatar,
+            bankBin = user.BankBin,
+            bankAccountNumber = user.BankAccountNumber,
+            bankAccountName = user.BankAccountName,
             status = user.Status
         });
     }
@@ -51,6 +54,9 @@ public class UsersController : ControllerBase
         user.FullName = dto.FullName;
         user.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber) ? null : dto.PhoneNumber.Trim();
         user.Avatar = string.IsNullOrWhiteSpace(dto.Avatar) ? null : dto.Avatar.Trim();
+        user.BankBin = string.IsNullOrWhiteSpace(dto.BankBin) ? null : dto.BankBin.Trim();
+        user.BankAccountNumber = string.IsNullOrWhiteSpace(dto.BankAccountNumber) ? null : dto.BankAccountNumber.Trim();
+        user.BankAccountName = string.IsNullOrWhiteSpace(dto.BankAccountName) ? null : dto.BankAccountName.Trim();
         user.UpdatedAt = DateTime.UtcNow;
 
         var result = await _userManager.UpdateAsync(user);

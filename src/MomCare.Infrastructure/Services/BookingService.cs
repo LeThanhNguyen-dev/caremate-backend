@@ -306,6 +306,7 @@ public class BookingService : IBookingService
         return await _context.Bookings
             .Include(b => b.Service)
             .Include(b => b.Nurse)
+            .Include(b => b.Payment)
             .Where(b => b.CustomerId == customerId)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new BookingDetailDto
@@ -323,6 +324,11 @@ public class BookingService : IBookingService
                 EndTime = b.EndTime,
                 Address = b.Address,
                 Notes = b.Notes,
+                PaymentStatus = b.Payment != null ? b.Payment.Status : null,
+                RefundAmount = b.Payment != null ? b.Payment.RefundAmount : null,
+                RefundReason = b.Payment != null ? b.Payment.RefundReason : null,
+                RefundStatus = b.Payment != null ? b.Payment.RefundStatus : null,
+                RefundedAt = b.Payment != null ? b.Payment.RefundedAt : null,
                 AvailabilitySlotId = b.AvailabilitySlotId,
                 PackageDays = b.Service.PackageDays,
                 CompletedSessions = b.SessionLogs.Count(s => s.Status == "completed")
@@ -335,6 +341,7 @@ public class BookingService : IBookingService
         return await _context.Bookings
             .Include(b => b.Service)
             .Include(b => b.Nurse)
+            .Include(b => b.Payment)
             .Where(b => b.NurseId == nurseId)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new BookingDetailDto
@@ -352,6 +359,11 @@ public class BookingService : IBookingService
                 EndTime = b.EndTime,
                 Address = b.Address,
                 Notes = b.Notes,
+                PaymentStatus = b.Payment != null ? b.Payment.Status : null,
+                RefundAmount = b.Payment != null ? b.Payment.RefundAmount : null,
+                RefundReason = b.Payment != null ? b.Payment.RefundReason : null,
+                RefundStatus = b.Payment != null ? b.Payment.RefundStatus : null,
+                RefundedAt = b.Payment != null ? b.Payment.RefundedAt : null,
                 AvailabilitySlotId = b.AvailabilitySlotId,
                 PackageDays = b.Service.PackageDays,
                 CompletedSessions = b.SessionLogs.Count(s => s.Status == "completed")
@@ -365,6 +377,7 @@ public class BookingService : IBookingService
             .Include(b => b.Service)
             .Include(b => b.Nurse)
             .Include(b => b.SessionLogs)
+            .Include(b => b.Payment)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (booking == null) return null;
@@ -386,6 +399,11 @@ public class BookingService : IBookingService
             EndTime = booking.EndTime,
             Address = booking.Address,
             Notes = booking.Notes,
+            PaymentStatus = booking.Payment?.Status,
+            RefundAmount = booking.Payment?.RefundAmount,
+            RefundReason = booking.Payment?.RefundReason,
+            RefundStatus = booking.Payment?.RefundStatus,
+            RefundedAt = booking.Payment?.RefundedAt,
             AvailabilitySlotId = booking.AvailabilitySlotId,
             PackageDays = booking.Service.PackageDays,
             CompletedSessions = booking.SessionLogs.Count(s => s.Status == "completed")
@@ -396,6 +414,7 @@ public class BookingService : IBookingService
     {
         var booking = await _context.Bookings
             .Include(b => b.Service)
+            .Include(b => b.Payment)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (booking == null)
@@ -411,6 +430,13 @@ public class BookingService : IBookingService
 
         booking.Status = nextStatus;
         booking.UpdatedAt = DateTime.UtcNow;
+
+        if (nextStatus == BookingStatuses.Rejected && booking.Payment?.Status == PaymentStatuses.Paid)
+        {
+            booking.Payment.RefundAmount = booking.TotalPrice;
+            booking.Payment.RefundReason ??= "Nurse rejected a paid booking.";
+            booking.Payment.RefundStatus = "pending";
+        }
 
         _context.BookingStatusHistories.Add(new BookingStatusHistory
         {
@@ -503,7 +529,7 @@ public class BookingService : IBookingService
         });
 
         var payment = await _context.Payments.FirstOrDefaultAsync(p => p.BookingId == bookingId);
-        if (payment != null)
+        if (payment != null && payment.Status == PaymentStatuses.Paid)
         {
             payment.RefundAmount = refundAmount;
             payment.RefundReason = dto.Reason;
@@ -586,6 +612,11 @@ public class BookingService : IBookingService
             EndTime = booking.EndTime,
             Address = booking.Address,
             Notes = booking.Notes,
+            PaymentStatus = booking.Payment?.Status,
+            RefundAmount = booking.Payment?.RefundAmount,
+            RefundReason = booking.Payment?.RefundReason,
+            RefundStatus = booking.Payment?.RefundStatus,
+            RefundedAt = booking.Payment?.RefundedAt,
             AvailabilitySlotId = booking.AvailabilitySlotId,
             PackageDays = service.PackageDays,
             CompletedSessions = booking.SessionLogs?.Count(s => s.Status == "completed") ?? 0

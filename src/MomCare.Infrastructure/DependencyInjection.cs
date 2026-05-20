@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MomCare.Data;
+using MomCare.Infrastructure.Configurations;
 using MomCare.Interfaces;
 using MomCare.Repositories;
 using MomCare.Services;
@@ -13,6 +14,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

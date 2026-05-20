@@ -452,6 +452,154 @@ public class AdminService : IAdminService
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<AdminRefundDto>> GetRefundsAsync(string? refundStatus)
+    {
+        var query = _context.Bookings
+            .Include(b => b.Customer)
+            .Include(b => b.Nurse)
+            .Include(b => b.Service)
+            .Include(b => b.Payment)
+            .Where(b =>
+                b.Status == BookingStatuses.Cancelled ||
+                b.Status == BookingStatuses.Rejected ||
+                (b.Payment != null && b.Payment.RefundAmount != null && b.Payment.RefundAmount > 0));
+
+        if (!string.IsNullOrWhiteSpace(refundStatus))
+        {
+            var normalized = refundStatus.Trim().ToLowerInvariant();
+            query = query.Where(b => b.Payment != null && b.Payment.RefundStatus == normalized);
+        }
+
+        return await query
+            .OrderByDescending(b => b.UpdatedAt)
+            .Select(b => new AdminRefundDto
+            {
+                BookingId = b.Id,
+                BookingStatus = b.Status,
+                CustomerId = b.CustomerId,
+                CustomerName = b.Customer.FullName,
+                NurseId = b.NurseId,
+                NurseName = b.Nurse.FullName,
+                ServiceName = b.Service.Name,
+                TotalPrice = b.TotalPrice,
+                RefundAmount = b.Payment != null
+                    ? (b.Payment.RefundAmount
+                        ?? ((b.Status == BookingStatuses.Rejected || b.Status == BookingStatuses.Cancelled) && b.Payment.Status == PaymentStatuses.Paid
+                            ? b.TotalPrice
+                            : 0))
+                    : 0,
+                HasPayment = b.Payment != null,
+                RefundReason = b.Payment != null
+                    ? (b.Payment.RefundReason
+                        ?? ((b.Status == BookingStatuses.Rejected || b.Status == BookingStatuses.Cancelled) && b.Payment.Status == PaymentStatuses.Paid
+                            ? "Booking da thanh toan va can hoan tien."
+                            : null))
+                    : "Booking da bi huy/tu choi nhung chua phat sinh thanh toan.",
+                RefundStatus = b.Payment != null
+                    ? (b.Payment.RefundStatus
+                        ?? ((b.Status == BookingStatuses.Rejected || b.Status == BookingStatuses.Cancelled) && b.Payment.Status == PaymentStatuses.Paid
+                            ? "pending"
+                            : "not_required"))
+                    : "not_required",
+                CustomerBankBin = b.Customer.BankBin,
+                CustomerBankAccountNumber = b.Customer.BankAccountNumber,
+                CustomerBankAccountName = b.Customer.BankAccountName,
+                CustomerQrUrl = b.Payment != null && (
+                        (b.Payment.RefundAmount != null && b.Payment.RefundAmount > 0) ||
+                        ((b.Status == BookingStatuses.Rejected || b.Status == BookingStatuses.Cancelled) && b.Payment.Status == PaymentStatuses.Paid))
+                    ? BuildVietQrUrl(
+                        b.Customer.BankBin,
+                        b.Customer.BankAccountNumber,
+                        b.Payment.RefundAmount
+                            ?? ((b.Status == BookingStatuses.Rejected || b.Status == BookingStatuses.Cancelled) && b.Payment.Status == PaymentStatuses.Paid
+                                ? b.TotalPrice
+                                : 0),
+                        b.Id)
+                    : null
+            })
+            .ToListAsync();
+    }
+
+    public async Task<bool> CompleteRefundAsync(int bookingId, CompleteRefundDto dto)
+    {
+        var payment = await _context.Payments.FirstOrDefaultAsync(p => p.BookingId == bookingId);
+        if (payment == null || payment.RefundAmount is null || payment.RefundAmount <= 0)
+        {
+            return false;
+        }
+
+        payment.RefundStatus = "completed";
+        payment.RefundedAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(dto.AdminNote))
+        {
+            payment.RefundReason = string.IsNullOrWhiteSpace(payment.RefundReason)
+                ? dto.AdminNote.Trim()
+                : $"{payment.RefundReason} | Admin: {dto.AdminNote.Trim()}";
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<IEnumerable<AdminPayoutDto>> GetPayoutsAsync(string? payoutStatus)
+    {
+        var query = _context.Payouts
+            .Include(p => p.Nurse)
+            .Include(p => p.Booking)
+                .ThenInclude(b => b.Service)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(payoutStatus))
+        {
+            var normalized = payoutStatus.Trim().ToLowerInvariant();
+            query = query.Where(p => p.Status == normalized);
+        }
+
+        return await query
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new AdminPayoutDto
+            {
+                PayoutId = p.Id,
+                BookingId = p.BookingId,
+                NurseId = p.NurseId,
+                NurseName = p.Nurse.FullName,
+                ServiceName = p.Booking.Service.Name,
+                Amount = p.Amount,
+                PlatformFee = p.PlatformFee,
+                Status = p.Status,
+                NurseBankBin = p.Nurse.BankBin,
+                NurseBankAccountNumber = p.Nurse.BankAccountNumber,
+                NurseBankAccountName = p.Nurse.BankAccountName,
+                NurseQrUrl = BuildVietQrUrl(p.Nurse.BankBin, p.Nurse.BankAccountNumber, p.Amount, p.BookingId)
+            })
+            .ToListAsync();
+    }
+
+    public async Task<bool> CompletePayoutAsync(int payoutId, CompletePayoutDto dto)
+    {
+        var payout = await _context.Payouts.FirstOrDefaultAsync(p => p.Id == payoutId);
+        if (payout == null)
+        {
+            return false;
+        }
+
+        payout.Status = "released";
+        payout.ReleasedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    private static string? BuildVietQrUrl(string? bankBin, string? accountNumber, decimal? amount, int bookingId)
+    {
+        if (string.IsNullOrWhiteSpace(bankBin) || string.IsNullOrWhiteSpace(accountNumber))
+        {
+            return null;
+        }
+
+        var formattedAmount = amount.HasValue ? decimal.Truncate(amount.Value).ToString() : "0";
+        return $"https://img.vietqr.io/image/{bankBin}-{accountNumber}-compact2.jpg?amount={formattedAmount}&addInfo=Refund%20booking%20{bookingId}&accountName=";
+    }
+
     private static int GetRolePriority(string? roleCode) => roleCode switch
     {
         AppRoles.Admin => 4,

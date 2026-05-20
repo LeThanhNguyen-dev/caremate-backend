@@ -47,6 +47,7 @@ public static class MomCareSeedData
         var houseSupport = await EnsureServiceAsync(context, "Hỗ trợ việc nhà", "Hỗ trợ các việc nhẹ trong không gian chăm sóc mẹ và bé để gia đình giảm tải.", "ho-tro-gia-dinh", 400_000m, 120, "active", "single");
         var mentalWellness = await EnsureServiceAsync(context, "Hỗ trợ tâm lý", "Lắng nghe, đồng hành và hỗ trợ mẹ giảm căng thẳng trong giai đoạn đầu sau sinh.", "ho-tro-tinh-than", 500_000m, 60, "active", "single");
         var emergencyConsultation = await EnsureServiceAsync(context, "Tư vấn khẩn", "Tư vấn nhanh khi gia đình cần định hướng xử lý tình huống chăm sóc mẹ và bé.", "tu-van-tai-nha", 300_000m, 30, "active", "single");
+        var miniConsultation = await EnsureServiceAsync(context, "Gói Mini Tư Vấn Nhanh", "Buổi tư vấn ngắn 15 phút để gia đình hỏi nhanh về các lưu ý cơ bản khi chăm mẹ và bé tại nhà.", "tu-van-tai-nha", 29_000m, 15, "active", "single");
 
         var pkgThongTuyenSua = await EnsureServiceAsync(context, "Gói Chăm Sóc Thông Tuyến Sữa", "Gói 3 buổi hỗ trợ thông tuyến sữa, tư vấn tư thế cho bú và xử lý tắc sữa.", "goi-dich-vu", 2_400_000m, 60, "active", "package", 3, "breastfeeding-support", GeneratePackageScheduleJson(3, "breastfeeding-support"));
         var pkgGiamNhucMoi = await EnsureServiceAsync(context, "Gói Chăm Sóc Bầu Giảm Nhức Mỏi", "Gói 6 buổi massage giảm nhức mỏi và theo dõi sức khỏe mẹ sau sinh.", "goi-dich-vu", 2_500_000m, 60, "active", "package", 6, "postpartum-massage,mother-health-monitoring", GeneratePackageScheduleJson(6, "postpartum-massage,mother-health-monitoring"));
@@ -110,6 +111,7 @@ public static class MomCareSeedData
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, massage.Id, 700_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, nutrition.Id, 580_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, emergencyConsultation.Id, 320_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, miniConsultation.Id, 29_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgThongTuyenSua.Id, 2_500_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgGiamNhucMoi.Id, 2_700_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgPhucHoi.Id, 9_200_000m, "fixed", "enabled");
@@ -120,6 +122,7 @@ public static class MomCareSeedData
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, babyBath.Id, 350_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, mentalWellness.Id, 520_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, houseSupport.Id, 420_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, miniConsultation.Id, 29_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgMassageTamBe.Id, 3_400_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgTreSoSinh.Id, 8_500_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgVipSauSinh.Id, 17_000_000m, "fixed", "enabled");

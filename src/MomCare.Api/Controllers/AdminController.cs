@@ -95,4 +95,42 @@ public class AdminController : ControllerBase
         var result = await _adminService.GetDisputesAsync(status);
         return Ok(result);
     }
+
+    [HttpGet("refunds")]
+    public async Task<IActionResult> GetRefunds([FromQuery] string? refundStatus)
+    {
+        var result = await _adminService.GetRefundsAsync(refundStatus);
+        return Ok(result);
+    }
+
+    [HttpPost("refunds/{bookingId:int}/complete")]
+    public async Task<IActionResult> CompleteRefund(int bookingId, [FromBody] CompleteRefundDto dto)
+    {
+        var result = await _adminService.CompleteRefundAsync(bookingId, dto);
+        if (!result)
+        {
+            return BadRequest(new { message = "Unable to complete refund" });
+        }
+
+        return Ok(new { message = "Refund marked as completed" });
+    }
+
+    [HttpGet("payouts")]
+    public async Task<IActionResult> GetPayouts([FromQuery] string? payoutStatus)
+    {
+        var result = await _adminService.GetPayoutsAsync(payoutStatus);
+        return Ok(result);
+    }
+
+    [HttpPost("payouts/{payoutId:int}/complete")]
+    public async Task<IActionResult> CompletePayout(int payoutId, [FromBody] CompletePayoutDto dto)
+    {
+        var result = await _adminService.CompletePayoutAsync(payoutId, dto);
+        if (!result)
+        {
+            return BadRequest(new { message = "Unable to complete payout" });
+        }
+
+        return Ok(new { message = "Payout marked as completed" });
+    }
 }

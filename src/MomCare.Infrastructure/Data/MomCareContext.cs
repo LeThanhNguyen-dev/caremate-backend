@@ -64,6 +64,9 @@ public class MomCareContext : IdentityDbContext<
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.FullName).HasColumnName("full_name");
             entity.Property(e => e.Avatar).HasColumnName("avatar");
+            entity.Property(e => e.BankBin).HasColumnName("bank_bin").HasMaxLength(20);
+            entity.Property(e => e.BankAccountNumber).HasColumnName("bank_account_number").HasMaxLength(50);
+            entity.Property(e => e.BankAccountName).HasColumnName("bank_account_name").HasMaxLength(255);
             entity.Property(e => e.Status).HasColumnName("status").HasDefaultValue("active");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("SYSUTCDATETIME()");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("SYSUTCDATETIME()");

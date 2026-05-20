@@ -13,4 +13,8 @@ public interface IAdminService
     Task<AdminDashboardDto> GetDashboardAsync();
     Task<IEnumerable<AdminBookingSummaryDto>> GetBookingsAsync(string? status);
     Task<IEnumerable<DisputeDto>> GetDisputesAsync(string? status);
+    Task<IEnumerable<AdminRefundDto>> GetRefundsAsync(string? refundStatus);
+    Task<bool> CompleteRefundAsync(int bookingId, CompleteRefundDto dto);
+    Task<IEnumerable<AdminPayoutDto>> GetPayoutsAsync(string? payoutStatus);
+    Task<bool> CompletePayoutAsync(int payoutId, CompletePayoutDto dto);
 }

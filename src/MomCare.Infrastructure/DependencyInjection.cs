@@ -38,7 +38,7 @@ public static class DependencyInjection
         services.AddHttpClient<IOpenAiHealthAnalysisService, OpenAiHealthAnalysisService>();
 
         services.AddDbContext<MomCareContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddIdentityCore<MomCare.Models.ApplicationUser>(options =>
         {

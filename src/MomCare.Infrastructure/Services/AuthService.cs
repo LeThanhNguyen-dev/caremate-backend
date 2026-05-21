@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using MomCare.Data;
@@ -7,6 +6,7 @@ using MomCare.Dto;
 using MomCare.Enums;
 using MomCare.Interfaces;
 using MomCare.Models;
+using Npgsql;
 
 namespace MomCare.Services;
 
@@ -599,6 +599,6 @@ public class AuthService : IAuthService
 
     private static bool IsUniqueConstraintViolation(DbUpdateException ex)
     {
-        return ex.InnerException is SqlException sqlEx && (sqlEx.Number == 2601 || sqlEx.Number == 2627);
+        return ex.InnerException is PostgresException postgresEx && postgresEx.SqlState == PostgresErrorCodes.UniqueViolation;
     }
 }

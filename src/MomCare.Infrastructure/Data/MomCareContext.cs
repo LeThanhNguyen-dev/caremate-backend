@@ -71,8 +71,8 @@ public class MomCareContext : IdentityDbContext<
             entity.Property(e => e.BankAccountNumber).HasColumnName("bank_account_number").HasMaxLength(50);
             entity.Property(e => e.BankAccountName).HasColumnName("bank_account_name").HasMaxLength(255);
             entity.Property(e => e.Status).HasColumnName("status").HasDefaultValue("active");
-            entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("SYSUTCDATETIME()");
-            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("SYSUTCDATETIME()");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now() AT TIME ZONE 'utc'");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now() AT TIME ZONE 'utc'");
 
             entity.Property(e => e.UserName).HasColumnName("user_name").HasMaxLength(256);
             entity.Property(e => e.NormalizedUserName).HasColumnName("normalized_user_name").HasMaxLength(256);
@@ -91,8 +91,8 @@ public class MomCareContext : IdentityDbContext<
 
             entity.HasIndex(e => e.NormalizedUserName).IsUnique();
             entity.HasIndex(e => e.NormalizedEmail);
-            entity.HasIndex(e => e.PhoneNumber).IsUnique().HasFilter("[phone] IS NOT NULL");
-            entity.HasIndex(e => e.Email).IsUnique().HasFilter("[email] IS NOT NULL");
+            entity.HasIndex(e => e.PhoneNumber).IsUnique().HasFilter("\"phone\" IS NOT NULL");
+            entity.HasIndex(e => e.Email).IsUnique().HasFilter("\"email\" IS NOT NULL");
         });
 
         modelBuilder.Entity<ApplicationRole>(entity =>
@@ -274,7 +274,7 @@ public class MomCareContext : IdentityDbContext<
 
         modelBuilder.Entity<Review>(entity =>
         {
-            entity.ToTable(t => t.HasCheckConstraint("CK_reviews_rating", "[rating] >= 1 AND [rating] <= 5"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_reviews_rating", "\"rating\" >= 1 AND \"rating\" <= 5"));
             entity.HasIndex(r => new { r.NurseId, r.CreatedAt });
         });
 

@@ -48,6 +48,9 @@ public class MomCareContext : IdentityDbContext<
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<CommunityPost> CommunityPosts => Set<CommunityPost>();
+    public DbSet<CommunityComment> CommunityComments => Set<CommunityComment>();
+    public DbSet<CommunityPostLike> CommunityPostLikes => Set<CommunityPostLike>();
 
 
     // Auth - Refresh Tokens
@@ -298,6 +301,47 @@ public class MomCareContext : IdentityDbContext<
         modelBuilder.Entity<ChatMessage>(entity =>
         {
             entity.HasIndex(c => new { c.ConversationId, c.CreatedAt });
+        });
+
+        modelBuilder.Entity<CommunityPost>(entity =>
+        {
+            entity.HasOne(p => p.Author)
+                .WithMany()
+                .HasForeignKey(p => p.AuthorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(p => new { p.IsDeleted, p.CreatedAt });
+            entity.HasIndex(p => p.AuthorId);
+        });
+
+        modelBuilder.Entity<CommunityComment>(entity =>
+        {
+            entity.HasOne(c => c.Post)
+                .WithMany(p => p.Comments)
+                .HasForeignKey(c => c.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(c => c.Author)
+                .WithMany()
+                .HasForeignKey(c => c.AuthorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(c => new { c.PostId, c.CreatedAt });
+        });
+
+        modelBuilder.Entity<CommunityPostLike>(entity =>
+        {
+            entity.HasOne(l => l.Post)
+                .WithMany(p => p.Likes)
+                .HasForeignKey(l => l.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(l => l.User)
+                .WithMany()
+                .HasForeignKey(l => l.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(l => new { l.PostId, l.UserId }).IsUnique();
         });
 
         modelBuilder.Entity<PackageSessionLog>(entity =>

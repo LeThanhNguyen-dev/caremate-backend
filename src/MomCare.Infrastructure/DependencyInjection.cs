@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IReviewService, ReviewService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IChatService, ChatService>();
+        services.AddScoped<ICommunityService, CommunityService>();
         services.AddScoped<IDisputeService, DisputeService>();
         services.AddScoped<INurseServiceManagementService, NurseServiceManagementService>();
         services.AddScoped<ICloudinaryService, CloudinaryService>();

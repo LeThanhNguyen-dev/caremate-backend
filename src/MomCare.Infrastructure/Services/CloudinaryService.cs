@@ -61,6 +61,43 @@ public class CloudinaryService : ICloudinaryService
         };
     }
 
+    public async Task<CloudinaryUploadResultDto> UploadPublicAsync(IFormFile file, string folder)
+    {
+        ValidateFile(file);
+
+        await using var stream = file.OpenReadStream();
+
+        var uploadParams = new ImageUploadParams
+        {
+            File = new FileDescription(file.FileName, stream),
+            Folder = folder,
+            Type = "upload",
+            Overwrite = false,
+            UniqueFilename = true
+        };
+
+        ImageUploadResult result;
+        try
+        {
+            result = await _cloudinary.UploadAsync(uploadParams);
+        }
+        catch (TaskCanceledException ex)
+        {
+            throw new InvalidOperationException("Tải ảnh lên Cloudinary quá lâu. Vui lòng thử lại hoặc chọn ảnh nhẹ hơn.", ex);
+        }
+
+        if (result.Error != null)
+        {
+            throw new InvalidOperationException($"Cloudinary upload failed: {result.Error.Message}");
+        }
+
+        return new CloudinaryUploadResultDto
+        {
+            Url = result.SecureUrl?.ToString() ?? result.Url.ToString(),
+            PublicId = result.PublicId
+        };
+    }
+
     public async Task<bool> DeleteAsync(string publicId)
     {
         var deleteParams = new DeletionParams(publicId)

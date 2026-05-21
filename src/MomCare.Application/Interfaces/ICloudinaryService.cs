@@ -14,6 +14,11 @@ public interface ICloudinaryService
     Task<CloudinaryUploadResultDto> UploadPrivateAsync(IFormFile file, string folder);
 
     /// <summary>
+    /// Upload an image to Cloudinary with public access.
+    /// </summary>
+    Task<CloudinaryUploadResultDto> UploadPublicAsync(IFormFile file, string folder);
+
+    /// <summary>
     /// Delete an image from Cloudinary by its public ID.
     /// </summary>
     Task<bool> DeleteAsync(string publicId);

@@ -19,8 +19,26 @@ public class AiHealthAnalysis
     [Column("warning_level")]
     public required string WarningLevel { get; set; }
 
+    [Column("risk_score")]
+    public int RiskScore { get; set; }
+
+    [Column("confidence_score")]
+    public int ConfidenceScore { get; set; }
+
+    [Column("trend_summary")]
+    public string TrendSummary { get; set; } = string.Empty;
+
+    [Column("risk_factors_json")]
+    public string RiskFactorsJson { get; set; } = "[]";
+
+    [Column("trend_signals_json")]
+    public string TrendSignalsJson { get; set; } = "[]";
+
     [Column("recommendations_json")]
     public required string RecommendationsJson { get; set; }
+
+    [Column("care_plan_json")]
+    public string CarePlanJson { get; set; } = "[]";
 
     [Column("suggested_services_json")]
     public required string SuggestedServicesJson { get; set; }

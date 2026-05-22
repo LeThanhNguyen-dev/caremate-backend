@@ -187,9 +187,18 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<int>("ConfidenceScore")
+                        .HasColumnType("integer")
+                        .HasColumnName("confidence_score");
+
                     b.Property<Guid>("HealthCheckInId")
                         .HasColumnType("uuid")
                         .HasColumnName("health_checkin_id");
+
+                    b.Property<string>("CarePlanJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("care_plan_json");
 
                     b.Property<string>("RawAiResponse")
                         .HasColumnType("text")
@@ -200,6 +209,15 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("text")
                         .HasColumnName("recommendations_json");
 
+                    b.Property<string>("RiskFactorsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("risk_factors_json");
+
+                    b.Property<int>("RiskScore")
+                        .HasColumnType("integer")
+                        .HasColumnName("risk_score");
+
                     b.Property<string>("SuggestedServicesJson")
                         .IsRequired()
                         .HasColumnType("text")
@@ -209,6 +227,16 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("summary");
+
+                    b.Property<string>("TrendSummary")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("trend_summary");
+
+                    b.Property<string>("TrendSignalsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("trend_signals_json");
 
                     b.Property<string>("WarningLevel")
                         .IsRequired()

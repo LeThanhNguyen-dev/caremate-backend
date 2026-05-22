@@ -8,5 +8,6 @@ public interface IOpenAiHealthAnalysisService
     Task<HealthAnalysisResult> AnalyzeAsync(
         HealthCheckIn currentCheckIn,
         List<HealthCheckIn> recentHistory,
+        IReadOnlyList<SuggestedServiceDto> availableServices,
         CancellationToken cancellationToken);
 }

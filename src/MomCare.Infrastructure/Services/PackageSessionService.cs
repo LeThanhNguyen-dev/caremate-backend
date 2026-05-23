@@ -3,6 +3,7 @@ using MomCare.Data;
 using MomCare.Dto;
 using MomCare.Enums;
 using MomCare.Interfaces;
+using MomCare.Models;
 
 namespace MomCare.Services;
 
@@ -10,6 +11,7 @@ public class PackageSessionService : IPackageSessionService
 {
     private readonly MomCareContext _context;
     private readonly INotificationService _notificationService;
+    private const decimal PlatformFeeRate = 0.15m;
 
     public PackageSessionService(MomCareContext context, INotificationService notificationService)
     {
@@ -155,6 +157,8 @@ public class PackageSessionService : IPackageSessionService
                 CreatedAt = DateTime.UtcNow
             });
 
+            await EnsurePayoutForCompletedBookingAsync(booking);
+
             await _notificationService.CreateAsync(booking.CustomerId, "Gói dịch vụ đã hoàn thành",
                 $"Gói \"{booking.Service.Name}\" đã hoàn thành toàn bộ {booking.SessionLogs.Count} buổi. Cảm ơn bạn đã sử dụng dịch vụ!");
         }
@@ -168,6 +172,23 @@ public class PackageSessionService : IPackageSessionService
             $"Buổi {session.SessionNumber}/{total} đã hoàn tất. Tiến độ: {completed}/{total}.");
 
         return ServiceResult<PackageSessionDto>.Ok(MapToDto(session));
+    }
+
+    private async Task EnsurePayoutForCompletedBookingAsync(Booking booking)
+    {
+        var exists = await _context.Payouts.AnyAsync(p => p.BookingId == booking.Id);
+        if (exists) return;
+
+        var platformFee = decimal.Round(booking.TotalPrice * PlatformFeeRate, 0, MidpointRounding.AwayFromZero);
+        _context.Payouts.Add(new Payout
+        {
+            BookingId = booking.Id,
+            NurseId = booking.NurseId,
+            Amount = booking.TotalPrice - platformFee,
+            PlatformFee = platformFee,
+            Status = "on_hold",
+            CreatedAt = DateTime.UtcNow
+        });
     }
 
     private static PackageSessionDto MapToDto(Models.PackageSessionLog session)

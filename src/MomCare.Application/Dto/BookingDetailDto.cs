@@ -12,6 +12,8 @@ public class BookingDetailDto
     public string? NurseName { get; set; }
     public string Status { get; set; } = string.Empty;
     public decimal TotalPrice { get; set; }
+    public decimal PlatformFee { get; set; }
+    public decimal NursePayoutAmount { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public string Address { get; set; } = string.Empty;

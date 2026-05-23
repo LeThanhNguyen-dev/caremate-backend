@@ -7,6 +7,7 @@ public class AdminPayoutDto
     public int NurseId { get; set; }
     public string NurseName { get; set; } = string.Empty;
     public string ServiceName { get; set; } = string.Empty;
+    public decimal GrossAmount { get; set; }
     public decimal Amount { get; set; }
     public decimal PlatformFee { get; set; }
     public string Status { get; set; } = string.Empty;

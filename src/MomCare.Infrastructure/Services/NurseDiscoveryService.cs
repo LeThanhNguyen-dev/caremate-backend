@@ -122,6 +122,7 @@ public class NurseDiscoveryService : INurseDiscoveryService
                 CustomerAvatar = r.Customer.Avatar,
                 ServiceId = r.Booking.ServiceId,
                 ServiceName = r.Booking.Service.Name,
+                ServiceCategory = r.Booking.Service.Category,
                 Rating = r.Rating,
                 Comment = r.Comment,
                 CreatedAt = r.CreatedAt

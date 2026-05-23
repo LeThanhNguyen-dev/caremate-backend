@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MomCare.Dto;
 using MomCare.Enums;
@@ -40,6 +41,29 @@ public class NurseController : ControllerBase
         if (!result) return BadRequest(new { message = "Update failed" });
 
         return Ok(new { message = "Profile updated successfully" });
+    }
+
+    [HttpPost("profile/avatar")]
+    [EnableRateLimiting("upload")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file)
+    {
+        try
+        {
+            var userId = GetUserId();
+            var avatarUrl = await _nurseService.UploadAvatarAsync(userId, file);
+            if (avatarUrl == null) return BadRequest(new { message = "Avatar upload failed." });
+
+            return Ok(new { avatar = avatarUrl });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>

@@ -12,6 +12,7 @@ public class ReviewDetailDto
     public string? CustomerAvatar { get; set; }
     public int ServiceId { get; set; }
     public string ServiceName { get; set; } = string.Empty;
+    public string? ServiceCategory { get; set; }
     public int Rating { get; set; }
     public string? Comment { get; set; }
     public DateTime CreatedAt { get; set; }

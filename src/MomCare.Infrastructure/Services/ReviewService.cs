@@ -71,6 +71,7 @@ public class ReviewService : IReviewService
             CustomerAvatar = customer?.Avatar,
             ServiceId = booking.ServiceId,
             ServiceName = booking.Service.Name,
+            ServiceCategory = booking.Service.Category,
             Rating = review.Rating,
             Comment = review.Comment,
             CreatedAt = review.CreatedAt
@@ -133,6 +134,7 @@ public class ReviewService : IReviewService
                 CustomerAvatar = r.Customer.Avatar,
                 ServiceId = r.Booking.ServiceId,
                 ServiceName = r.Booking.Service.Name,
+                ServiceCategory = r.Booking.Service.Category,
                 Rating = r.Rating,
                 Comment = r.Comment,
                 CreatedAt = r.CreatedAt

@@ -14,6 +14,14 @@ public class AdminService : IAdminService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly ICloudinaryService _cloudinaryService;
+    private const decimal PlatformFeeRate = 0.15m;
+
+    private static readonly string[] RequiredDocumentTypes =
+    [
+        DocumentTypes.IdCardFront,
+        DocumentTypes.IdCardBack,
+        DocumentTypes.Certificate
+    ];
 
     public AdminService(
         MomCareContext context,
@@ -307,6 +315,24 @@ public class AdminService : IAdminService
 
         if (profile == null) return false;
 
+        if (profile.VerificationSubmissionStatus != "submitted")
+        {
+            throw new ArgumentException("Only submitted nurse profiles can be reviewed.");
+        }
+
+        var submittedDocumentTypes = profile.Documents
+            .Select(d => d.Type)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var missingDocumentTypes = RequiredDocumentTypes
+            .Where(requiredType => !submittedDocumentTypes.Contains(requiredType))
+            .ToList();
+
+        if (missingDocumentTypes.Count > 0)
+        {
+            throw new ArgumentException($"Verification dossier is incomplete. Missing: {string.Join(", ", missingDocumentTypes)}.");
+        }
+
         if (reviewDto.IsApproved)
         {
             await EnsureRoleExistsAsync(AppRoles.NurseConfirmed, "Nurse (Confirmed)");
@@ -383,7 +409,11 @@ public class AdminService : IAdminService
     {
         var totalUsers = await _userManager.Users.CountAsync();
         var totalNurses = await _context.NurseProfiles.CountAsync();
-        var pendingApprovals = (await _userManager.GetUsersInRoleAsync(AppRoles.NurseUnconfirmed)).Count;
+        var nurseUnconfirmedUsers = await _userManager.GetUsersInRoleAsync(AppRoles.NurseUnconfirmed);
+        var nurseUnconfirmedUserIds = nurseUnconfirmedUsers.Select(u => u.Id).ToList();
+        var pendingApprovals = await _context.NurseProfiles.CountAsync(np =>
+            nurseUnconfirmedUserIds.Contains(np.UserId) &&
+            np.VerificationSubmissionStatus == "submitted");
         var openDisputes = await _context.Disputes.CountAsync(d => d.Status == "open");
         var pendingBookings = await _context.Bookings.CountAsync(b => b.Status == "pending_confirm");
 
@@ -423,6 +453,8 @@ public class AdminService : IAdminService
                 ServiceName = b.Service.Name,
                 Status = b.Status,
                 TotalPrice = b.TotalPrice,
+                PlatformFee = CalculatePlatformFee(b.TotalPrice),
+                NursePayoutAmount = CalculateNursePayoutAmount(b.TotalPrice),
                 StartTime = b.StartTime,
                 EndTime = b.EndTime
             })
@@ -543,6 +575,8 @@ public class AdminService : IAdminService
 
     public async Task<IEnumerable<AdminPayoutDto>> GetPayoutsAsync(string? payoutStatus)
     {
+        await EnsurePayoutsForCompletedBookingsAsync();
+
         var query = _context.Payouts
             .Include(p => p.Nurse)
             .Include(p => p.Booking)
@@ -564,15 +598,43 @@ public class AdminService : IAdminService
                 NurseId = p.NurseId,
                 NurseName = p.Nurse.FullName,
                 ServiceName = p.Booking.Service.Name,
-                Amount = p.Amount,
-                PlatformFee = p.PlatformFee,
+                GrossAmount = p.Booking.TotalPrice,
+                Amount = CalculateNursePayoutAmount(p.Booking.TotalPrice),
+                PlatformFee = CalculatePlatformFee(p.Booking.TotalPrice),
                 Status = p.Status,
                 NurseBankBin = p.Nurse.BankBin,
                 NurseBankAccountNumber = p.Nurse.BankAccountNumber,
                 NurseBankAccountName = p.Nurse.BankAccountName,
-                NurseQrUrl = BuildVietQrUrl(p.Nurse.BankBin, p.Nurse.BankAccountNumber, p.Amount, p.BookingId)
+                NurseQrUrl = BuildVietQrUrl(p.Nurse.BankBin, p.Nurse.BankAccountNumber, CalculateNursePayoutAmount(p.Booking.TotalPrice), p.BookingId)
             })
             .ToListAsync();
+    }
+
+    private async Task EnsurePayoutsForCompletedBookingsAsync()
+    {
+        var completedBookings = await _context.Bookings
+            .Where(b => b.Status == BookingStatuses.Completed)
+            .Where(b => !_context.Payouts.Any(p => p.BookingId == b.Id))
+            .Select(b => new { b.Id, b.NurseId, b.TotalPrice })
+            .ToListAsync();
+
+        if (completedBookings.Count == 0) return;
+
+        foreach (var booking in completedBookings)
+        {
+            var platformFee = CalculatePlatformFee(booking.TotalPrice);
+            _context.Payouts.Add(new Payout
+            {
+                BookingId = booking.Id,
+                NurseId = booking.NurseId,
+                Amount = booking.TotalPrice - platformFee,
+                PlatformFee = platformFee,
+                Status = "on_hold",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        await _context.SaveChangesAsync();
     }
 
     public async Task<bool> CompletePayoutAsync(int payoutId, CompletePayoutDto dto)
@@ -598,6 +660,16 @@ public class AdminService : IAdminService
 
         var formattedAmount = amount.HasValue ? decimal.Truncate(amount.Value).ToString() : "0";
         return $"https://img.vietqr.io/image/{bankBin}-{accountNumber}-compact2.jpg?amount={formattedAmount}&addInfo=Refund%20booking%20{bookingId}&accountName=";
+    }
+
+    private static decimal CalculatePlatformFee(decimal totalPrice)
+    {
+        return decimal.Round(totalPrice * PlatformFeeRate, 0, MidpointRounding.AwayFromZero);
+    }
+
+    private static decimal CalculateNursePayoutAmount(decimal totalPrice)
+    {
+        return totalPrice - CalculatePlatformFee(totalPrice);
     }
 
     private static int GetRolePriority(string? roleCode) => roleCode switch

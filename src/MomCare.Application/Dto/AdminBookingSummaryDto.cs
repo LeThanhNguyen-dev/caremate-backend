@@ -10,6 +10,8 @@ public class AdminBookingSummaryDto
     public string ServiceName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public decimal TotalPrice { get; set; }
+    public decimal PlatformFee { get; set; }
+    public decimal NursePayoutAmount { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
 }

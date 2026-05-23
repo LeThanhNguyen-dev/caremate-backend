@@ -10,6 +10,7 @@ namespace MomCare.Services;
 public class AvailabilityService : IAvailabilityService
 {
     private readonly MomCareContext _context;
+    private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
 
     public AvailabilityService(MomCareContext context)
     {
@@ -18,6 +19,9 @@ public class AvailabilityService : IAvailabilityService
 
     public async Task<IEnumerable<AvailabilitySlotDto>> GetNurseSlotsAsync(int nurseUserId, DateTime? from, DateTime? to)
     {
+        from = NormalizeOptionalDateTime(from);
+        to = NormalizeOptionalDateTime(to);
+
         var nurseProfile = await _context.NurseProfiles.FirstOrDefaultAsync(n => n.UserId == nurseUserId);
         if (nurseProfile == null) return [];
 
@@ -71,6 +75,9 @@ public class AvailabilityService : IAvailabilityService
 
     public async Task<IEnumerable<AvailabilitySlotDto>> GetMySlotsAsync(int nurseUserId, DateTime? from, DateTime? to)
     {
+        from = NormalizeOptionalDateTime(from);
+        to = NormalizeOptionalDateTime(to);
+
         var nurseProfile = await _context.NurseProfiles.FirstOrDefaultAsync(n => n.UserId == nurseUserId);
         if (nurseProfile == null) return [];
 
@@ -120,7 +127,10 @@ public class AvailabilityService : IAvailabilityService
 
     public async Task<AvailabilitySlotDto?> CreateSlotAsync(int nurseUserId, CreateAvailabilitySlotDto dto)
     {
-        if (dto.EndTime <= dto.StartTime) return null;
+        var startTime = NormalizeDateTime(dto.StartTime);
+        var endTime = NormalizeDateTime(dto.EndTime);
+
+        if (endTime <= startTime) return null;
 
         var nurseProfile = await _context.NurseProfiles.FirstOrDefaultAsync(n => n.UserId == nurseUserId);
         if (nurseProfile == null) return null;
@@ -128,16 +138,16 @@ public class AvailabilityService : IAvailabilityService
         // Check for overlapping slots
         var overlapExists = await _context.AvailabilitySlots.AnyAsync(s =>
             s.NurseProfileId == nurseProfile.Id &&
-            dto.StartTime < s.EndTime &&
-            dto.EndTime > s.StartTime);
+            startTime < s.EndTime &&
+            endTime > s.StartTime);
 
         if (overlapExists) return null;
 
         var slot = new AvailabilitySlot
         {
             NurseProfileId = nurseProfile.Id,
-            StartTime = dto.StartTime,
-            EndTime = dto.EndTime
+            StartTime = startTime,
+            EndTime = endTime
         };
 
         _context.AvailabilitySlots.Add(slot);
@@ -173,5 +183,36 @@ public class AvailabilityService : IAvailabilityService
 
         _context.AvailabilitySlots.Remove(slot);
         return await _context.SaveChangesAsync() > 0;
+    }
+
+    private static DateTime? NormalizeOptionalDateTime(DateTime? value)
+    {
+        return value.HasValue ? NormalizeDateTime(value.Value) : null;
+    }
+
+    private static DateTime NormalizeDateTime(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => TimeZoneInfo.ConvertTimeToUtc(value, VietnamTimeZone)
+        };
+    }
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
     }
 }

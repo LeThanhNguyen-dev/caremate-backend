@@ -19,6 +19,7 @@ public class PaymentService : IPaymentService
     private readonly INotificationService _notificationService;
     private readonly PayOSConfig _payOSOptions;
     private readonly PayOSClient? _payOSClient;
+    private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
 
     public PaymentService(
         MomCareContext context,
@@ -299,12 +300,15 @@ public class PaymentService : IPaymentService
             return nurseService.Price;
         }
 
-        if (!dto.AvailabilitySlotId.HasValue || !dto.EndTime.HasValue)
+        if (!dto.AvailabilitySlotId.HasValue)
         {
-            throw new InvalidOperationException("Single service requires slot and end time.");
+            throw new InvalidOperationException("Single service requires slot.");
         }
 
-        if (dto.EndTime.Value <= dto.StartTime)
+        var requestedStartTime = NormalizeDateTime(dto.StartTime);
+        var requestedEndTime = requestedStartTime.AddMinutes(Math.Max(service.EstimatedDurationMinutes, 1));
+
+        if (requestedEndTime <= requestedStartTime)
         {
             throw new InvalidOperationException("End time must be after start time.");
         }
@@ -313,14 +317,40 @@ public class PaymentService : IPaymentService
             .FirstOrDefault(a => a.Id == dto.AvailabilitySlotId.Value && a.NurseProfileId == nurseProfileId)
             ?? throw new InvalidOperationException("Availability slot does not exist.");
 
-        if (dto.StartTime < slot.StartTime || dto.EndTime.Value > slot.EndTime)
+        if (requestedStartTime < slot.StartTime || requestedEndTime > slot.EndTime)
         {
             throw new InvalidOperationException("Selected time is outside nurse availability.");
         }
 
         return nurseService.Unit == "hourly"
-            ? nurseService.Price * (decimal)(dto.EndTime.Value - dto.StartTime).TotalHours
+            ? nurseService.Price * (decimal)(requestedEndTime - requestedStartTime).TotalHours
             : nurseService.Price;
+    }
+
+    private static DateTime NormalizeDateTime(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => TimeZoneInfo.ConvertTimeToUtc(value, VietnamTimeZone)
+        };
+    }
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
     }
 
     private static Webhook MapWebhook(PayOSWebhookDto source) => new()

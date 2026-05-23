@@ -16,6 +16,8 @@ public class BookingService : IBookingService
     private readonly INotificationService _notificationService;
     private readonly IRealtimeNotifier _realtimeNotifier;
     private const int MaxRetryCount = 3;
+    private const decimal PlatformFeeRate = 0.15m;
+    private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
 
     public BookingService(
         MomCareContext context,
@@ -72,10 +74,10 @@ public class BookingService : IBookingService
         if (!dto.AvailabilitySlotId.HasValue)
             return ServiceResult<BookingDetailDto>.Fail("Dịch vụ lẻ yêu cầu chọn khung giờ (AvailabilitySlotId).");
 
-        if (!dto.EndTime.HasValue)
-            return ServiceResult<BookingDetailDto>.Fail("Dịch vụ lẻ yêu cầu có thời gian kết thúc (EndTime).");
+        var requestedStartTime = NormalizeDateTime(dto.StartTime);
+        var requestedEndTime = requestedStartTime.AddMinutes(Math.Max(service.EstimatedDurationMinutes, 1));
 
-        if (dto.EndTime.Value <= dto.StartTime)
+        if (requestedEndTime <= requestedStartTime)
             return ServiceResult<BookingDetailDto>.Fail("Thời gian kết thúc phải sau thời gian bắt đầu.");
 
         var strategy = _context.Database.CreateExecutionStrategy();
@@ -93,36 +95,27 @@ public class BookingService : IBookingService
                     return ServiceResult<BookingDetailDto>.Fail("Khung giờ không tồn tại cho nurse này.");
 
                 // 2. Verify requested time is WITHIN the slot
-                if (dto.StartTime < slot.StartTime || dto.EndTime.Value > slot.EndTime)
+                if (requestedStartTime < slot.StartTime || requestedEndTime > slot.EndTime)
                     return ServiceResult<BookingDetailDto>.Fail("Thời gian đặt lịch nằm ngoài khung giờ trống của nurse.");
 
-                // 3. Verify NO EXISTING BOOKING for this slot (one booking per slot)
-                var slotIsTaken = await _context.Bookings.AnyAsync(b =>
-                    b.AvailabilitySlotId == dto.AvailabilitySlotId.Value &&
-                    b.Status != BookingStatuses.Cancelled &&
-                    b.Status != BookingStatuses.Rejected);
-
-                if (slotIsTaken)
-                    return ServiceResult<BookingDetailDto>.Fail("Khung giờ đã được đặt, vui lòng chọn khung giờ khác.");
-
-                // 4. Overlap validation
+                // 3. Overlap validation
                 var overlap = await _context.Bookings.AnyAsync(b =>
                     b.NurseId == dto.NurseId &&
                     b.Status != BookingStatuses.Cancelled &&
                     b.Status != BookingStatuses.Rejected &&
                     b.Service.ServiceKind != "package" &&
-                    dto.StartTime < b.EndTime &&
-                    dto.EndTime.Value > b.StartTime);
+                    requestedStartTime < b.EndTime &&
+                    requestedEndTime > b.StartTime);
 
                 if (overlap)
                     return ServiceResult<BookingDetailDto>.Fail("Thời gian bị trùng với lịch hẹn khác của nurse.");
 
-                if (await HasPackageSessionOverlapAsync(dto.NurseId, dto.StartTime, dto.EndTime.Value))
+                if (await HasPackageSessionOverlapAsync(dto.NurseId, requestedStartTime, requestedEndTime))
                     return ServiceResult<BookingDetailDto>.Fail("Thời gian bị trùng với buổi chăm sóc trong gói dịch vụ khác của nurse.");
 
                 // Calculate price
                 var totalPrice = nurseService.Unit == "hourly"
-                    ? nurseService.Price * (decimal)(dto.EndTime.Value - dto.StartTime).TotalHours
+                    ? nurseService.Price * (decimal)(requestedEndTime - requestedStartTime).TotalHours
                     : nurseService.Price;
 
                 var booking = new Booking
@@ -135,8 +128,8 @@ public class BookingService : IBookingService
                     TotalPrice = totalPrice,
                     Address = dto.Address,
                     Notes = dto.Notes,
-                    StartTime = dto.StartTime,
-                    EndTime = dto.EndTime.Value,
+                    StartTime = requestedStartTime,
+                    EndTime = requestedEndTime,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -320,6 +313,8 @@ public class BookingService : IBookingService
                 NurseName = b.Nurse.FullName,
                 Status = b.Status,
                 TotalPrice = b.TotalPrice,
+                PlatformFee = CalculatePlatformFee(b.TotalPrice),
+                NursePayoutAmount = CalculateNursePayoutAmount(b.TotalPrice),
                 StartTime = b.StartTime,
                 EndTime = b.EndTime,
                 Address = b.Address,
@@ -355,6 +350,8 @@ public class BookingService : IBookingService
                 NurseName = b.Nurse.FullName,
                 Status = b.Status,
                 TotalPrice = b.TotalPrice,
+                PlatformFee = CalculatePlatformFee(b.TotalPrice),
+                NursePayoutAmount = CalculateNursePayoutAmount(b.TotalPrice),
                 StartTime = b.StartTime,
                 EndTime = b.EndTime,
                 Address = b.Address,
@@ -431,6 +428,11 @@ public class BookingService : IBookingService
         booking.Status = nextStatus;
         booking.UpdatedAt = DateTime.UtcNow;
 
+        if (nextStatus == BookingStatuses.Completed)
+        {
+            await EnsurePayoutForCompletedBookingAsync(booking);
+        }
+
         if (nextStatus == BookingStatuses.Rejected && booking.Payment?.Status == PaymentStatuses.Paid)
         {
             booking.Payment.RefundAmount = booking.TotalPrice;
@@ -497,6 +499,23 @@ public class BookingService : IBookingService
         }
 
         return "Bạn không có quyền thực hiện thao tác này.";
+    }
+
+    private async Task EnsurePayoutForCompletedBookingAsync(Booking booking)
+    {
+        var exists = await _context.Payouts.AnyAsync(p => p.BookingId == booking.Id);
+        if (exists) return;
+
+        var platformFee = CalculatePlatformFee(booking.TotalPrice);
+        _context.Payouts.Add(new Payout
+        {
+            BookingId = booking.Id,
+            NurseId = booking.NurseId,
+            Amount = booking.TotalPrice - platformFee,
+            PlatformFee = platformFee,
+            Status = "on_hold",
+            CreatedAt = DateTime.UtcNow
+        });
     }
 
     public async Task<ServiceResult<bool>> CancelBookingAsync(int actorUserId, bool isAdmin, int bookingId, CancelBookingDto dto)
@@ -572,6 +591,32 @@ public class BookingService : IBookingService
             .ToList();
     }
 
+    private static DateTime NormalizeDateTime(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => TimeZoneInfo.ConvertTimeToUtc(value, VietnamTimeZone)
+        };
+    }
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+    }
+
     private async Task<bool> HasPackageSessionOverlapAsync(int nurseId, DateTime start, DateTime end)
     {
         var sessions = await _context.PackageSessionLogs
@@ -596,6 +641,16 @@ public class BookingService : IBookingService
 
     private readonly record struct SessionTimeRange(DateTime Start, DateTime End);
 
+    private static decimal CalculatePlatformFee(decimal totalPrice)
+    {
+        return decimal.Round(totalPrice * PlatformFeeRate, 0, MidpointRounding.AwayFromZero);
+    }
+
+    private static decimal CalculateNursePayoutAmount(decimal totalPrice)
+    {
+        return totalPrice - CalculatePlatformFee(totalPrice);
+    }
+
     private static BookingDetailDto MapToDetailDto(Booking booking, Service service)
     {
         return new BookingDetailDto
@@ -608,6 +663,8 @@ public class BookingService : IBookingService
             ServiceKind = service.ServiceKind,
             Status = booking.Status,
             TotalPrice = booking.TotalPrice,
+            PlatformFee = CalculatePlatformFee(booking.TotalPrice),
+            NursePayoutAmount = CalculateNursePayoutAmount(booking.TotalPrice),
             StartTime = booking.StartTime,
             EndTime = booking.EndTime,
             Address = booking.Address,

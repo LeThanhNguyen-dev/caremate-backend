@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using MomCare.Data;
 using MomCare.Dto;
@@ -17,6 +18,7 @@ public class NurseService : INurseService
     private const int MaxIdCardFront = 1;
     private const int MaxIdCardBack = 1;
     private const int MaxCertificates = 4;
+    private const long MaxDocumentBytes = 5 * 1024 * 1024;
 
     public NurseService(
         MomCareContext context,
@@ -54,6 +56,7 @@ public class NurseService : INurseService
                 CustomerAvatar = r.Customer.Avatar,
                 ServiceId = r.Booking.ServiceId,
                 ServiceName = r.Booking.Service.Name,
+                ServiceCategory = r.Booking.Service.Category,
                 Rating = r.Rating,
                 Comment = r.Comment,
                 CreatedAt = r.CreatedAt
@@ -90,7 +93,7 @@ public class NurseService : INurseService
             {
                 Id = d.Id,
                 Type = d.Type,
-                FileUrl = string.Empty, // URL is now generated dynamically via dedicated endpoint
+                FileUrl = _cloudinaryService.GetSignedUrl(d.PublicId),
                 PublicId = d.PublicId,
                 Status = d.Status,
                 CreatedAt = d.CreatedAt,
@@ -107,7 +110,15 @@ public class NurseService : INurseService
         var nurse = await _userManager.FindByIdAsync(userId.ToString());
         if (nurse == null) return false;
 
+        if (!string.IsNullOrWhiteSpace(updateDto.FullName))
+        {
+            nurse.FullName = updateDto.FullName.Trim();
+        }
+
+        nurse.PhoneNumber = string.IsNullOrWhiteSpace(updateDto.PhoneNumber) ? null : updateDto.PhoneNumber.Trim();
+        nurse.Avatar = string.IsNullOrWhiteSpace(updateDto.Avatar) ? nurse.Avatar : updateDto.Avatar.Trim();
         profile.Bio = updateDto.Bio;
+        profile.Specialization = string.IsNullOrWhiteSpace(updateDto.Specialization) ? null : updateDto.Specialization.Trim();
         profile.YearsExperience = updateDto.YearsExperience;
         profile.ServiceRadiusKm = updateDto.ServiceRadiusKm;
         profile.UpdatedAt = DateTime.UtcNow;
@@ -118,6 +129,19 @@ public class NurseService : INurseService
         nurse.UpdatedAt = DateTime.UtcNow;
 
         return await _context.SaveChangesAsync() > 0;
+    }
+
+    public async Task<string?> UploadAvatarAsync(int userId, IFormFile file)
+    {
+        var nurse = await _userManager.FindByIdAsync(userId.ToString());
+        if (nurse == null) return null;
+
+        var uploadResult = await _cloudinaryService.UploadPublicAsync(file, $"caremate/nurses/{userId}/avatar");
+        nurse.Avatar = uploadResult.Url;
+        nurse.UpdatedAt = DateTime.UtcNow;
+
+        var result = await _userManager.UpdateAsync(nurse);
+        return result.Succeeded ? uploadResult.Url : null;
     }
 
     public async Task<NurseDocumentDto?> UploadDocumentAsync(int userId, UploadDocumentDto uploadDto)
@@ -134,6 +158,8 @@ public class NurseService : INurseService
 
         if (profile == null) return null;
 
+        EnsureDocumentsCanBeChanged(profile);
+        ValidateDocumentFile(uploadDto.File);
         ValidateDocumentLimits(profile.Documents, normalizedType);
 
         var folder = $"caremate/nurses/{userId}/documents";
@@ -155,6 +181,7 @@ public class NurseService : INurseService
             profile.IsVerified = "unverified";
             profile.RejectionReason = null;
             profile.ConfirmedAt = null;
+            profile.VerificationSubmissionStatus = "draft";
             profile.UpdatedAt = DateTime.UtcNow;
         }
         await _context.SaveChangesAsync();
@@ -190,14 +217,40 @@ public class NurseService : INurseService
 
         if (profile == null) return Array.Empty<NurseDocumentDto>();
 
+        EnsureDocumentsCanBeChanged(profile);
+        if (IsSingleDocumentType(normalizedType) && uploadDto.Files.Count > 1)
+        {
+            throw new ArgumentException("Only 1 file is allowed for ID card front/back.");
+        }
+
         var createdDocs = new List<Document>();
         var folder = $"caremate/nurses/{userId}/documents";
 
         foreach (var file in uploadDto.Files)
         {
-            ValidateDocumentLimits(profile.Documents, normalizedType);
+            ValidateDocumentFile(file);
 
             var uploadResult = await _cloudinaryService.UploadPrivateAsync(file, folder);
+            var existingSingleDoc = IsSingleDocumentType(normalizedType)
+                ? profile.Documents.FirstOrDefault(d => d.Type.Equals(normalizedType, StringComparison.OrdinalIgnoreCase))
+                : null;
+
+            if (existingSingleDoc != null)
+            {
+                if (!string.IsNullOrEmpty(existingSingleDoc.PublicId))
+                {
+                    await _cloudinaryService.DeleteAsync(existingSingleDoc.PublicId);
+                }
+
+                existingSingleDoc.PublicId = uploadResult.PublicId;
+                existingSingleDoc.Status = DocumentStatuses.PendingReview;
+                existingSingleDoc.UpdatedAt = DateTime.UtcNow;
+                createdDocs.Add(existingSingleDoc);
+                continue;
+            }
+
+            ValidateDocumentLimits(profile.Documents, normalizedType);
+
             var document = new Document
             {
                 NurseProfileId = profile.Id,
@@ -219,6 +272,7 @@ public class NurseService : INurseService
             profile.IsVerified = "unverified";
             profile.RejectionReason = null;
             profile.ConfirmedAt = null;
+            profile.VerificationSubmissionStatus = "draft";
             profile.UpdatedAt = DateTime.UtcNow;
         }
 
@@ -241,6 +295,16 @@ public class NurseService : INurseService
             .Include(np => np.Documents)
             .FirstOrDefaultAsync(np => np.UserId == userId);
         if (profile == null) return false;
+
+        if (profile.IsVerified == "verified" || profile.VerificationSubmissionStatus == "approved")
+        {
+            throw new ArgumentException("This profile has already been verified.");
+        }
+
+        if (profile.VerificationSubmissionStatus == "submitted")
+        {
+            throw new ArgumentException("This verification dossier has already been submitted and is waiting for review.");
+        }
 
         var hasFront = profile.Documents.Any(d => d.Type == DocumentTypes.IdCardFront);
         var hasBack = profile.Documents.Any(d => d.Type == DocumentTypes.IdCardBack);
@@ -280,6 +344,9 @@ public class NurseService : INurseService
 
         if (existingDoc == null) return null;
 
+        EnsureDocumentsCanBeChanged(profile);
+        ValidateDocumentFile(uploadDto.File);
+
         if (!string.IsNullOrEmpty(existingDoc.PublicId))
         {
             await _cloudinaryService.DeleteAsync(existingDoc.PublicId);
@@ -297,6 +364,7 @@ public class NurseService : INurseService
             profile.IsVerified = "unverified";
             profile.RejectionReason = null;
             profile.ConfirmedAt = null;
+            profile.VerificationSubmissionStatus = "draft";
             profile.UpdatedAt = DateTime.UtcNow;
         }
 
@@ -323,6 +391,8 @@ public class NurseService : INurseService
             .FirstOrDefaultAsync(d => d.Id == documentId && d.NurseProfileId == profile.Id);
 
         if (document == null) return false;
+
+        EnsureDocumentsCanBeChanged(profile);
 
         if (!string.IsNullOrEmpty(document.PublicId))
         {
@@ -361,6 +431,44 @@ public class NurseService : INurseService
             case DocumentTypes.Certificate when count >= MaxCertificates:
                 throw new ArgumentException($"Maximum {MaxCertificates} certificate images allowed.");
         }
+    }
+
+    private static void EnsureDocumentsCanBeChanged(NurseProfile profile)
+    {
+        if (profile.VerificationSubmissionStatus == "submitted")
+        {
+            throw new ArgumentException("This verification dossier is already submitted. Please wait for admin review before changing documents.");
+        }
+
+        if (profile.IsVerified == "verified" || profile.VerificationSubmissionStatus == "approved")
+        {
+            throw new ArgumentException("Verified documents cannot be changed from this flow.");
+        }
+    }
+
+    private static void ValidateDocumentFile(IFormFile file)
+    {
+        if (file.Length <= 0)
+        {
+            throw new ArgumentException("Uploaded file is empty.");
+        }
+
+        if (file.Length > MaxDocumentBytes)
+        {
+            throw new ArgumentException("Each document must be 5MB or smaller.");
+        }
+
+        var contentType = file.ContentType.Trim().ToLowerInvariant();
+        if (contentType is not ("image/jpeg" or "image/png"))
+        {
+            throw new ArgumentException("Only JPG and PNG documents are supported.");
+        }
+    }
+
+    private static bool IsSingleDocumentType(string type)
+    {
+        return type.Equals(DocumentTypes.IdCardFront, StringComparison.OrdinalIgnoreCase)
+            || type.Equals(DocumentTypes.IdCardBack, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeIncomingDocumentType(string type)

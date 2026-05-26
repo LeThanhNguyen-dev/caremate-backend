@@ -51,6 +51,7 @@ public class MomCareContext : IdentityDbContext<
     public DbSet<CommunityPost> CommunityPosts => Set<CommunityPost>();
     public DbSet<CommunityComment> CommunityComments => Set<CommunityComment>();
     public DbSet<CommunityPostLike> CommunityPostLikes => Set<CommunityPostLike>();
+    public DbSet<CommunityCommentLike> CommunityCommentLikes => Set<CommunityCommentLike>();
 
 
     // Auth - Refresh Tokens
@@ -111,6 +112,21 @@ public class MomCareContext : IdentityDbContext<
             entity.ToTable("user_roles");
             entity.Property(e => e.UserId).HasColumnName("user_id");
             entity.Property(e => e.RoleId).HasColumnName("role_id");
+        });
+
+        modelBuilder.Entity<CommunityComment>(entity =>
+        {
+            entity.HasOne(e => e.ParentComment)
+                .WithMany(e => e.Replies)
+                .HasForeignKey(e => e.ParentCommentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.ParentCommentId);
+        });
+
+        modelBuilder.Entity<CommunityCommentLike>(entity =>
+        {
+            entity.HasIndex(e => new { e.CommentId, e.UserId }).IsUnique();
         });
 
         modelBuilder.Entity<IdentityUserClaim<int>>(entity =>
@@ -213,13 +229,16 @@ public class MomCareContext : IdentityDbContext<
         modelBuilder.Entity<Booking>()
             .HasOne(b => b.Conversation)
             .WithOne(c => c.Booking)
-            .HasForeignKey<Conversation>(c => c.BookingId);
+            .HasForeignKey<Conversation>(c => c.BookingId)
+            .IsRequired(false);
         
         // --- Conversation ---
         modelBuilder.Entity<Conversation>(entity => 
         {
+             entity.Property(c => c.Type).HasDefaultValue("booking").HasMaxLength(32);
              entity.HasOne(c => c.User1).WithMany().HasForeignKey(c => c.User1Id).OnDelete(DeleteBehavior.Restrict);
              entity.HasOne(c => c.User2).WithMany().HasForeignKey(c => c.User2Id).OnDelete(DeleteBehavior.Restrict);
+             entity.HasIndex(c => new { c.User1Id, c.User2Id, c.Type, c.BookingId });
         });
 
         // --- Review Configuration ---

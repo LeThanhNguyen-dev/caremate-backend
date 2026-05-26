@@ -16,6 +16,9 @@ public class CommunityComment
     [Column("author_id")]
     public int AuthorId { get; set; }
 
+    [Column("parent_comment_id")]
+    public int? ParentCommentId { get; set; }
+
     [Column("content")]
     [MaxLength(1200)]
     public required string Content { get; set; }
@@ -31,4 +34,11 @@ public class CommunityComment
 
     [ForeignKey("AuthorId")]
     public virtual ApplicationUser Author { get; set; } = null!;
+
+    [ForeignKey("ParentCommentId")]
+    public virtual CommunityComment? ParentComment { get; set; }
+
+    public virtual ICollection<CommunityComment> Replies { get; set; } = new List<CommunityComment>();
+
+    public virtual ICollection<CommunityCommentLike> Likes { get; set; } = new List<CommunityCommentLike>();
 }

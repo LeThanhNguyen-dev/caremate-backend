@@ -36,6 +36,8 @@ public class CommunityService : ICommunityService
             .Include(p => p.Likes)
             .Include(p => p.Comments.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Author)
+            .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Likes)
             .Where(p => !p.IsDeleted);
 
         var normalizedSearch = search?.Trim();
@@ -182,6 +184,73 @@ public class CommunityService : ICommunityService
         return ToPostDto(post, userId, roleMap);
     }
 
+    public async Task<CommunityCommentDto?> ToggleCommentLikeAsync(int userId, int postId, int commentId)
+    {
+        var targetComment = await _context.CommunityComments
+            .AsNoTracking()
+            .Include(c => c.Author)
+            .FirstOrDefaultAsync(c => c.Id == commentId && c.PostId == postId && !c.IsDeleted);
+        if (targetComment == null) return null;
+
+        var existing = await _context.CommunityCommentLikes
+            .FirstOrDefaultAsync(l => l.CommentId == commentId && l.UserId == userId);
+        var createdLike = false;
+        if (existing == null)
+        {
+            _context.CommunityCommentLikes.Add(new CommunityCommentLike
+            {
+                CommentId = commentId,
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            });
+            createdLike = true;
+        }
+        else
+        {
+            _context.CommunityCommentLikes.Remove(existing);
+        }
+
+        await _context.SaveChangesAsync();
+
+        if (createdLike && targetComment.AuthorId != userId)
+        {
+            var actorName = await GetUserDisplayNameAsync(userId);
+            await _notificationService.CreateAsync(
+                targetComment.AuthorId,
+                "Bình luận có lượt thích mới",
+                $"{actorName} đã thích bình luận của bạn.",
+                "community_comment");
+        }
+
+        var comment = await _context.CommunityComments
+            .AsNoTracking()
+            .Include(c => c.Author)
+            .Include(c => c.Likes)
+            .FirstOrDefaultAsync(c => c.Id == commentId && c.PostId == postId && !c.IsDeleted);
+
+        return comment == null ? null : ToCommentDto(comment, userId, new Dictionary<int, List<CommunityComment>>());
+    }
+
+    public async Task<IEnumerable<CommunityCommentLikerDto>?> GetCommentLikersAsync(int postId, int commentId)
+    {
+        var commentExists = await _context.CommunityComments
+            .AsNoTracking()
+            .AnyAsync(c => c.Id == commentId && c.PostId == postId && !c.IsDeleted);
+        if (!commentExists) return null;
+
+        return await _context.CommunityCommentLikes
+            .AsNoTracking()
+            .Where(l => l.CommentId == commentId)
+            .OrderByDescending(l => l.CreatedAt)
+            .Select(l => new CommunityCommentLikerDto
+            {
+                UserId = l.UserId,
+                FullName = l.User.FullName,
+                Avatar = l.User.Avatar
+            })
+            .ToListAsync();
+    }
+
     public async Task<CommunityCommentDto?> CreateCommentAsync(int authorId, int postId, CreateCommunityCommentDto dto)
     {
         var content = dto.Content.Trim();
@@ -192,10 +261,21 @@ public class CommunityService : ICommunityService
             .FirstOrDefaultAsync(p => p.Id == postId && !p.IsDeleted);
         if (targetPost == null) return null;
 
+        CommunityComment? parentComment = null;
+        if (dto.ParentCommentId.HasValue)
+        {
+            parentComment = await _context.CommunityComments
+                .AsNoTracking()
+                .Include(c => c.Author)
+                .FirstOrDefaultAsync(c => c.Id == dto.ParentCommentId.Value && c.PostId == postId && !c.IsDeleted);
+            if (parentComment == null) return null;
+        }
+
         var comment = new CommunityComment
         {
             PostId = postId,
             AuthorId = authorId,
+            ParentCommentId = dto.ParentCommentId,
             Content = content,
             CreatedAt = DateTime.UtcNow
         };
@@ -208,16 +288,17 @@ public class CommunityService : ICommunityService
             .Include(c => c.Author)
             .FirstOrDefaultAsync(c => c.Id == comment.Id);
 
-        if (created != null && targetPost.AuthorId != authorId)
+        var notificationUserId = parentComment?.AuthorId ?? targetPost.AuthorId;
+        if (created != null && notificationUserId != authorId)
         {
             await _notificationService.CreateAsync(
-                targetPost.AuthorId,
+                notificationUserId,
                 "Bình luận mới",
                 $"{created.Author.FullName} đã bình luận về bài viết \"{TruncateForNotification(targetPost.Title)}\".",
                 "community_comment");
         }
 
-        return created == null ? null : ToCommentDto(created);
+        return created == null ? null : ToCommentDto(created, authorId, new Dictionary<int, List<CommunityComment>>());
     }
 
     private async Task<CommunityPost?> GetPostEntityAsync(int postId)
@@ -228,6 +309,8 @@ public class CommunityService : ICommunityService
             .Include(p => p.Likes)
             .Include(p => p.Comments.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Author)
+            .Include(p => p.Comments.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Likes)
             .FirstOrDefaultAsync(p => p.Id == postId && !p.IsDeleted);
     }
 
@@ -268,23 +351,43 @@ public class CommunityService : ICommunityService
             Likes = post.Likes.Count,
             LikedByMe = viewerId.HasValue && post.Likes.Any(l => l.UserId == viewerId.Value),
             CreatedAt = post.CreatedAt,
-            Comments = post.Comments
-                .OrderBy(c => c.CreatedAt)
-                .Select(ToCommentDto)
-                .ToList()
+            Comments = BuildCommentTree(post.Comments, viewerId)
         };
     }
 
-    private static CommunityCommentDto ToCommentDto(CommunityComment comment)
+    private static List<CommunityCommentDto> BuildCommentTree(IEnumerable<CommunityComment> comments, int? viewerId)
+    {
+        var groupedReplies = comments
+            .Where(c => c.ParentCommentId.HasValue)
+            .GroupBy(c => c.ParentCommentId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(c => c.CreatedAt).ToList());
+
+        return comments
+            .Where(c => !c.ParentCommentId.HasValue)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => ToCommentDto(c, viewerId, groupedReplies))
+            .ToList();
+    }
+
+    private static CommunityCommentDto ToCommentDto(
+        CommunityComment comment,
+        int? viewerId,
+        IReadOnlyDictionary<int, List<CommunityComment>> groupedReplies)
     {
         return new CommunityCommentDto
         {
             Id = comment.Id,
             AuthorId = comment.AuthorId,
+            ParentCommentId = comment.ParentCommentId,
             Author = comment.Author.FullName,
             Avatar = comment.Author.Avatar,
             Content = comment.Content,
-            CreatedAt = comment.CreatedAt
+            Likes = comment.Likes.Count,
+            LikedByMe = viewerId.HasValue && comment.Likes.Any(l => l.UserId == viewerId.Value),
+            CreatedAt = comment.CreatedAt,
+            Replies = groupedReplies.TryGetValue(comment.Id, out var replies)
+                ? replies.Select(reply => ToCommentDto(reply, viewerId, groupedReplies)).ToList()
+                : []
         };
     }
 

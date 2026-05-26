@@ -2,6 +2,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using MomCare.Data;
 using MomCare.Dto;
 using MomCare.Models;
 
@@ -13,10 +15,12 @@ namespace MomCare.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly MomCareContext _context;
 
-    public UsersController(UserManager<ApplicationUser> userManager)
+    public UsersController(UserManager<ApplicationUser> userManager, MomCareContext context)
     {
         _userManager = userManager;
+        _context = context;
     }
 
     [HttpGet("me/profile")]
@@ -33,7 +37,9 @@ public class UsersController : ControllerBase
             userId = user.Id,
             fullName = user.FullName,
             email = user.Email,
+            phone = user.PhoneNumber,
             phoneNumber = user.PhoneNumber,
+            address = await GetDefaultAddressAsync(user.Id),
             avatar = user.Avatar,
             bankBin = user.BankBin,
             bankAccountNumber = user.BankAccountNumber,
@@ -65,7 +71,51 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Profile update failed" });
         }
 
+        await UpsertDefaultAddressAsync(user.Id, dto.Address);
+
         return Ok(new { message = "Profile updated successfully" });
+    }
+
+    private async Task<string?> GetDefaultAddressAsync(int userId)
+    {
+        return await _context.Addresses
+            .Where(a => a.UserId == userId && a.Type == "customer_home" && a.IsDefault)
+            .Select(a => a.FullAddress)
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task UpsertDefaultAddressAsync(int userId, string? fullAddress)
+    {
+        var address = await _context.Addresses
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.Type == "customer_home" && a.IsDefault);
+
+        if (string.IsNullOrWhiteSpace(fullAddress))
+        {
+            if (address != null)
+            {
+                _context.Addresses.Remove(address);
+                await _context.SaveChangesAsync();
+            }
+
+            return;
+        }
+
+        if (address == null)
+        {
+            _context.Addresses.Add(new Address
+            {
+                UserId = userId,
+                FullAddress = fullAddress.Trim(),
+                Type = "customer_home",
+                IsDefault = true
+            });
+        }
+        else
+        {
+            address.FullAddress = fullAddress.Trim();
+        }
+
+        await _context.SaveChangesAsync();
     }
 
     private int GetUserId()

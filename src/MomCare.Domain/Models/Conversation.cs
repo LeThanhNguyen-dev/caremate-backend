@@ -11,7 +11,10 @@ public class Conversation
     public int Id { get; set; }
 
     [Column("booking_id")]
-    public int BookingId { get; set; }
+    public int? BookingId { get; set; }
+
+    [Column("type")]
+    public string Type { get; set; } = "booking";
 
     [Column("user1_id")]
     public int User1Id { get; set; }
@@ -23,7 +26,7 @@ public class Conversation
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey("BookingId")]
-    public virtual Booking Booking { get; set; } = null!;
+    public virtual Booking? Booking { get; set; }
 
     [ForeignKey("User1Id")]
     public virtual ApplicationUser User1 { get; set; } = null!;

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomCare.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MomCare.Infrastructure.PostgreSqlMigrations
 {
     [DbContext(typeof(MomCareContext))]
-    partial class MomCareContextModelSnapshot : ModelSnapshot
+    [Migration("20260523140722_AddSupportChatConversations")]
+    partial class AddSupportChatConversations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -648,10 +651,6 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
 
-                    b.Property<int?>("ParentCommentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("parent_comment_id");
-
                     b.Property<int>("PostId")
                         .HasColumnType("integer")
                         .HasColumnName("post_id");
@@ -660,42 +659,9 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
 
                     b.HasIndex("AuthorId");
 
-                    b.HasIndex("ParentCommentId");
-
                     b.HasIndex("PostId", "CreatedAt");
 
                     b.ToTable("community_comments");
-                });
-
-            modelBuilder.Entity("MomCare.Models.CommunityCommentLike", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CommentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("comment_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("CommentId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("community_comment_likes");
                 });
 
             modelBuilder.Entity("MomCare.Models.CommunityPost", b =>
@@ -1640,11 +1606,6 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("MomCare.Models.CommunityComment", "ParentComment")
-                        .WithMany("Replies")
-                        .HasForeignKey("ParentCommentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("MomCare.Models.CommunityPost", "Post")
                         .WithMany("Comments")
                         .HasForeignKey("PostId")
@@ -1653,28 +1614,7 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
 
                     b.Navigation("Author");
 
-                    b.Navigation("ParentComment");
-
                     b.Navigation("Post");
-                });
-
-            modelBuilder.Entity("MomCare.Models.CommunityCommentLike", b =>
-                {
-                    b.HasOne("MomCare.Models.CommunityComment", "Comment")
-                        .WithMany("Likes")
-                        .HasForeignKey("CommentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MomCare.Models.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Comment");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MomCare.Models.CommunityPost", b =>
@@ -1898,13 +1838,6 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                     b.Navigation("SessionLogs");
 
                     b.Navigation("StatusHistory");
-                });
-
-            modelBuilder.Entity("MomCare.Models.CommunityComment", b =>
-                {
-                    b.Navigation("Likes");
-
-                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("MomCare.Models.CommunityPost", b =>

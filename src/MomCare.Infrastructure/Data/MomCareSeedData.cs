@@ -33,8 +33,8 @@ public static class MomCareSeedData
 
         await context.SaveChangesAsync();
 
-        await EnsureAddressAsync(context, customerA.Id, "25 Nguyen Hue, District 1, HCMC", "Ben Nghe", "District 1", true, "customer_home");
-        await EnsureAddressAsync(context, customerB.Id, "120 Vo Van Tan, District 3, HCMC", "Ward 6", "District 3", true, "customer_home");
+        await EnsureAddressAsync(context, customerA.Id, "25 Nguyễn Văn Linh, quận Hải Châu, Đà Nẵng", "Bình Hiên", "Hải Châu", true, "customer_home", 16.0605, 108.2210);
+        await EnsureAddressAsync(context, customerB.Id, "120 Hồ Nghinh, quận Sơn Trà, Đà Nẵng", "Phước Mỹ", "Sơn Trà", true, "customer_home", 16.0686, 108.2431);
         await EnsureAddressAsync(context, nurseA.Id, "5 Le Van Sy, Phu Nhuan, HCMC", "Ward 12", "Phu Nhuan", true, "nurse_base");
         await EnsureAddressAsync(context, nurseB.Id, "88 Dien Bien Phu, Binh Thanh, HCMC", "Ward 15", "Binh Thanh", true, "nurse_base");
 

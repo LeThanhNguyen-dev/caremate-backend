@@ -32,6 +32,8 @@ public class UsersController : ControllerBase
             return NotFound();
         }
 
+        var address = await GetDefaultAddressAsync(user.Id);
+
         return Ok(new
         {
             userId = user.Id,
@@ -39,7 +41,19 @@ public class UsersController : ControllerBase
             email = user.Email,
             phone = user.PhoneNumber,
             phoneNumber = user.PhoneNumber,
-            address = await GetDefaultAddressAsync(user.Id),
+            address = address?.FullAddress,
+            defaultAddress = address == null ? null : new
+            {
+                fullAddress = address.FullAddress,
+                ward = address.Ward,
+                district = address.District,
+                latitude = address.Latitude,
+                longitude = address.Longitude
+            },
+            ward = address?.Ward,
+            district = address?.District,
+            latitude = address?.Latitude,
+            longitude = address?.Longitude,
             avatar = user.Avatar,
             bankBin = user.BankBin,
             bankAccountNumber = user.BankAccountNumber,
@@ -71,21 +85,21 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Profile update failed" });
         }
 
-        await UpsertDefaultAddressAsync(user.Id, dto.Address);
+        await UpsertDefaultAddressAsync(user.Id, dto);
 
         return Ok(new { message = "Profile updated successfully" });
     }
 
-    private async Task<string?> GetDefaultAddressAsync(int userId)
+    private async Task<Address?> GetDefaultAddressAsync(int userId)
     {
         return await _context.Addresses
             .Where(a => a.UserId == userId && a.Type == "customer_home" && a.IsDefault)
-            .Select(a => a.FullAddress)
             .FirstOrDefaultAsync();
     }
 
-    private async Task UpsertDefaultAddressAsync(int userId, string? fullAddress)
+    private async Task UpsertDefaultAddressAsync(int userId, UpdateMyProfileDto dto)
     {
+        var fullAddress = dto.Address;
         var address = await _context.Addresses
             .FirstOrDefaultAsync(a => a.UserId == userId && a.Type == "customer_home" && a.IsDefault);
 
@@ -106,6 +120,10 @@ public class UsersController : ControllerBase
             {
                 UserId = userId,
                 FullAddress = fullAddress.Trim(),
+                Ward = string.IsNullOrWhiteSpace(dto.Ward) ? null : dto.Ward.Trim(),
+                District = string.IsNullOrWhiteSpace(dto.District) ? null : dto.District.Trim(),
+                Latitude = dto.Latitude,
+                Longitude = dto.Longitude,
                 Type = "customer_home",
                 IsDefault = true
             });
@@ -113,6 +131,10 @@ public class UsersController : ControllerBase
         else
         {
             address.FullAddress = fullAddress.Trim();
+            address.Ward = string.IsNullOrWhiteSpace(dto.Ward) ? null : dto.Ward.Trim();
+            address.District = string.IsNullOrWhiteSpace(dto.District) ? null : dto.District.Trim();
+            address.Latitude = dto.Latitude;
+            address.Longitude = dto.Longitude;
         }
 
         await _context.SaveChangesAsync();

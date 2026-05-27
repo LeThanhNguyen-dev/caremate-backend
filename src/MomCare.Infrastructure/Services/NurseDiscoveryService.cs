@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using MomCare.Data;
 using MomCare.Dto;
@@ -281,8 +283,29 @@ public class NurseDiscoveryService : INurseDiscoveryService
 
     private static double ToRadians(double degrees) => degrees * Math.PI / 180;
 
-    private static string NormalizeDistrict(string? value) =>
-        string.IsNullOrWhiteSpace(value)
-            ? string.Empty
-            : value.Trim().ToLowerInvariant().Replace("district", string.Empty).Replace("quan", string.Empty).Trim();
+    private static string NormalizeDistrict(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace("district", string.Empty)
+            .Replace("quận", string.Empty)
+            .Replace("quan", string.Empty)
+            .Trim();
+        var formD = normalized.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
+
+        foreach (var ch in formD)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(ch);
+            }
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
 }

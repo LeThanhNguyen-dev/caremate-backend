@@ -24,10 +24,21 @@ public class CommunityCommentDto
 {
     public int Id { get; set; }
     public int AuthorId { get; set; }
+    public int? ParentCommentId { get; set; }
     public string Author { get; set; } = string.Empty;
     public string? Avatar { get; set; }
     public string Content { get; set; } = string.Empty;
+    public int Likes { get; set; }
+    public bool LikedByMe { get; set; }
     public DateTime CreatedAt { get; set; }
+    public IEnumerable<CommunityCommentDto> Replies { get; set; } = [];
+}
+
+public class CommunityCommentLikerDto
+{
+    public int UserId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string? Avatar { get; set; }
 }
 
 public class CreateCommunityPostDto
@@ -48,4 +59,6 @@ public class CreateCommunityCommentDto
     [Required]
     [MaxLength(1200)]
     public string Content { get; set; } = string.Empty;
+
+    public int? ParentCommentId { get; set; }
 }

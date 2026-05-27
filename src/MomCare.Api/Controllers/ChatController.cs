@@ -18,6 +18,14 @@ public class ChatController : ControllerBase
         _chatService = chatService;
     }
 
+    [HttpGet("conversations")]
+    public async Task<IActionResult> GetConversations()
+    {
+        var userId = GetUserId();
+        var conversations = await _chatService.GetConversationsAsync(userId);
+        return Ok(conversations);
+    }
+
     [HttpPost("conversations/by-booking/{bookingId:int}")]
     public async Task<IActionResult> GetOrCreateConversation(int bookingId)
     {
@@ -26,6 +34,19 @@ public class ChatController : ControllerBase
         if (conversation == null)
         {
             return BadRequest(new { message = "Cannot create conversation for this booking" });
+        }
+
+        return Ok(conversation);
+    }
+
+    [HttpPost("conversations/support")]
+    public async Task<IActionResult> GetOrCreateSupportConversation([FromBody] CreateSupportConversationDto? dto)
+    {
+        var userId = GetUserId();
+        var conversation = await _chatService.GetOrCreateSupportConversationAsync(userId, dto?.UserId);
+        if (conversation == null)
+        {
+            return BadRequest(new { message = "Cannot create support conversation" });
         }
 
         return Ok(conversation);
@@ -46,7 +67,7 @@ public class ChatController : ControllerBase
         var message = await _chatService.SendMessageAsync(userId, conversationId, dto.Content);
         if (message == null)
         {
-            return BadRequest(new { message = "Unable to send message" });
+            return BadRequest(new { message = "Unable to send message. This booking conversation may be closed." });
         }
 
         return Ok(message);

@@ -66,6 +66,26 @@ public class CommunityController : ControllerBase
         return Ok(post);
     }
 
+    [HttpPost("posts/{postId:int}/comments/{commentId:int}/like")]
+    [Authorize]
+    public async Task<IActionResult> ToggleCommentLike(int postId, int commentId)
+    {
+        var comment = await _communityService.ToggleCommentLikeAsync(GetUserId(), postId, commentId);
+        if (comment == null) return NotFound(new { message = "Comment not found." });
+
+        return Ok(comment);
+    }
+
+    [HttpGet("posts/{postId:int}/comments/{commentId:int}/likes")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetCommentLikers(int postId, int commentId)
+    {
+        var likers = await _communityService.GetCommentLikersAsync(postId, commentId);
+        if (likers == null) return NotFound(new { message = "Comment not found." });
+
+        return Ok(likers);
+    }
+
     [HttpPost("posts/{postId:int}/comments")]
     [Authorize]
     public async Task<IActionResult> CreateComment(int postId, [FromBody] CreateCommunityCommentDto dto)

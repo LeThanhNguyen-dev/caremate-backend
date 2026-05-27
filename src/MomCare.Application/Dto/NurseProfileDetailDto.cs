@@ -10,6 +10,12 @@ public class NurseProfileDetailDto
     public string? BankBin { get; set; }
     public string? BankAccountNumber { get; set; }
     public string? BankAccountName { get; set; }
+    public string? Address { get; set; }
+    public string? Ward { get; set; }
+    public string? District { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public object? DefaultAddress { get; set; }
     public string? Bio { get; set; }
     public string? Specialization { get; set; }
     public int YearsExperience { get; set; }

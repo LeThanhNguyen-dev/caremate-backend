@@ -69,6 +69,10 @@ public class NurseService : INurseService
 
         for (int i = 1; i <= 5; i++) ratingDistribution.TryAdd(i, 0);
 
+        var address = await _context.Addresses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.Type == "nurse_base" && a.IsDefault);
+
         return new NurseProfileDetailDto
         {
             UserId = nurse.Id,
@@ -79,6 +83,19 @@ public class NurseService : INurseService
             BankBin = nurse.BankBin,
             BankAccountNumber = nurse.BankAccountNumber,
             BankAccountName = nurse.BankAccountName,
+            Address = address?.FullAddress,
+            Ward = address?.Ward,
+            District = address?.District,
+            Latitude = address?.Latitude,
+            Longitude = address?.Longitude,
+            DefaultAddress = address == null ? null : new
+            {
+                fullAddress = address.FullAddress,
+                ward = address.Ward,
+                district = address.District,
+                latitude = address.Latitude,
+                longitude = address.Longitude
+            },
             Bio = profile.Bio,
             Specialization = profile.Specialization,
             YearsExperience = profile.YearsExperience,
@@ -128,7 +145,49 @@ public class NurseService : INurseService
         nurse.BankAccountName = string.IsNullOrWhiteSpace(updateDto.BankAccountName) ? null : updateDto.BankAccountName.Trim();
         nurse.UpdatedAt = DateTime.UtcNow;
 
+        await UpsertNurseAddressAsync(userId, updateDto);
+
         return await _context.SaveChangesAsync() > 0;
+    }
+
+    private async Task UpsertNurseAddressAsync(int userId, UpdateNurseProfileDto updateDto)
+    {
+        var fullAddress = updateDto.Address;
+        var address = await _context.Addresses
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.Type == "nurse_base" && a.IsDefault);
+
+        if (string.IsNullOrWhiteSpace(fullAddress))
+        {
+            if (address != null)
+            {
+                _context.Addresses.Remove(address);
+            }
+
+            return;
+        }
+
+        if (address == null)
+        {
+            _context.Addresses.Add(new Address
+            {
+                UserId = userId,
+                FullAddress = fullAddress.Trim(),
+                Ward = string.IsNullOrWhiteSpace(updateDto.Ward) ? null : updateDto.Ward.Trim(),
+                District = string.IsNullOrWhiteSpace(updateDto.District) ? null : updateDto.District.Trim(),
+                Latitude = updateDto.Latitude,
+                Longitude = updateDto.Longitude,
+                IsDefault = true,
+                Type = "nurse_base"
+            });
+
+            return;
+        }
+
+        address.FullAddress = fullAddress.Trim();
+        address.Ward = string.IsNullOrWhiteSpace(updateDto.Ward) ? null : updateDto.Ward.Trim();
+        address.District = string.IsNullOrWhiteSpace(updateDto.District) ? null : updateDto.District.Trim();
+        address.Latitude = updateDto.Latitude;
+        address.Longitude = updateDto.Longitude;
     }
 
     public async Task<string?> UploadAvatarAsync(int userId, IFormFile file)

@@ -29,9 +29,13 @@ public class NursesController : ControllerBase
         [FromQuery] decimal? minPrice,
         [FromQuery] decimal? maxPrice,
         [FromQuery] DateTime? startTime,
-        [FromQuery] DateTime? endTime)
+        [FromQuery] DateTime? endTime,
+        [FromQuery] double? latitude,
+        [FromQuery] double? longitude,
+        [FromQuery] string? district,
+        [FromQuery] string? sortBy)
     {
-        var result = await _nurseDiscoveryService.SearchAsync(serviceId, minPrice, maxPrice, startTime, endTime);
+        var result = await _nurseDiscoveryService.SearchAsync(serviceId, minPrice, maxPrice, startTime, endTime, latitude, longitude, district, sortBy);
         return Ok(result);
     }
 

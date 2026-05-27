@@ -10,6 +10,7 @@ namespace MomCare.Data;
 public static class MomCareSeedData
 {
     private const string DefaultPassword = "MomCare@123";
+    private const string AdminPassword = "gig";
 
     public static async Task SeedAsync(IServiceProvider services)
     {
@@ -22,7 +23,7 @@ public static class MomCareSeedData
 
         await EnsureRolesAsync(roleManager);
 
-        var admin = await EnsureUserAsync(userManager, "admin@momcare.local", "System Admin", "0900000001", [AppRoles.Admin]);
+        var admin = await EnsureUserAsync(userManager, "admin@momcare.local", "System Admin", "0900000001", [AppRoles.Admin], AdminPassword, resetPassword: true);
         var customerA = await EnsureUserAsync(userManager, "lan.customer@momcare.local", "Lan Nguyen", "0900000002", [AppRoles.Customer]);
         var customerB = await EnsureUserAsync(userManager, "thu.customer@momcare.local", "Thu Tran", "0900000003", [AppRoles.Customer]);
 
@@ -127,6 +128,26 @@ public static class MomCareSeedData
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgTreSoSinh.Id, 8_500_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgVipSauSinh.Id, 17_000_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgChuyenSauBung.Id, 18_000_000m, "fixed", "enabled");
+
+        await EnsureDaNangNurseSeedAsync(
+            context,
+            userManager,
+            [
+                babyBath,
+                motherHealth,
+                babyHealth,
+                lactation,
+                massage,
+                nutrition,
+                nightCare,
+                mentalWellness,
+                houseSupport,
+                emergencyConsultation,
+                miniConsultation,
+                pkgTreSoSinh,
+                pkgMassageTamBe,
+                pkgPhucHoi
+            ]);
 
         // Use a stable reference date so re-running seed doesn't create duplicate slots.
         // "today" is always the current UTC date; past slots are fixed, future slots shift forward.
@@ -293,7 +314,9 @@ public static class MomCareSeedData
         string email,
         string fullName,
         string phone,
-        string[] roles)
+        string[] roles,
+        string seedPassword = DefaultPassword,
+        bool resetPassword = false)
     {
         var user = await userManager.FindByEmailAsync(email);
         if (user == null)
@@ -310,10 +333,17 @@ public static class MomCareSeedData
                 UpdatedAt = DateTime.UtcNow
             };
 
-            var result = await userManager.CreateAsync(user, DefaultPassword);
+            var result = seedPassword == DefaultPassword
+                ? await userManager.CreateAsync(user, seedPassword)
+                : await userManager.CreateAsync(user);
             if (!result.Succeeded)
             {
                 throw new InvalidOperationException($"Unable to create seed user '{email}': {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
+
+            if (seedPassword != DefaultPassword)
+            {
+                await SetSeedPasswordAsync(userManager, user, seedPassword);
             }
         }
         else
@@ -361,6 +391,11 @@ public static class MomCareSeedData
             }
         }
 
+        if (resetPassword && !await userManager.CheckPasswordAsync(user, seedPassword))
+        {
+            await SetSeedPasswordAsync(userManager, user, seedPassword);
+        }
+
         var existingRoles = await userManager.GetRolesAsync(user);
         foreach (var role in roles)
         {
@@ -377,6 +412,22 @@ public static class MomCareSeedData
         return user;
     }
 
+    private static async Task SetSeedPasswordAsync(
+        UserManager<ApplicationUser> userManager,
+        ApplicationUser user,
+        string password)
+    {
+        user.PasswordHash = userManager.PasswordHasher.HashPassword(user, password);
+        user.SecurityStamp = Guid.NewGuid().ToString();
+        user.UpdatedAt = DateTime.UtcNow;
+
+        var updateResult = await userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            throw new InvalidOperationException($"Unable to set seed password for '{user.Email}': {string.Join(", ", updateResult.Errors.Select(e => e.Description))}");
+        }
+    }
+
     private static async Task EnsureAddressAsync(
         MomCareContext context,
         int userId,
@@ -384,7 +435,9 @@ public static class MomCareSeedData
         string? ward,
         string? district,
         bool isDefault,
-        string type)
+        string type,
+        double? latitude = null,
+        double? longitude = null)
     {
         var address = await context.Addresses.FirstOrDefaultAsync(a => a.UserId == userId && a.Type == type && a.IsDefault == isDefault);
         if (address == null)
@@ -395,6 +448,8 @@ public static class MomCareSeedData
                 FullAddress = fullAddress,
                 Ward = ward,
                 District = district,
+                Latitude = latitude,
+                Longitude = longitude,
                 IsDefault = isDefault,
                 Type = type
             });
@@ -404,6 +459,108 @@ public static class MomCareSeedData
         address.FullAddress = fullAddress;
         address.Ward = ward;
         address.District = district;
+        address.Latitude = latitude;
+        address.Longitude = longitude;
+    }
+
+    private static async Task EnsureDaNangNurseSeedAsync(
+        MomCareContext context,
+        UserManager<ApplicationUser> userManager,
+        Service[] services)
+    {
+        var districts = new[]
+        {
+            new { Name = "Hải Châu", Lat = 16.0678, Lng = 108.2208 },
+            new { Name = "Thanh Khê", Lat = 16.0707, Lng = 108.1906 },
+            new { Name = "Sơn Trà", Lat = 16.1062, Lng = 108.2529 },
+            new { Name = "Ngũ Hành Sơn", Lat = 16.0037, Lng = 108.2647 },
+            new { Name = "Liên Chiểu", Lat = 16.0744, Lng = 108.1491 },
+            new { Name = "Cẩm Lệ", Lat = 16.0169, Lng = 108.2047 },
+            new { Name = "Hòa Vang", Lat = 16.0390, Lng = 108.1135 },
+        };
+
+        var names = new[]
+        {
+            "Nguyễn Thị An", "Trần Thị Bình", "Lê Minh Chi", "Phạm Thu Dung", "Võ Hương Giang", "Hoàng Ngọc Hà",
+            "Đặng Mỹ Hạnh", "Bùi Thanh Hoa", "Ngô Gia Khánh", "Đỗ Mai Lan", "Huỳnh Thảo Linh", "Phan Nhật Mai",
+            "Nguyễn Kim Minh", "Trần Hà My", "Lê Thanh Nga", "Phạm Bảo Ngân", "Võ Hồng Ngọc", "Hoàng Yến Nhi",
+            "Đặng Thị Oanh", "Bùi Minh Phương", "Ngô Như Quỳnh", "Đỗ Phương Thảo", "Huỳnh Anh Thu", "Phan Huyền Trang",
+            "Nguyễn Mai Trinh", "Trần Cẩm Tuyền", "Lê Khánh Uyên", "Phạm Ngọc Vân", "Võ Tường Vy", "Hoàng Thị Yến",
+            "Đặng Lan Anh", "Bùi Diễm My", "Ngô Thu Hiền", "Đỗ Hồng Hương", "Huỳnh Gia Kim", "Phan Bích Loan",
+            "Nguyễn Quỳnh Như", "Trần Minh Tâm", "Lê Phương Thanh", "Phạm Thị Thủy", "Võ Ngọc Trà", "Hoàng Anh Tú"
+        };
+
+        var today = DateTime.UtcNow.Date;
+        var serviceCount = services.Length;
+
+        for (var districtIndex = 0; districtIndex < districts.Length; districtIndex++)
+        {
+            var district = districts[districtIndex];
+
+            for (var localIndex = 0; localIndex < 6; localIndex++)
+            {
+                var index = districtIndex * 6 + localIndex;
+                var number = index + 1;
+                var email = $"danang.nurse{number:00}@momcare.local";
+                var phone = $"0918{number:000000}";
+                var fullName = names[index];
+                var user = await EnsureUserAsync(userManager, email, fullName, phone, [AppRoles.NurseConfirmed]);
+                var latOffset = ((localIndex % 3) - 1) * 0.008 + districtIndex * 0.0006;
+                var lngOffset = ((localIndex / 3) - 0.5) * 0.01 - districtIndex * 0.0004;
+
+                await EnsureAddressAsync(
+                    context,
+                    user.Id,
+                    $"Số {12 + localIndex}, đường CareMate, quận {district.Name}, Đà Nẵng",
+                    $"Phường {localIndex + 1}",
+                    district.Name,
+                    true,
+                    "nurse_base",
+                    district.Lat + latOffset,
+                    district.Lng + lngOffset);
+
+                var experience = 1 + (index * 3 % 12);
+                var radius = 5 + (index % 8);
+                var rating = Math.Round(4.0m + ((index * 7) % 10) / 10m, 1);
+                var profile = await EnsureNurseProfileAsync(
+                    context,
+                    user.Id,
+                    $"Điều dưỡng chăm sóc mẹ và bé tại nhà khu vực {district.Name}, Đà Nẵng. Hồ sơ đã được CareMate xác minh.",
+                    index % 3 == 0 ? "Chăm sóc mẹ sau sinh, chăm bé sơ sinh" : index % 3 == 1 ? "Tắm bé, hỗ trợ cho bú" : "Phục hồi sau sinh, tư vấn dinh dưỡng",
+                    "Chứng chỉ điều dưỡng; Chứng nhận chăm sóc tại nhà",
+                    experience,
+                    radius,
+                    rating,
+                    true,
+                    "verified");
+
+                await context.SaveChangesAsync();
+
+                await EnsureDocumentAsync(context, profile.Id, DocumentTypes.IdCardFront, $"seed_danang_{number:00}_id", "approved");
+                await EnsureDocumentAsync(context, profile.Id, DocumentTypes.Certificate, $"seed_danang_{number:00}_cert", "approved");
+
+                var enabledServiceIndexes = new[]
+                {
+                    index % serviceCount,
+                    (index + 2) % serviceCount,
+                    (index + 5) % serviceCount,
+                    (index + districtIndex + 8) % serviceCount,
+                };
+
+                foreach (var serviceIndex in enabledServiceIndexes.Distinct())
+                {
+                    var service = services[serviceIndex];
+                    var priceVariance = (index % 5) * 25_000m;
+                    var servicePrice = Math.Max(29_000m, service.BasePrice + priceVariance - (districtIndex % 3) * 15_000m);
+                    await EnsureNurseServiceAsync(context, profile.Id, service.Id, servicePrice, service.ServiceKind == "package" ? "fixed" : "fixed", "enabled");
+                }
+
+                var firstStart = today.AddDays(1 + (index % 6)).AddHours(8 + (localIndex % 3) * 2);
+                var secondStart = today.AddDays(2 + (index % 7)).AddHours(13 + (districtIndex % 3));
+                await EnsureAvailabilitySlotAsync(context, profile.Id, firstStart, firstStart.AddHours(4));
+                await EnsureAvailabilitySlotAsync(context, profile.Id, secondStart, secondStart.AddHours(4));
+            }
+        }
     }
 
     private static async Task<Service> EnsureServiceAsync(
@@ -622,6 +779,7 @@ public static class MomCareSeedData
                 AverageRating = averageRating,
                 IsActive = isActive,
                 IsVerified = verifyStatus,
+                VerificationSubmissionStatus = verifyStatus == "verified" ? "approved" : "draft",
                 ConfirmedAt = verifyStatus == "verified" ? DateTime.UtcNow.AddDays(-7) : null
             };
 
@@ -637,6 +795,7 @@ public static class MomCareSeedData
         profile.AverageRating = averageRating;
         profile.IsActive = isActive;
         profile.IsVerified = verifyStatus;
+        profile.VerificationSubmissionStatus = verifyStatus == "verified" ? "approved" : profile.VerificationSubmissionStatus;
         profile.ConfirmedAt = verifyStatus == "verified" ? profile.ConfirmedAt ?? DateTime.UtcNow.AddDays(-7) : null;
 
         return profile;

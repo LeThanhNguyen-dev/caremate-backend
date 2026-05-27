@@ -3,6 +3,7 @@ using MomCare.Data;
 using MomCare.Dto;
 using MomCare.Enums;
 using MomCare.Interfaces;
+using MomCare.Models;
 
 namespace MomCare.Services;
 
@@ -22,7 +23,11 @@ public class NurseDiscoveryService : INurseDiscoveryService
         decimal? minPrice,
         decimal? maxPrice,
         DateTime? startTime,
-        DateTime? endTime)
+        DateTime? endTime,
+        double? latitude,
+        double? longitude,
+        string? district,
+        string? sortBy)
     {
         var query = _context.NurseProfiles
             .Include(np => np.User)
@@ -70,16 +75,56 @@ public class NurseDiscoveryService : INurseDiscoveryService
                     end > b.StartTime));
         }
 
-        var nurses = await query
-            .OrderByDescending(np => np.AverageRating)
-            .ThenByDescending(np => np.YearsExperience)
+        var nurses = await query.ToListAsync();
+        var nurseProfileIds = nurses.Select(np => np.Id).ToList();
+        var nurseUserIds = nurses.Select(np => np.UserId).ToList();
+        var now = DateTime.UtcNow;
+
+        var addresses = await _context.Addresses
+            .Where(a => nurseUserIds.Contains(a.UserId) && a.Type == "nurse_base")
             .ToListAsync();
+        var normalizedDistrict = NormalizeDistrict(district);
+
+        if (!string.IsNullOrWhiteSpace(normalizedDistrict))
+        {
+            nurses = nurses
+                .Where(np => NormalizeDistrict(addresses.FirstOrDefault(a => a.UserId == np.UserId)?.District) == normalizedDistrict)
+                .ToList();
+            nurseProfileIds = nurses.Select(np => np.Id).ToList();
+            nurseUserIds = nurses.Select(np => np.UserId).ToList();
+        }
+
+        var slots = await _context.AvailabilitySlots
+            .Where(a => nurseProfileIds.Contains(a.NurseProfileId) && a.EndTime >= now)
+            .OrderBy(a => a.StartTime)
+            .ToListAsync();
+
+        var busySlotIds = await _context.Bookings
+            .Where(b =>
+                b.AvailabilitySlotId != null &&
+                b.Status != BookingStatuses.Cancelled &&
+                b.Status != BookingStatuses.Rejected)
+            .Select(b => b.AvailabilitySlotId!.Value)
+            .ToListAsync();
+
+        var busySlotIdSet = busySlotIds.ToHashSet();
 
         return nurses.Select(np =>
         {
             var nurseService = serviceId.HasValue
                 ? np.NurseServices.FirstOrDefault(ns => ns.ServiceId == serviceId.Value)
                 : np.NurseServices.OrderBy(ns => ns.Price).FirstOrDefault();
+            var address = addresses.FirstOrDefault(a => a.UserId == np.UserId);
+            var distanceKm = latitude.HasValue && longitude.HasValue && address?.Latitude.HasValue == true && address.Longitude.HasValue
+                ? Math.Round(CalculateDistanceKm(latitude.Value, longitude.Value, address.Latitude.Value, address.Longitude.Value), 1)
+                : (double?)null;
+            var nextAvailableAt = slots
+                .Where(s => s.NurseProfileId == np.Id && !busySlotIdSet.Contains(s.Id))
+                .Select(s => (DateTime?)s.StartTime)
+                .FirstOrDefault();
+            var districtMatches = !string.IsNullOrWhiteSpace(normalizedDistrict) &&
+                NormalizeDistrict(address?.District) == normalizedDistrict;
+            var score = CalculateMatchScore(np, nurseService?.Price, distanceKm, nextAvailableAt, districtMatches);
 
             return new NurseDiscoveryDto
             {
@@ -93,9 +138,18 @@ public class NurseDiscoveryService : INurseDiscoveryService
                 YearsExperience = np.YearsExperience,
                 ServiceRadiusKm = np.ServiceRadiusKm,
                 ServicePrice = nurseService?.Price,
-                ServiceUnit = nurseService?.Unit
+                ServiceUnit = nurseService?.Unit,
+                DistanceKm = distanceKm,
+                MatchScore = score,
+                MatchReasons = BuildMatchReasons(np, distanceKm, nextAvailableAt, districtMatches),
+                NextAvailableAt = nextAvailableAt,
+                District = address?.District
             };
-        }).ToList();
+        })
+        .OrderByDescending(n => string.Equals(sortBy, "bestMatch", StringComparison.OrdinalIgnoreCase) ? n.MatchScore : (int)Math.Round(n.AverageRating * 20))
+        .ThenBy(n => n.DistanceKm ?? double.MaxValue)
+        .ThenByDescending(n => n.YearsExperience)
+        .ToList();
     }
 
     public async Task<NurseProfileDetailDto?> GetDetailAsync(int userId)
@@ -163,4 +217,72 @@ public class NurseDiscoveryService : INurseDiscoveryService
             Reviews = reviews
         };
     }
+
+    private static int CalculateMatchScore(NurseProfile profile, decimal? price, double? distanceKm, DateTime? nextAvailableAt, bool districtMatches)
+    {
+        var distanceScore = distanceKm.HasValue
+            ? Math.Clamp(35 - (distanceKm.Value / Math.Max(profile.ServiceRadiusKm, 1) * 35), 0, 35)
+            : districtMatches ? 26 : 18;
+        var ratingScore = Math.Clamp((double)profile.AverageRating / 5 * 25, 0, 25);
+        var experienceScore = Math.Clamp(profile.YearsExperience / 12d * 20, 0, 20);
+        var priceScore = price.HasValue
+            ? Math.Clamp(10 - ((double)Math.Max(price.Value - 350_000m, 0m) / 1_200_000d * 10), 0, 10)
+            : 5;
+        var availabilityScore = nextAvailableAt.HasValue
+            ? Math.Clamp(10 - Math.Max((nextAvailableAt.Value - DateTime.UtcNow).TotalDays, 0), 2, 10)
+            : 0;
+
+        return (int)Math.Round(distanceScore + ratingScore + experienceScore + priceScore + availabilityScore);
+    }
+
+    private static List<string> BuildMatchReasons(NurseProfile profile, double? distanceKm, DateTime? nextAvailableAt, bool districtMatches)
+    {
+        var reasons = new List<string>();
+
+        if (distanceKm.HasValue)
+        {
+            reasons.Add($"Cách bạn {distanceKm.Value:0.0}km");
+        }
+        else if (districtMatches)
+        {
+            reasons.Add("Cùng khu vực bạn chọn");
+        }
+
+        if (profile.AverageRating >= 4.5m)
+        {
+            reasons.Add($"{profile.AverageRating:0.0} sao từ khách hàng");
+        }
+
+        if (profile.YearsExperience >= 3)
+        {
+            reasons.Add($"{profile.YearsExperience} năm kinh nghiệm");
+        }
+
+        if (nextAvailableAt.HasValue)
+        {
+            reasons.Add(nextAvailableAt.Value.Date == DateTime.UtcNow.Date ? "Có lịch rảnh hôm nay" : "Có lịch rảnh gần nhất");
+        }
+
+        return reasons;
+    }
+
+    private static double CalculateDistanceKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double earthRadiusKm = 6371;
+        var dLat = ToRadians(lat2 - lat1);
+        var dLon = ToRadians(lon2 - lon1);
+        var a =
+            Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+            Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+            Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return earthRadiusKm * c;
+    }
+
+    private static double ToRadians(double degrees) => degrees * Math.PI / 180;
+
+    private static string NormalizeDistrict(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim().ToLowerInvariant().Replace("district", string.Empty).Replace("quan", string.Empty).Trim();
 }

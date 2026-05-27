@@ -9,7 +9,11 @@ public interface INurseDiscoveryService
         decimal? minPrice,
         decimal? maxPrice,
         DateTime? startTime,
-        DateTime? endTime);
+        DateTime? endTime,
+        double? latitude,
+        double? longitude,
+        string? district,
+        string? sortBy);
 
     Task<NurseProfileDetailDto?> GetDetailAsync(int userId);
 }

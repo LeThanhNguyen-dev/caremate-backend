@@ -13,4 +13,9 @@ public class NurseDiscoveryDto
     public int ServiceRadiusKm { get; set; }
     public decimal? ServicePrice { get; set; }
     public string? ServiceUnit { get; set; }
+    public double? DistanceKm { get; set; }
+    public int MatchScore { get; set; }
+    public List<string> MatchReasons { get; set; } = new();
+    public DateTime? NextAvailableAt { get; set; }
+    public string? District { get; set; }
 }

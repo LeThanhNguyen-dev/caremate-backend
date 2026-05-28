@@ -96,6 +96,27 @@ public class NurseDiscoveryService : INurseDiscoveryService
             nurseUserIds = nurses.Select(np => np.UserId).ToList();
         }
 
+        if (latitude.HasValue && longitude.HasValue)
+        {
+            nurses = nurses
+                .Where(np =>
+                {
+                    var address = addresses.FirstOrDefault(a => a.UserId == np.UserId);
+                    if (address?.Latitude.HasValue != true || address.Longitude.HasValue != true)
+                    {
+                        return false;
+                    }
+
+                    var nurseLatitude = address.Latitude.GetValueOrDefault();
+                    var nurseLongitude = address.Longitude.GetValueOrDefault();
+                    var distanceKm = CalculateDistanceKm(latitude.Value, longitude.Value, nurseLatitude, nurseLongitude);
+                    return distanceKm <= Math.Max(np.ServiceRadiusKm, 1);
+                })
+                .ToList();
+            nurseProfileIds = nurses.Select(np => np.Id).ToList();
+            nurseUserIds = nurses.Select(np => np.UserId).ToList();
+        }
+
         var slots = await _context.AvailabilitySlots
             .Where(a => nurseProfileIds.Contains(a.NurseProfileId) && a.EndTime >= now)
             .OrderBy(a => a.StartTime)

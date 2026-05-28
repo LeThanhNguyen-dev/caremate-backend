@@ -27,16 +27,16 @@ public static class MomCareSeedData
         var customerA = await EnsureUserAsync(userManager, "lan.customer@momcare.local", "Lan Nguyen", "0900000002", [AppRoles.Customer]);
         var customerB = await EnsureUserAsync(userManager, "thu.customer@momcare.local", "Thu Tran", "0900000003", [AppRoles.Customer]);
 
-        var nurseA = await EnsureUserAsync(userManager, "huong.nurse@momcare.local", "Huong Le", "0900000004", [AppRoles.NurseConfirmed]);
-        var nurseB = await EnsureUserAsync(userManager, "mai.nurse@momcare.local", "Mai Pham", "0900000005", [AppRoles.NurseConfirmed]);
-        var nursePending = await EnsureUserAsync(userManager, "pending.nurse@momcare.local", "Ngoc Do", "0900000006", [AppRoles.NurseUnconfirmed]);
+        var nurseA = await EnsureUserAsync(userManager, "huong.nurse@momcare.local", "Lê Thị Hương", "0900000004", [AppRoles.NurseConfirmed]);
+        var nurseB = await EnsureUserAsync(userManager, "mai.nurse@momcare.local", "Phạm Thanh Mai", "0900000005", [AppRoles.NurseConfirmed]);
+        var nursePending = await EnsureUserAsync(userManager, "pending.nurse@momcare.local", "Đỗ Bảo Ngọc", "0900000006", [AppRoles.NurseUnconfirmed]);
 
         await context.SaveChangesAsync();
 
         await EnsureAddressAsync(context, customerA.Id, "25 Nguyễn Văn Linh, quận Hải Châu, Đà Nẵng", "Bình Hiên", "Hải Châu", true, "customer_home", 16.0605, 108.2210);
         await EnsureAddressAsync(context, customerB.Id, "120 Hồ Nghinh, quận Sơn Trà, Đà Nẵng", "Phước Mỹ", "Sơn Trà", true, "customer_home", 16.0686, 108.2431);
-        await EnsureAddressAsync(context, nurseA.Id, "5 Le Van Sy, Phu Nhuan, HCMC", "Ward 12", "Phu Nhuan", true, "nurse_base");
-        await EnsureAddressAsync(context, nurseB.Id, "88 Dien Bien Phu, Binh Thanh, HCMC", "Ward 15", "Binh Thanh", true, "nurse_base");
+        await EnsureAddressAsync(context, nurseA.Id, "Chợ Hàn Đà Nẵng, 116 Bạch Đằng, Hải Châu 1, Hải Châu, Đà Nẵng", "Hải Châu 1", "Hải Châu", true, "nurse_base", 16.068244159000074, 108.22487182000003);
+        await EnsureAddressAsync(context, nurseB.Id, "Hồ Nghinh, Phước Mỹ, Sơn Trà, Đà Nẵng", "Phước Mỹ", "Sơn Trà", true, "nurse_base", 16.06676487624661, 108.24317303171603);
 
         var babyBath = await EnsureServiceAsync(context, "Tắm bé", "Hỗ trợ tắm bé, vệ sinh cơ bản và hướng dẫn gia đình chăm bé an toàn.", "cham-be-so-sinh", 320_000m, 45, "active", "single");
         var motherHealth = await EnsureServiceAsync(context, "Theo dõi sức khỏe mẹ", "Theo dõi hồi phục, dấu hiệu bất thường và nhu cầu nghỉ ngơi của mẹ sau sinh.", "cham-me-sau-sinh", 500_000m, 60, "active", "single");
@@ -65,9 +65,9 @@ public static class MomCareSeedData
         var nurseProfileA = await EnsureNurseProfileAsync(
             context,
             nurseA.Id,
-            "7 years in maternity ward and home care.",
-            "Postpartum, Newborn",
-            "BSc Nursing; Neonatal Care Certificate",
+            "7 năm kinh nghiệm tại khoa sản và chăm sóc mẹ bé tại nhà.",
+            "Chăm sóc mẹ sau sinh, chăm bé sơ sinh",
+            "Cử nhân Điều dưỡng; Chứng chỉ chăm sóc sơ sinh",
             7,
             15,
             4.8m,
@@ -77,9 +77,9 @@ public static class MomCareSeedData
         var nurseProfileB = await EnsureNurseProfileAsync(
             context,
             nurseB.Id,
-            "5 years of infant and overnight care.",
-            "Infant Night Care",
-            "RN License; Infant CPR",
+            "5 năm kinh nghiệm chăm bé sơ sinh và hỗ trợ chăm bé ban đêm.",
+            "Chăm bé ban đêm, chăm sóc sơ sinh",
+            "Chứng chỉ hành nghề điều dưỡng; Chứng nhận sơ cứu trẻ sơ sinh",
             5,
             12,
             4.6m,
@@ -89,9 +89,9 @@ public static class MomCareSeedData
         var nurseProfilePending = await EnsureNurseProfileAsync(
             context,
             nursePending.Id,
-            "New caregiver pending document verification.",
-            "Postpartum",
-            "RN Candidate",
+            "Điều dưỡng mới đang chờ xác minh hồ sơ.",
+            "Chăm sóc mẹ sau sinh",
+            "Ứng viên điều dưỡng",
             2,
             10,
             0m,
@@ -182,7 +182,7 @@ public static class MomCareSeedData
             motherHealth.Id,
             BookingStatuses.Completed,
             550_000m,
-            "25 Nguyen Hue, District 1, HCMC",
+            "25 Nguyễn Văn Linh, quận Hải Châu, Đà Nẵng",
             today.AddDays(-2).AddHours(9),
             today.AddDays(-2).AddHours(11));
 
@@ -194,7 +194,7 @@ public static class MomCareSeedData
             babyHealth.Id,
             BookingStatuses.PendingConfirm,
             500_000m,
-            "120 Vo Van Tan, District 3, HCMC",
+            "120 Hồ Nghinh, quận Sơn Trà, Đà Nẵng",
             today.AddDays(1).AddHours(9),
             today.AddDays(1).AddHours(11));
 
@@ -206,7 +206,7 @@ public static class MomCareSeedData
             nightCare.Id,
             BookingStatuses.InProgress,
             2_000_000m,
-            "25 Nguyen Hue, District 1, HCMC",
+            "25 Nguyễn Văn Linh, quận Hải Châu, Đà Nẵng",
             today.AddDays(-1).AddHours(21),
             today.AddDays(0).AddHours(3));
 
@@ -230,9 +230,9 @@ public static class MomCareSeedData
         await EnsurePayoutAsync(context, completedBooking.Id, nurseA.Id, 500_000m, 50_000m, "released", today.AddDays(-1));
         await EnsurePayoutAsync(context, inProgressBooking.Id, nurseB.Id, 1_800_000m, 200_000m, "on_hold", null);
 
-        await EnsureReviewAsync(context, completedBooking.Id, customerA.Id, nurseA.Id, 5, "Great support and very caring.", today.AddDays(-2).AddHours(12));
+        await EnsureReviewAsync(context, completedBooking.Id, customerA.Id, nurseA.Id, 5, "Hỗ trợ rất tận tâm và chu đáo.", today.AddDays(-2).AddHours(12));
 
-        await EnsureDisputeAsync(context, inProgressBooking.Id, "Need clarification on overtime pricing", "open", "Pending admin review");
+        await EnsureDisputeAsync(context, inProgressBooking.Id, "Cần làm rõ chi phí phát sinh ngoài giờ", "open", "Đang chờ quản trị viên xem xét");
 
         var conversation = await EnsureConversationAsync(context, completedBooking.Id, customerA.Id, nurseA.Id);
         await context.SaveChangesAsync();
@@ -490,16 +490,63 @@ public static class MomCareSeedData
             "Nguyễn Quỳnh Như", "Trần Minh Tâm", "Lê Phương Thanh", "Phạm Thị Thủy", "Võ Ngọc Trà", "Hoàng Anh Tú"
         };
 
+        var locations = new[]
+        {
+            new { FullAddress = "Chợ Hàn Đà Nẵng, 116 Bạch Đằng, Hải Châu 1, Hải Châu, Đà Nẵng", Ward = "Hải Châu 1", District = "Hải Châu", Latitude = 16.068244159000074, Longitude = 108.22487182000003, Radius = 6 },
+            new { FullAddress = "Chợ Cồn, Hùng Vương, Hải Châu 2, Hải Châu, Đà Nẵng", Ward = "Hải Châu 2", District = "Hải Châu", Latitude = 16.0680564, Longitude = 108.2143082, Radius = 6 },
+            new { FullAddress = "Cầu Rồng, An Hải Tây, Sơn Trà, Đà Nẵng", Ward = "An Hải Tây", District = "Hải Châu", Latitude = 16.061082357512515, Longitude = 108.22786173973377, Radius = 7 },
+            new { FullAddress = "Bệnh viện Đa khoa Quốc tế Vinmec Đà Nẵng, 4 đường 30 Tháng 4, Hòa Cường Bắc, Hải Châu, Đà Nẵng", Ward = "Hòa Cường Bắc", District = "Hải Châu", Latitude = 16.03940394500006, Longitude = 108.21151897400006, Radius = 8 },
+            new { FullAddress = "Nguyễn Văn Linh, Phước Ninh, Hải Châu, Đà Nẵng", Ward = "Phước Ninh", District = "Hải Châu", Latitude = 16.0609273, Longitude = 108.2189461, Radius = 7 },
+            new { FullAddress = "Duy Tân, Hòa Thuận Tây, Hải Châu, Đà Nẵng", Ward = "Hòa Thuận Tây", District = "Hải Châu", Latitude = 16.0504684, Longitude = 108.2095168, Radius = 8 },
+            new { FullAddress = "Hàm Nghi, Thạc Gián, Thanh Khê, Đà Nẵng", Ward = "Thạc Gián", District = "Thanh Khê", Latitude = 16.0628962, Longitude = 108.2107061, Radius = 6 },
+            new { FullAddress = "Điện Biên Phủ, Thanh Khê Đông, Thanh Khê, Đà Nẵng", Ward = "Thanh Khê Đông", District = "Thanh Khê", Latitude = 16.065761, Longitude = 108.1924117, Radius = 7 },
+            new { FullAddress = "Lê Duẩn, Chính Gián, Thanh Khê, Đà Nẵng", Ward = "Chính Gián", District = "Thanh Khê", Latitude = 16.069294, Longitude = 108.2095453, Radius = 6 },
+            new { FullAddress = "Nguyễn Tất Thành, Xuân Hà, Thanh Khê, Đà Nẵng", Ward = "Xuân Hà", District = "Thanh Khê", Latitude = 16.0776, Longitude = 108.1889, Radius = 8 },
+            new { FullAddress = "Trần Cao Vân, Thanh Khê, Đà Nẵng", Ward = "Thanh Khê", District = "Thanh Khê", Latitude = 16.0707, Longitude = 108.2006, Radius = 7 },
+            new { FullAddress = "Mẹ Nhu, Thanh Khê Tây, Thanh Khê, Đà Nẵng", Ward = "Thanh Khê Tây", District = "Thanh Khê", Latitude = 16.0748, Longitude = 108.1797, Radius = 8 },
+            new { FullAddress = "Cầu Sông Hàn, An Hải Bắc, Sơn Trà, Đà Nẵng", Ward = "An Hải Bắc", District = "Sơn Trà", Latitude = 16.072319367279547, Longitude = 108.22772329782113, Radius = 7 },
+            new { FullAddress = "Phạm Văn Đồng, An Hải Bắc, Sơn Trà, Đà Nẵng", Ward = "An Hải Bắc", District = "Sơn Trà", Latitude = 16.070559509819137, Longitude = 108.23706079591314, Radius = 7 },
+            new { FullAddress = "Hồ Nghinh, Phước Mỹ, Sơn Trà, Đà Nẵng", Ward = "Phước Mỹ", District = "Sơn Trà", Latitude = 16.06676487624661, Longitude = 108.24317303171603, Radius = 6 },
+            new { FullAddress = "A La Carte Danang Beach, Võ Nguyên Giáp, Phước Mỹ, Sơn Trà, Đà Nẵng", Ward = "Phước Mỹ", District = "Sơn Trà", Latitude = 16.0687309, Longitude = 108.244693, Radius = 6 },
+            new { FullAddress = "Phường Mân Thái, Sơn Trà, Đà Nẵng", Ward = "Mân Thái", District = "Sơn Trà", Latitude = 16.08934956125003, Longitude = 108.24009102975006, Radius = 8 },
+            new { FullAddress = "Phường Thọ Quang, Sơn Trà, Đà Nẵng", Ward = "Thọ Quang", District = "Sơn Trà", Latitude = 16.13084410325007, Longitude = 108.2500609712501, Radius = 10 },
+            new { FullAddress = "Võ Nguyên Giáp, Mỹ An, Ngũ Hành Sơn, Đà Nẵng", Ward = "Mỹ An", District = "Ngũ Hành Sơn", Latitude = 16.052298235401214, Longitude = 108.24817960245824, Radius = 7 },
+            new { FullAddress = "Lê Văn Hiến, Khuê Mỹ, Ngũ Hành Sơn, Đà Nẵng", Ward = "Khuê Mỹ", District = "Ngũ Hành Sơn", Latitude = 16.0178054, Longitude = 108.2535484, Radius = 8 },
+            new { FullAddress = "Trần Đại Nghĩa, Hòa Hải, Ngũ Hành Sơn, Đà Nẵng", Ward = "Hòa Hải", District = "Ngũ Hành Sơn", Latitude = 15.9851814, Longitude = 108.2566269, Radius = 9 },
+            new { FullAddress = "298 Võ Nguyên Giáp, Mỹ An, Ngũ Hành Sơn, Đà Nẵng", Ward = "Mỹ An", District = "Ngũ Hành Sơn", Latitude = 16.0503276, Longitude = 108.2484905, Radius = 7 },
+            new { FullAddress = "Phường Khuê Mỹ, Ngũ Hành Sơn, Đà Nẵng", Ward = "Khuê Mỹ", District = "Ngũ Hành Sơn", Latitude = 16.02810771350005, Longitude = 108.24825368650005, Radius = 8 },
+            new { FullAddress = "Bãi biển Mỹ Khê, Võ Nguyên Giáp, Đà Nẵng", Ward = "Phước Mỹ", District = "Ngũ Hành Sơn", Latitude = 16.060879, Longitude = 108.2466345, Radius = 7 },
+            new { FullAddress = "Mê Linh, Hòa Khánh Bắc, Liên Chiểu, Đà Nẵng", Ward = "Hòa Khánh Bắc", District = "Liên Chiểu", Latitude = 16.087888114927807, Longitude = 108.12273119146593, Radius = 9 },
+            new { FullAddress = "Nguyễn Lương Bằng, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng", Ward = "Hòa Hiệp Nam", District = "Liên Chiểu", Latitude = 16.09610569448002, Longitude = 108.13736368966741, Radius = 9 },
+            new { FullAddress = "Tôn Đức Thắng, Hòa Minh, Liên Chiểu, Đà Nẵng", Ward = "Hòa Minh", District = "Liên Chiểu", Latitude = 16.05987818592002, Longitude = 108.1633243119634, Radius = 8 },
+            new { FullAddress = "Hòa Khánh, Đà Nẵng", Ward = "Hòa Khánh", District = "Liên Chiểu", Latitude = 16.0554759, Longitude = 108.1250791, Radius = 9 },
+            new { FullAddress = "Nam Ô, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng", Ward = "Hòa Hiệp Nam", District = "Liên Chiểu", Latitude = 16.1057327, Longitude = 108.136637, Radius = 9 },
+            new { FullAddress = "Âu Cơ, Hòa Khánh Bắc, Liên Chiểu, Đà Nẵng", Ward = "Hòa Khánh Bắc", District = "Liên Chiểu", Latitude = 16.0735, Longitude = 108.1356, Radius = 9 },
+            new { FullAddress = "Cách Mạng Tháng 8, Khuê Trung, Cẩm Lệ, Đà Nẵng", Ward = "Khuê Trung", District = "Cẩm Lệ", Latitude = 16.018453552910724, Longitude = 108.20753793646035, Radius = 7 },
+            new { FullAddress = "Ông Ích Đường, Khuê Trung, Cẩm Lệ, Đà Nẵng", Ward = "Khuê Trung", District = "Cẩm Lệ", Latitude = 16.019805848793826, Longitude = 108.20334397595265, Radius = 7 },
+            new { FullAddress = "Hòa Xuân, Cẩm Lệ, Đà Nẵng", Ward = "Hòa Xuân", District = "Cẩm Lệ", Latitude = 15.978817598750027, Longitude = 108.20333914625007, Radius = 8 },
+            new { FullAddress = "Nguyễn Phước Lan, Hòa Xuân, Cẩm Lệ, Đà Nẵng", Ward = "Hòa Xuân", District = "Cẩm Lệ", Latitude = 15.9879, Longitude = 108.2072, Radius = 8 },
+            new { FullAddress = "Lê Đại Hành, Hòa Thọ Đông, Cẩm Lệ, Đà Nẵng", Ward = "Hòa Thọ Đông", District = "Cẩm Lệ", Latitude = 16.02272535041191, Longitude = 108.20212317496076, Radius = 7 },
+            new { FullAddress = "Chợ Cẩm Lệ, Hoàng Xuân Hãn, Khuê Trung, Cẩm Lệ, Đà Nẵng", Ward = "Khuê Trung", District = "Cẩm Lệ", Latitude = 16.014031286000034, Longitude = 108.20693976000007, Radius = 7 },
+            new { FullAddress = "Trung tâm hành chính Hòa Vang, Đà Nẵng", Ward = "Hòa Phong", District = "Hòa Vang", Latitude = 15.9783739, Longitude = 108.0361555, Radius = 12 },
+            new { FullAddress = "Túy Loan, Hòa Phong, Hòa Vang, Đà Nẵng", Ward = "Hòa Phong", District = "Hòa Vang", Latitude = 15.9878, Longitude = 108.1267, Radius = 12 },
+            new { FullAddress = "Bà Nà Hills, thôn An Sơn, Hòa Ninh, Hòa Vang, Đà Nẵng", Ward = "Hòa Ninh", District = "Hòa Vang", Latitude = 15.997725143000025, Longitude = 107.98802187400008, Radius = 15 },
+            new { FullAddress = "Hòa Phú, Hòa Vang, Đà Nẵng", Ward = "Hòa Phú", District = "Hòa Vang", Latitude = 15.9783739, Longitude = 108.0361555, Radius = 12 },
+            new { FullAddress = "Xã Hòa Tiến, Hòa Vang, Đà Nẵng", Ward = "Hòa Tiến", District = "Hòa Vang", Latitude = 15.969297787000073, Longitude = 108.18080644000008, Radius = 10 },
+            new { FullAddress = "Xã Hòa Nhơn, Hòa Vang, Đà Nẵng", Ward = "Hòa Nhơn", District = "Hòa Vang", Latitude = 16.00045612400004, Longitude = 108.14523418900006, Radius = 11 },
+        };
+
         var today = DateTime.UtcNow.Date;
         var serviceCount = services.Length;
 
-        for (var districtIndex = 0; districtIndex < districts.Length; districtIndex++)
+        for (var districtIndex = 0; districtIndex < locations.Length / 6; districtIndex++)
         {
             var district = districts[districtIndex];
 
             for (var localIndex = 0; localIndex < 6; localIndex++)
             {
                 var index = districtIndex * 6 + localIndex;
+                var location = locations[index];
                 var number = index + 1;
                 var email = $"danang.nurse{number:00}@momcare.local";
                 var phone = $"0918{number:000000}";
@@ -519,6 +566,17 @@ public static class MomCareSeedData
                     district.Lat + latOffset,
                     district.Lng + lngOffset);
 
+                await EnsureAddressAsync(
+                    context,
+                    user.Id,
+                    location.FullAddress,
+                    location.Ward,
+                    location.District,
+                    true,
+                    "nurse_base",
+                    location.Latitude,
+                    location.Longitude);
+
                 var experience = 1 + (index * 3 % 12);
                 var radius = 5 + (index % 8);
                 var rating = Math.Round(4.0m + ((index * 7) % 10) / 10m, 1);
@@ -533,6 +591,8 @@ public static class MomCareSeedData
                     rating,
                     true,
                     "verified");
+                profile.ServiceRadiusKm = location.Radius;
+                profile.Bio = $"Điều dưỡng chăm sóc mẹ và bé tại nhà khu vực {location.District}, Đà Nẵng. Hồ sơ đã được CareMate xác minh.";
 
                 await context.SaveChangesAsync();
 

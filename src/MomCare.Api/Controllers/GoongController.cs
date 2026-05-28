@@ -76,12 +76,12 @@ public class GoongController : ControllerBase
     }
 
     private string? GetApiKey() =>
-        _configuration["Goong:ApiKey"]
-        ?? _configuration["Goong:RestApiKey"]
+        _configuration["Goong:RestApiKey"]
+        ?? _configuration["GOONG_REST_API_KEY"]
+        ?? Environment.GetEnvironmentVariable("GOONG_REST_API_KEY")
+        ?? _configuration["Goong:ApiKey"]
         ?? _configuration["GOONG_API_KEY"]
-        ?? _configuration["VITE_GOONG_API_KEY"]
-        ?? Environment.GetEnvironmentVariable("GOONG_API_KEY")
-        ?? Environment.GetEnvironmentVariable("VITE_GOONG_API_KEY");
+        ?? Environment.GetEnvironmentVariable("GOONG_API_KEY");
 
     private async Task<IActionResult> ForwardGoongRequestAsync(string url, CancellationToken cancellationToken)
     {

@@ -374,12 +374,30 @@ public class BookingService : IBookingService
             .Include(b => b.Service)
             .Include(b => b.Nurse)
             .Include(b => b.SessionLogs)
+            .Include(b => b.StatusHistory)
             .Include(b => b.Payment)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (booking == null) return null;
 
         if (!isAdmin && booking.CustomerId != actorUserId && booking.NurseId != actorUserId) return null;
+
+        var checkInTime = booking.StatusHistory
+            .Where(h => h.Status == BookingStatuses.InProgress)
+            .OrderBy(h => h.CreatedAt)
+            .Select(h => (DateTime?)h.CreatedAt)
+            .FirstOrDefault();
+        var checkOutTime = booking.StatusHistory
+            .Where(h => h.Status == BookingStatuses.Completed)
+            .OrderBy(h => h.CreatedAt)
+            .Select(h => (DateTime?)h.CreatedAt)
+            .FirstOrDefault();
+        var nurseNote = booking.StatusHistory
+            .Where(h => (h.Status == BookingStatuses.Completed || h.Status == BookingStatuses.InProgress)
+                && !string.IsNullOrWhiteSpace(h.Note))
+            .OrderByDescending(h => h.CreatedAt)
+            .Select(h => h.Note)
+            .FirstOrDefault();
 
         return new BookingDetailDto
         {
@@ -394,8 +412,14 @@ public class BookingService : IBookingService
             TotalPrice = booking.TotalPrice,
             StartTime = booking.StartTime,
             EndTime = booking.EndTime,
+            CheckInTime = checkInTime,
+            CheckOutTime = checkOutTime,
+            ActualDurationMinutes = checkInTime.HasValue && checkOutTime.HasValue
+                ? (int)Math.Max(0, Math.Round((checkOutTime.Value - checkInTime.Value).TotalMinutes))
+                : null,
             Address = booking.Address,
             Notes = booking.Notes,
+            NurseNote = nurseNote,
             PaymentStatus = booking.Payment?.Status,
             RefundAmount = booking.Payment?.RefundAmount,
             RefundReason = booking.Payment?.RefundReason,

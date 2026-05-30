@@ -219,7 +219,7 @@ public class HealthCheckInService : IHealthCheckInService
         var lastThree = recentHistory.Take(3).ToList();
         AddFactorIf(factors, lastThree.Count == 3 && lastThree.Count(x => x.SleepHours < 5) >= 3, "repeated_low_sleep", "Mẹ ngủ dưới 5 giờ trong 3 lần check-in gần nhất", 25);
         AddFactorIf(factors, recentHistory.Count(x => IsStressMood(x.Mood)) >= 3, "repeated_stress", "Stress hoặc lo âu lặp lại nhiều lần trong lịch sử gần đây", 22);
-        AddFactorIf(factors, recentHistory.Count(x => IsFeedingConcern(x.BabyFeeding)) >= 2, "repeated_feeding_concern", "Tình trạng bú của bé bất thường lặp lại", 25);
+        AddFactorIf(factors, HasActiveRepeatedFeedingConcern(currentCheckIn, recentHistory), "repeated_feeding_concern", "Tình trạng bú của bé bất thường lặp lại trong các lần gần đây", 25);
         AddFactorIf(factors, IsPainIncreasing(recentHistory), "pain_increasing", "Mức đau có xu hướng tăng", 15);
 
         return factors
@@ -431,7 +431,7 @@ public class HealthCheckInService : IHealthCheckInService
         IReadOnlyList<SuggestedServiceDto> availableServices)
     {
         var services = new List<SuggestedServiceDto>();
-        var repeatedFeedingConcern = recentHistory.Count(x => IsFeedingConcern(x.BabyFeeding)) >= 2;
+        var repeatedFeedingConcern = HasActiveRepeatedFeedingConcern(currentCheckIn, recentHistory);
         var repeatedStress = recentHistory.Count(x => IsStressMood(x.Mood)) >= 3;
         var repeatedMilkConcern = recentHistory.Count(x => IsLowMilk(x.MilkStatus)) >= 2;
         var painIncreasing = IsPainIncreasing(recentHistory);
@@ -603,6 +603,19 @@ public class HealthCheckInService : IHealthCheckInService
     {
         return babyFeeding.Equals("LessThanUsual", StringComparison.OrdinalIgnoreCase)
             || babyFeeding.Equals("RefusesFeeding", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasActiveRepeatedFeedingConcern(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    {
+        if (!IsFeedingConcern(currentCheckIn.BabyFeeding))
+        {
+            return false;
+        }
+
+        return recentHistory
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(3)
+            .Count(x => IsFeedingConcern(x.BabyFeeding)) >= 2;
     }
 
     private static bool IsBabySleepConcern(string babySleep)

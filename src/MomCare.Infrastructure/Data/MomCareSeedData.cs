@@ -50,6 +50,7 @@ public static class MomCareSeedData
         var emergencyConsultation = await EnsureServiceAsync(context, "Tư vấn khẩn", "Tư vấn nhanh khi gia đình cần định hướng xử lý tình huống chăm sóc mẹ và bé.", "tu-van-tai-nha", 300_000m, 30, "active", "single");
         var miniConsultation = await EnsureServiceAsync(context, "Gói Mini Tư Vấn Nhanh", "Buổi tư vấn ngắn 15 phút để gia đình hỏi nhanh về các lưu ý cơ bản khi chăm mẹ và bé tại nhà.", "tu-van-tai-nha", 29_000m, 15, "active", "single");
 
+        var pkgDemoBaBuoi = await EnsureServiceAsync(context, "Gói Demo Chăm Sóc 3 Buổi", "Gói demo 3 buổi giá nhẹ để gia đình trải nghiệm quy trình đặt lịch, check-in, check-out và theo dõi tiến độ từng buổi.", "goi-dich-vu", 79_000m, 45, "active", "package", 3, "mother-health-monitoring,baby-health-monitoring", GeneratePackageScheduleJson(3, "mother-health-monitoring,baby-health-monitoring"));
         var pkgThongTuyenSua = await EnsureServiceAsync(context, "Gói Chăm Sóc Thông Tuyến Sữa", "Gói 3 buổi hỗ trợ thông tuyến sữa, tư vấn tư thế cho bú và xử lý tắc sữa.", "goi-dich-vu", 2_400_000m, 60, "active", "package", 3, "breastfeeding-support", GeneratePackageScheduleJson(3, "breastfeeding-support"));
         var pkgGiamNhucMoi = await EnsureServiceAsync(context, "Gói Chăm Sóc Bầu Giảm Nhức Mỏi", "Gói 6 buổi massage giảm nhức mỏi và theo dõi sức khỏe mẹ sau sinh.", "goi-dich-vu", 2_500_000m, 60, "active", "package", 6, "postpartum-massage,mother-health-monitoring", GeneratePackageScheduleJson(6, "postpartum-massage,mother-health-monitoring"));
         var pkgTreSoSinh = await EnsureServiceAsync(context, "Gói Chăm Sóc Trẻ Sơ Sinh", "Gói 7 buổi chăm sóc toàn diện cho trẻ sơ sinh: tắm bé, theo dõi sức khỏe bé.", "goi-dich-vu", 8_300_000m, 90, "active", "package", 7, "baby-bathing,baby-health-monitoring", GeneratePackageScheduleJson(7, "baby-bathing,baby-health-monitoring"));
@@ -113,6 +114,7 @@ public static class MomCareSeedData
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, nutrition.Id, 580_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, emergencyConsultation.Id, 320_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, miniConsultation.Id, 29_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgDemoBaBuoi.Id, 79_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgThongTuyenSua.Id, 2_500_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgGiamNhucMoi.Id, 2_700_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgPhucHoi.Id, 9_200_000m, "fixed", "enabled");
@@ -124,6 +126,7 @@ public static class MomCareSeedData
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, mentalWellness.Id, 520_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, houseSupport.Id, 420_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, miniConsultation.Id, 29_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgDemoBaBuoi.Id, 89_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgMassageTamBe.Id, 3_400_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgTreSoSinh.Id, 8_500_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgVipSauSinh.Id, 17_000_000m, "fixed", "enabled");
@@ -144,6 +147,7 @@ public static class MomCareSeedData
                 houseSupport,
                 emergencyConsultation,
                 miniConsultation,
+                pkgDemoBaBuoi,
                 pkgTreSoSinh,
                 pkgMassageTamBe,
                 pkgPhucHoi
@@ -455,12 +459,6 @@ public static class MomCareSeedData
             });
             return;
         }
-
-        address.FullAddress = fullAddress;
-        address.Ward = ward;
-        address.District = district;
-        address.Latitude = latitude;
-        address.Longitude = longitude;
     }
 
     private static async Task EnsureDaNangNurseSeedAsync(
@@ -554,17 +552,6 @@ public static class MomCareSeedData
                 var user = await EnsureUserAsync(userManager, email, fullName, phone, [AppRoles.NurseConfirmed]);
                 var latOffset = ((localIndex % 3) - 1) * 0.008 + districtIndex * 0.0006;
                 var lngOffset = ((localIndex / 3) - 0.5) * 0.01 - districtIndex * 0.0004;
-
-                await EnsureAddressAsync(
-                    context,
-                    user.Id,
-                    $"Số {12 + localIndex}, đường CareMate, quận {district.Name}, Đà Nẵng",
-                    $"Phường {localIndex + 1}",
-                    district.Name,
-                    true,
-                    "nurse_base",
-                    district.Lat + latOffset,
-                    district.Lng + lngOffset);
 
                 await EnsureAddressAsync(
                     context,

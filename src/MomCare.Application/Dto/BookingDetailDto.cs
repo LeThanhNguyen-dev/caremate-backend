@@ -16,8 +16,12 @@ public class BookingDetailDto
     public decimal NursePayoutAmount { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
+    public DateTime? CheckInTime { get; set; }
+    public DateTime? CheckOutTime { get; set; }
+    public int? ActualDurationMinutes { get; set; }
     public string Address { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public string? NurseNote { get; set; }
     public string? PaymentStatus { get; set; }
     public decimal? RefundAmount { get; set; }
     public string? RefundReason { get; set; }

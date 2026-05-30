@@ -14,8 +14,11 @@ public class NurseDiscoveryDto
     public decimal? ServicePrice { get; set; }
     public string? ServiceUnit { get; set; }
     public double? DistanceKm { get; set; }
+    public string? DistanceSource { get; set; }
     public int MatchScore { get; set; }
     public List<string> MatchReasons { get; set; } = new();
+    public int CompletedBookings { get; set; }
+    public int TotalReviews { get; set; }
     public DateTime? NextAvailableAt { get; set; }
     public string? District { get; set; }
 }

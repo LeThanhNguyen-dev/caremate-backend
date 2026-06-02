@@ -19,6 +19,15 @@ public class AiHealthAnalysis
     [Column("warning_level")]
     public required string WarningLevel { get; set; }
 
+    [Column("triage_color")]
+    public string TriageColor { get; set; } = string.Empty;
+
+    [Column("urgency_action")]
+    public string UrgencyAction { get; set; } = string.Empty;
+
+    [Column("weekly_summary")]
+    public string WeeklySummary { get; set; } = string.Empty;
+
     [Column("risk_score")]
     public int RiskScore { get; set; }
 

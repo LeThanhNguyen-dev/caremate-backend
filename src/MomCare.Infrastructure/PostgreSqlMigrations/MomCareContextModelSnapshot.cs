@@ -228,6 +228,11 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("text")
                         .HasColumnName("summary");
 
+                    b.Property<string>("TriageColor")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("triage_color");
+
                     b.Property<string>("TrendSignalsJson")
                         .IsRequired()
                         .HasColumnType("text")
@@ -238,10 +243,20 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("text")
                         .HasColumnName("trend_summary");
 
+                    b.Property<string>("UrgencyAction")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("urgency_action");
+
                     b.Property<string>("WarningLevel")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("warning_level");
+
+                    b.Property<string>("WeeklySummary")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("weekly_summary");
 
                     b.HasKey("Id");
 
@@ -938,6 +953,20 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<int?>("DiastolicBloodPressure")
+                        .HasColumnType("integer")
+                        .HasColumnName("diastolic_blood_pressure");
+
+                    b.Property<string>("MedicalHistoryJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("medical_history_json");
+
+                    b.Property<string>("MedicationNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("medication_note");
+
                     b.Property<string>("MilkStatus")
                         .IsRequired()
                         .HasColumnType("text")
@@ -948,18 +977,59 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("text")
                         .HasColumnName("mood");
 
+                    b.Property<int?>("MotherAge")
+                        .HasColumnType("integer")
+                        .HasColumnName("mother_age");
+
                     b.Property<string>("Note")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("note");
 
+                    b.Property<string>("PainDuration")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("pain_duration");
+
                     b.Property<int>("PainLevel")
                         .HasColumnType("integer")
                         .HasColumnName("pain_level");
 
+                    b.Property<string>("PainLocation")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("pain_location");
+
+                    b.Property<string>("PainTrend")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("pain_trend");
+
+                    b.Property<string>("PainType")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("pain_type");
+
                     b.Property<double>("SleepHours")
                         .HasColumnType("double precision")
                         .HasColumnName("sleep_hours");
+
+                    b.Property<string>("SymptomsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("symptoms_json");
+
+                    b.Property<int?>("SystolicBloodPressure")
+                        .HasColumnType("integer")
+                        .HasColumnName("systolic_blood_pressure");
+
+                    b.Property<double?>("TemperatureCelsius")
+                        .HasColumnType("double precision")
+                        .HasColumnName("temperature_celsius");
+
+                    b.Property<bool>("TookMedicationToday")
+                        .HasColumnType("boolean")
+                        .HasColumnName("took_medication_today");
 
                     b.Property<int>("UserId")
                         .HasColumnType("integer")

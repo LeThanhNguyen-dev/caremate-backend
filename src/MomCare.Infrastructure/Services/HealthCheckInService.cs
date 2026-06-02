@@ -42,6 +42,18 @@ public class HealthCheckInService : IHealthCheckInService
             UserId = userId,
             SleepHours = request.SleepHours,
             PainLevel = request.PainLevel,
+            PainLocation = Clean(request.PainLocation),
+            PainType = Clean(request.PainType),
+            PainDuration = Clean(request.PainDuration),
+            PainTrend = Clean(request.PainTrend),
+            SymptomsJson = JsonSerializer.Serialize(CleanList(request.Symptoms), JsonOptions),
+            MedicalHistoryJson = JsonSerializer.Serialize(CleanList(request.MedicalHistory), JsonOptions),
+            MotherAge = request.MotherAge,
+            SystolicBloodPressure = request.SystolicBloodPressure,
+            DiastolicBloodPressure = request.DiastolicBloodPressure,
+            TemperatureCelsius = request.TemperatureCelsius,
+            TookMedicationToday = request.TookMedicationToday,
+            MedicationNote = Clean(request.MedicationNote),
             Mood = request.Mood.Trim(),
             MilkStatus = request.MilkStatus.Trim(),
             BabyFeeding = request.BabyFeeding.Trim(),
@@ -81,6 +93,9 @@ public class HealthCheckInService : IHealthCheckInService
             HealthCheckInId = checkIn.Id,
             Summary = analysisResult.Summary,
             WarningLevel = analysisResult.WarningLevel,
+            TriageColor = analysisResult.TriageColor,
+            UrgencyAction = analysisResult.UrgencyAction,
+            WeeklySummary = analysisResult.WeeklySummary,
             RiskScore = analysisResult.RiskScore,
             ConfidenceScore = analysisResult.ConfidenceScore,
             TrendSummary = analysisResult.TrendSummary,
@@ -156,9 +171,12 @@ public class HealthCheckInService : IHealthCheckInService
         {
             Summary = BuildSummary(warningLevel, riskScore, factors),
             WarningLevel = warningLevel,
+            TriageColor = warningLevel,
+            UrgencyAction = BuildUrgencyAction(warningLevel),
             RiskScore = riskScore,
             ConfidenceScore = Math.Min(95, 45 + recentHistory.Count * 7),
             TrendSummary = BuildTrendSummary(trendSignals, recentHistory),
+            WeeklySummary = BuildWeeklySummary(currentCheckIn, recentHistory),
             RiskFactors = factors,
             TrendSignals = trendSignals,
             Recommendations = BuildRecommendations(currentCheckIn, recentHistory, factors, warningLevel),
@@ -204,6 +222,15 @@ public class HealthCheckInService : IHealthCheckInService
         var factors = new List<RiskFactorDto>();
 
         AddFactorIf(factors, HasDangerKeyword(currentCheckIn.Note), "danger_note", "Ghi chú có dấu hiệu nguy hiểm", 60);
+        AddFactorIf(factors, HasEmergencySymptom(currentCheckIn), "emergency_symptom", "Có triệu chứng cần xử lý khẩn cấp", 80);
+        AddFactorIf(factors, HasRedFlagSymptom(currentCheckIn), "red_flag_symptom", "Có dấu hiệu cảnh báo đỏ", 55);
+        AddFactorIf(factors, HasChestPainBreathingCombo(currentCheckIn), "chest_pain_breathing", "Đau ngực kèm khó thở", 90);
+        AddFactorIf(factors, currentCheckIn.MotherAge >= 50 && HasChestPainBreathingCombo(currentCheckIn), "age_chest_breathing", "Trên 50 tuổi kèm đau ngực và khó thở", 30);
+        AddFactorIf(factors, currentCheckIn.TemperatureCelsius >= 38.5, "high_temperature", "Sốt từ 38.5°C trở lên", 40);
+        AddFactorIf(factors, currentCheckIn.SystolicBloodPressure >= 160 || currentCheckIn.DiastolicBloodPressure >= 110, "very_high_bp", "Huyết áp rất cao", 60);
+        AddFactorIf(factors, currentCheckIn.SystolicBloodPressure >= 140 || currentCheckIn.DiastolicBloodPressure >= 90, "high_bp", "Huyết áp cao", 30);
+        AddFactorIf(factors, HasMedicalHistory(currentCheckIn, "tiểu đường", "tieu duong", "tim mạch", "tim mach", "huyết áp", "huyet ap"), "medical_history", "Có tiền sử bệnh cần theo dõi", 20);
+        AddFactorIf(factors, IsWorseningPain(currentCheckIn), "pain_worsening", "Đau đang tăng lên", 18);
         AddFactorIf(factors, currentCheckIn.PainLevel >= 9, "severe_pain", "Mức đau rất cao", 45);
         AddFactorIf(factors, currentCheckIn.PainLevel == 8, "high_pain", "Mức đau cao", 35);
         AddFactorIf(factors, currentCheckIn.PainLevel is >= 6 and <= 7, "elevated_pain", "Mức đau đang tăng", 20);
@@ -238,22 +265,30 @@ public class HealthCheckInService : IHealthCheckInService
 
     private static string DetermineWarningLevel(int riskScore, HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
     {
+        if (HasEmergencySymptom(currentCheckIn)
+            || HasChestPainBreathingCombo(currentCheckIn)
+            || riskScore >= 85)
+        {
+            return "Emergency";
+        }
+
         if (HasDangerKeyword(currentCheckIn.Note)
+            || HasRedFlagSymptom(currentCheckIn)
             || currentCheckIn.PainLevel >= 9
             || currentCheckIn.BabyFeeding.Equals("RefusesFeeding", StringComparison.OrdinalIgnoreCase)
-            || riskScore >= 60)
+            || riskScore >= 55)
         {
-            return "High";
+            return "Red";
         }
 
         if (currentCheckIn.PainLevel >= 8
-            || riskScore >= 30
+            || riskScore >= 25
             || recentHistory.Take(3).Count(x => x.SleepHours < 5) >= 3)
         {
-            return "Medium";
+            return "Yellow";
         }
 
-        return "Low";
+        return "Green";
     }
 
     private static List<TrendSignalDto> BuildTrendSignals(List<HealthCheckIn> recentHistory)
@@ -329,8 +364,9 @@ public class HealthCheckInService : IHealthCheckInService
 
         return warningLevel switch
         {
-            "High" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức cao. Cần ưu tiên theo dõi sát và cân nhắc liên hệ cơ sở y tế nếu triệu chứng kéo dài hoặc nặng hơn.{reason}",
-            "Medium" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức trung bình. Tình trạng chưa nên xem là ổn định hoàn toàn và cần theo dõi thêm trong 24-48 giờ tới.{reason}",
+            "Emergency" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức đỏ khẩn cấp. Nên liên hệ cấp cứu hoặc cơ sở y tế ngay, đặc biệt khi triệu chứng đang tăng nhanh.{reason}",
+            "Red" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức đỏ. Cần ưu tiên liên hệ bác sĩ hoặc cơ sở y tế trong thời gian sớm.{reason}",
+            "Yellow" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức vàng. Tình trạng cần theo dõi thêm trong 24-48 giờ tới.{reason}",
             _ => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức thấp. Tình trạng tương đối ổn nhưng vẫn nên tiếp tục check-in hằng ngày để phát hiện thay đổi sớm.{reason}"
         };
     }
@@ -343,7 +379,7 @@ public class HealthCheckInService : IHealthCheckInService
     {
         var recommendations = new List<string>();
 
-        if (warningLevel == "High")
+        if (warningLevel is "Emergency" or "Red")
         {
             recommendations.Add("Ưu tiên an toàn: liên hệ bác sĩ hoặc cơ sở y tế nếu triệu chứng tiếp tục tăng, bé bỏ bú, sốt cao, khó thở hoặc có chảy máu bất thường.");
         }
@@ -385,7 +421,7 @@ public class HealthCheckInService : IHealthCheckInService
     {
         var plan = new List<CarePlanItemDto>();
 
-        if (warningLevel == "High")
+        if (warningLevel is "Emergency" or "Red")
         {
             plan.Add(new CarePlanItemDto
             {
@@ -476,11 +512,14 @@ public class HealthCheckInService : IHealthCheckInService
         input.RiskScore = ruleResult.RiskScore;
         input.ConfidenceScore = ruleResult.ConfidenceScore;
         input.WarningLevel = ruleResult.WarningLevel;
+        input.TriageColor = ruleResult.TriageColor;
+        input.UrgencyAction = ruleResult.UrgencyAction;
+        input.WeeklySummary = ruleResult.WeeklySummary;
         input.RiskFactors = ruleResult.RiskFactors;
         input.TrendSignals = ruleResult.TrendSignals;
         input.TrendSummary = ruleResult.TrendSummary;
 
-        if (input.WarningLevel != "Low")
+        if (input.WarningLevel is not "Green")
         {
             input.Summary = ruleResult.Summary;
         }
@@ -528,6 +567,9 @@ public class HealthCheckInService : IHealthCheckInService
             AnalysisId = analysis.Id,
             Summary = analysis.Summary,
             WarningLevel = analysis.WarningLevel,
+            TriageColor = string.IsNullOrWhiteSpace(analysis.TriageColor) ? analysis.WarningLevel : analysis.TriageColor,
+            UrgencyAction = analysis.UrgencyAction,
+            WeeklySummary = analysis.WeeklySummary,
             RiskScore = analysis.RiskScore,
             ConfidenceScore = analysis.ConfidenceScore,
             TrendSummary = analysis.TrendSummary,
@@ -548,6 +590,18 @@ public class HealthCheckInService : IHealthCheckInService
             CreatedAt = checkIn.CreatedAt,
             SleepHours = checkIn.SleepHours,
             PainLevel = checkIn.PainLevel,
+            PainLocation = checkIn.PainLocation,
+            PainType = checkIn.PainType,
+            PainDuration = checkIn.PainDuration,
+            PainTrend = checkIn.PainTrend,
+            Symptoms = DeserializeStringList(checkIn.SymptomsJson),
+            MedicalHistory = DeserializeStringList(checkIn.MedicalHistoryJson),
+            MotherAge = checkIn.MotherAge,
+            SystolicBloodPressure = checkIn.SystolicBloodPressure,
+            DiastolicBloodPressure = checkIn.DiastolicBloodPressure,
+            TemperatureCelsius = checkIn.TemperatureCelsius,
+            TookMedicationToday = checkIn.TookMedicationToday,
+            MedicationNote = checkIn.MedicationNote,
             Mood = checkIn.Mood,
             MilkStatus = checkIn.MilkStatus,
             BabyFeeding = checkIn.BabyFeeding,
@@ -565,6 +619,18 @@ public class HealthCheckInService : IHealthCheckInService
             CreatedAt = checkIn.CreatedAt,
             SleepHours = checkIn.SleepHours,
             PainLevel = checkIn.PainLevel,
+            PainLocation = checkIn.PainLocation,
+            PainType = checkIn.PainType,
+            PainDuration = checkIn.PainDuration,
+            PainTrend = checkIn.PainTrend,
+            Symptoms = DeserializeStringList(checkIn.SymptomsJson),
+            MedicalHistory = DeserializeStringList(checkIn.MedicalHistoryJson),
+            MotherAge = checkIn.MotherAge,
+            SystolicBloodPressure = checkIn.SystolicBloodPressure,
+            DiastolicBloodPressure = checkIn.DiastolicBloodPressure,
+            TemperatureCelsius = checkIn.TemperatureCelsius,
+            TookMedicationToday = checkIn.TookMedicationToday,
+            MedicationNote = checkIn.MedicationNote,
             Mood = checkIn.Mood,
             MilkStatus = checkIn.MilkStatus,
             BabyFeeding = checkIn.BabyFeeding,
@@ -583,6 +649,70 @@ public class HealthCheckInService : IHealthCheckInService
     private static List<RiskFactorDto> DeserializeRiskFactors(string json) => JsonSerializer.Deserialize<List<RiskFactorDto>>(json, JsonOptions) ?? [];
 
     private static List<TrendSignalDto> DeserializeTrendSignals(string json) => JsonSerializer.Deserialize<List<TrendSignalDto>>(json, JsonOptions) ?? [];
+
+    private static List<string> DeserializeStringList(string json) => JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
+
+    private static string? Clean(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static List<string> CleanList(IEnumerable<string>? values)
+    {
+        return values?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList() ?? [];
+    }
+
+    private static string BuildUrgencyAction(string warningLevel)
+    {
+        return warningLevel switch
+        {
+            "Emergency" => "Gọi cấp cứu 115 hoặc đến cơ sở y tế gần nhất ngay.",
+            "Red" => "Liên hệ bác sĩ hoặc cơ sở y tế trong ngày hôm nay.",
+            "Yellow" => "Theo dõi sát trong 24-48 giờ và check-in lại nếu triệu chứng tăng.",
+            _ => "Tiếp tục check-in hằng ngày và duy trì chăm sóc cơ bản."
+        };
+    }
+
+    private static string BuildWeeklySummary(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    {
+        var week = recentHistory
+            .Where(x => x.CreatedAt >= DateTime.UtcNow.AddDays(-7))
+            .OrderBy(x => x.CreatedAt)
+            .ToList();
+
+        if (week.Count < 2)
+        {
+            return "Chưa đủ dữ liệu trong 7 ngày để tổng hợp tuần. Hãy tiếp tục check-in để AI nhận diện xu hướng rõ hơn.";
+        }
+
+        var avgSleep = week.Average(x => x.SleepHours);
+        var avgPain = week.Average(x => x.PainLevel);
+        var stressDays = week.Count(x => IsStressMood(x.Mood));
+        var feedingConcernDays = week.Count(x => IsFeedingConcern(x.BabyFeeding));
+        var newest = week.Last();
+        var oldest = week.First();
+        var painChange = newest.PainLevel - oldest.PainLevel;
+        var sleepChange = newest.SleepHours - oldest.SleepHours;
+
+        var trend = painChange >= 2
+            ? "mức đau có xu hướng tăng"
+            : painChange <= -2
+                ? "mức đau có xu hướng giảm"
+                : "mức đau khá ổn định";
+
+        var sleepTrend = sleepChange <= -1
+            ? "giấc ngủ giảm so với đầu tuần"
+            : sleepChange >= 1
+                ? "giấc ngủ cải thiện so với đầu tuần"
+                : "giấc ngủ chưa thay đổi nhiều";
+
+        return $"Trong 7 ngày gần đây, mẹ ngủ trung bình {avgSleep:0.0} giờ, đau trung bình {avgPain:0.0}/10; {trend}, {sleepTrend}. Có {stressDays} ngày tâm trạng căng thẳng và {feedingConcernDays} ngày bé bú bất thường.";
+    }
 
     private static bool IsStressMood(HealthCheckIn checkIn) => IsStressMood(checkIn.Mood);
 
@@ -632,6 +762,52 @@ public class HealthCheckInService : IHealthCheckInService
         }
 
         return DangerousKeywords.Any(keyword => note.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasEmergencySymptom(HealthCheckIn checkIn)
+    {
+        return HasSymptom(checkIn, "khó thở", "kho tho", "đau ngực", "dau nguc", "ngất", "ngat", "co giật", "co giat")
+            || HasSymptom(checkIn, "chảy máu nhiều", "chay mau nhieu")
+            || (checkIn.TemperatureCelsius >= 39.5);
+    }
+
+    private static bool HasRedFlagSymptom(HealthCheckIn checkIn)
+    {
+        return HasSymptom(checkIn, "sốt", "sot", "mờ mắt", "mo mat", "chóng mặt", "chong mat", "vết mổ chảy dịch", "vet mo chay dich", "sưng đỏ", "sung do")
+            || HasSymptom(checkIn, "đau đầu dữ dội", "dau dau du doi", "ra máu bất thường", "ra mau bat thuong");
+    }
+
+    private static bool HasChestPainBreathingCombo(HealthCheckIn checkIn)
+    {
+        var hasChestPain = ContainsAny(checkIn.PainLocation, "ngực", "nguc")
+            || HasSymptom(checkIn, "đau ngực", "dau nguc");
+        var hasBreathing = HasSymptom(checkIn, "khó thở", "kho tho");
+        return hasChestPain && hasBreathing;
+    }
+
+    private static bool IsWorseningPain(HealthCheckIn checkIn)
+    {
+        return checkIn.PainTrend?.Equals("Worse", StringComparison.OrdinalIgnoreCase) == true
+            || checkIn.PainTrend?.Contains("tăng", StringComparison.OrdinalIgnoreCase) == true
+            || checkIn.PainTrend?.Contains("tang", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static bool HasMedicalHistory(HealthCheckIn checkIn, params string[] keywords)
+    {
+        return DeserializeStringList(checkIn.MedicalHistoryJson)
+            .Any(item => keywords.Any(keyword => item.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static bool HasSymptom(HealthCheckIn checkIn, params string[] keywords)
+    {
+        return DeserializeStringList(checkIn.SymptomsJson)
+            .Any(item => keywords.Any(keyword => item.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static bool ContainsAny(string? value, params string[] keywords)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && keywords.Any(keyword => value.Contains(keyword, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsPainIncreasing(List<HealthCheckIn> recentHistory)

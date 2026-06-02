@@ -115,6 +115,18 @@ public class OpenAiHealthAnalysisService : IOpenAiHealthAnalysisService
             {
                 currentCheckIn.SleepHours,
                 currentCheckIn.PainLevel,
+                currentCheckIn.PainLocation,
+                currentCheckIn.PainType,
+                currentCheckIn.PainDuration,
+                currentCheckIn.PainTrend,
+                symptoms = JsonSerializer.Deserialize<List<string>>(currentCheckIn.SymptomsJson, JsonOptions) ?? [],
+                medicalHistory = JsonSerializer.Deserialize<List<string>>(currentCheckIn.MedicalHistoryJson, JsonOptions) ?? [],
+                currentCheckIn.MotherAge,
+                currentCheckIn.SystolicBloodPressure,
+                currentCheckIn.DiastolicBloodPressure,
+                currentCheckIn.TemperatureCelsius,
+                currentCheckIn.TookMedicationToday,
+                currentCheckIn.MedicationNote,
                 currentCheckIn.Mood,
                 currentCheckIn.MilkStatus,
                 currentCheckIn.BabyFeeding,
@@ -129,6 +141,18 @@ public class OpenAiHealthAnalysisService : IOpenAiHealthAnalysisService
                     x.Id,
                     x.SleepHours,
                     x.PainLevel,
+                    x.PainLocation,
+                    x.PainType,
+                    x.PainDuration,
+                    x.PainTrend,
+                    symptoms = JsonSerializer.Deserialize<List<string>>(x.SymptomsJson, JsonOptions) ?? [],
+                    medicalHistory = JsonSerializer.Deserialize<List<string>>(x.MedicalHistoryJson, JsonOptions) ?? [],
+                    x.MotherAge,
+                    x.SystolicBloodPressure,
+                    x.DiastolicBloodPressure,
+                    x.TemperatureCelsius,
+                    x.TookMedicationToday,
+                    x.MedicationNote,
                     x.Mood,
                     x.MilkStatus,
                     x.BabyFeeding,
@@ -143,13 +167,15 @@ public class OpenAiHealthAnalysisService : IOpenAiHealthAnalysisService
                 "Do not state certainty that the user has a disease.",
                 "Do not prescribe medicine or replace medical professionals.",
                 "Write all user-facing content in Vietnamese with diacritics.",
-                "If there are serious risk signals, set warningLevel to High and recommend contacting a medical facility.",
-                "If painLevel >= 8, warningLevel must be at least Medium.",
+                "Use warningLevel Green, Yellow, Red, or Emergency.",
+                "If there are emergency risk signals such as chest pain with breathing difficulty, fainting, seizures, heavy bleeding, or very high fever, set warningLevel to Emergency.",
+                "If there are serious risk signals, set warningLevel to Red and recommend contacting a medical facility.",
+                "If painLevel >= 8, warningLevel must be at least Yellow.",
                 "If sleepHours < 5 for 3 recent days, consider a service related to mother care or newborn care if it exists in availableServices.",
                 "If mood is Stressed or Anxious for multiple days, consider a mental wellness service if it exists in availableServices.",
                 "If milkStatus is Low or Painful, consider a breastfeeding support service if it exists in availableServices.",
                 "If babyFeeding is LessThanUsual or RefusesFeeding, consider newborn care or breastfeeding support if it exists in availableServices.",
-                "If note includes danger keywords such as sot cao, kho tho, chay mau nhieu, dau du doi, vet mo sung do, vet mo chay dich, set warningLevel to High and recommend contacting a medical facility.",
+                "If note or symptoms include danger keywords such as sot cao, kho tho, chay mau nhieu, dau du doi, vet mo sung do, vet mo chay dich, set warningLevel to Red or Emergency and recommend contacting a medical facility.",
                 "For suggestedServices, serviceKey must exactly match one key from availableServices. If no service fits, return an empty array.",
                 "Care plan must be practical, short, and focused on the next 1 to 7 days.",
                 "If warningLevel is High, carePlan must include contacting a medical facility or doctor."
@@ -157,7 +183,7 @@ public class OpenAiHealthAnalysisService : IOpenAiHealthAnalysisService
             requiredJsonSchema = new
             {
                 summary = "string",
-                warningLevel = "Low | Medium | High",
+                warningLevel = "Green | Yellow | Red | Emergency",
                 trendSummary = "string",
                 recommendations = new[] { "string" },
                 carePlan = new[]
@@ -188,9 +214,12 @@ public class OpenAiHealthAnalysisService : IOpenAiHealthAnalysisService
     {
         return warningLevel?.Trim().ToLowerInvariant() switch
         {
-            "high" => "High",
-            "medium" => "Medium",
-            _ => "Low"
+            "emergency" => "Emergency",
+            "red" => "Red",
+            "high" => "Red",
+            "yellow" => "Yellow",
+            "medium" => "Yellow",
+            _ => "Green"
         };
     }
 

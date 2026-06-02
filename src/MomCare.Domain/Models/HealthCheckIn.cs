@@ -19,6 +19,47 @@ public class HealthCheckIn
     [Column("pain_level")]
     public int PainLevel { get; set; }
 
+    [Column("pain_location")]
+    [MaxLength(120)]
+    public string? PainLocation { get; set; }
+
+    [Column("pain_type")]
+    [MaxLength(120)]
+    public string? PainType { get; set; }
+
+    [Column("pain_duration")]
+    [MaxLength(80)]
+    public string? PainDuration { get; set; }
+
+    [Column("pain_trend")]
+    [MaxLength(80)]
+    public string? PainTrend { get; set; }
+
+    [Column("symptoms_json")]
+    public string SymptomsJson { get; set; } = "[]";
+
+    [Column("medical_history_json")]
+    public string MedicalHistoryJson { get; set; } = "[]";
+
+    [Column("mother_age")]
+    public int? MotherAge { get; set; }
+
+    [Column("systolic_blood_pressure")]
+    public int? SystolicBloodPressure { get; set; }
+
+    [Column("diastolic_blood_pressure")]
+    public int? DiastolicBloodPressure { get; set; }
+
+    [Column("temperature_celsius")]
+    public double? TemperatureCelsius { get; set; }
+
+    [Column("took_medication_today")]
+    public bool TookMedicationToday { get; set; }
+
+    [Column("medication_note")]
+    [MaxLength(300)]
+    public string? MedicationNote { get; set; }
+
     [Column("mood")]
     public required string Mood { get; set; }
 

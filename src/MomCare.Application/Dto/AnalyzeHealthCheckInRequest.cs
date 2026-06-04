@@ -26,6 +26,8 @@ public class AnalyzeHealthCheckInRequest
 
     public List<string> MedicalHistory { get; set; } = [];
 
+    public Dictionary<string, string> ContextData { get; set; } = [];
+
     [Range(0, 120)]
     public int? MotherAge { get; set; }
 

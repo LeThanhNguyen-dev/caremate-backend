@@ -949,6 +949,11 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         .HasColumnType("text")
                         .HasColumnName("baby_sleep");
 
+                    b.Property<string>("ContextDataJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("context_data_json");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");

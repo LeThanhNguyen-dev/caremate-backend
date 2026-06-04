@@ -12,6 +12,7 @@ public class HealthCheckInHistoryDto
     public string? PainTrend { get; set; }
     public List<string> Symptoms { get; set; } = [];
     public List<string> MedicalHistory { get; set; } = [];
+    public Dictionary<string, string> ContextData { get; set; } = [];
     public int? MotherAge { get; set; }
     public int? SystolicBloodPressure { get; set; }
     public int? DiastolicBloodPressure { get; set; }

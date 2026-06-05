@@ -48,6 +48,7 @@ public class HealthCheckInService : IHealthCheckInService
             PainTrend = Clean(request.PainTrend),
             SymptomsJson = JsonSerializer.Serialize(CleanList(request.Symptoms), JsonOptions),
             MedicalHistoryJson = JsonSerializer.Serialize(CleanList(request.MedicalHistory), JsonOptions),
+            ContextDataJson = JsonSerializer.Serialize(CleanContextData(request.ContextData), JsonOptions),
             MotherAge = request.MotherAge,
             SystolicBloodPressure = request.SystolicBloodPressure,
             DiastolicBloodPressure = request.DiastolicBloodPressure,
@@ -230,6 +231,12 @@ public class HealthCheckInService : IHealthCheckInService
         AddFactorIf(factors, currentCheckIn.SystolicBloodPressure >= 160 || currentCheckIn.DiastolicBloodPressure >= 110, "very_high_bp", "Huyết áp rất cao", 60);
         AddFactorIf(factors, currentCheckIn.SystolicBloodPressure >= 140 || currentCheckIn.DiastolicBloodPressure >= 90, "high_bp", "Huyết áp cao", 30);
         AddFactorIf(factors, HasMedicalHistory(currentCheckIn, "tiểu đường", "tieu duong", "tim mạch", "tim mach", "huyết áp", "huyet ap"), "medical_history", "Có tiền sử bệnh cần theo dõi", 20);
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "bleedingLevel", "Heavy"), "heavy_bleeding_context", "Sản dịch hoặc ra máu đang ở mức nhiều", 55);
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "incisionStatus", "RedSwollen", "Discharge"), "incision_context", "Vết mổ hoặc vết khâu có dấu hiệu cần theo dõi", 35);
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "swellingLevel", "Severe"), "severe_swelling_context", "Phù nhiều cần theo dõi thêm", 25);
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "urinationIssue", "true"), "urination_issue_context", "Có khó khăn khi tiểu tiện", 18);
+        AddFactorIf(factors, GetContextNumber(currentCheckIn, "babyWetDiapers") is double wetDiapers && wetDiapers > 0 && wetDiapers < 4, "low_wet_diapers_context", "Số tã ướt của bé thấp", 30);
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "babyActivity", "Lethargic"), "baby_lethargy_context", "Bé có dấu hiệu lừ đừ hoặc yếu", 45);
         AddFactorIf(factors, IsWorseningPain(currentCheckIn), "pain_worsening", "Đau đang tăng lên", 18);
         AddFactorIf(factors, currentCheckIn.PainLevel >= 9, "severe_pain", "Mức đau rất cao", 45);
         AddFactorIf(factors, currentCheckIn.PainLevel == 8, "high_pain", "Mức đau cao", 35);
@@ -274,6 +281,8 @@ public class HealthCheckInService : IHealthCheckInService
 
         if (HasDangerKeyword(currentCheckIn.Note)
             || HasRedFlagSymptom(currentCheckIn)
+            || HasContextValue(currentCheckIn, "bleedingLevel", "Heavy")
+            || HasContextValue(currentCheckIn, "babyActivity", "Lethargic")
             || currentCheckIn.PainLevel >= 9
             || currentCheckIn.BabyFeeding.Equals("RefusesFeeding", StringComparison.OrdinalIgnoreCase)
             || riskScore >= 55)
@@ -596,6 +605,7 @@ public class HealthCheckInService : IHealthCheckInService
             PainTrend = checkIn.PainTrend,
             Symptoms = DeserializeStringList(checkIn.SymptomsJson),
             MedicalHistory = DeserializeStringList(checkIn.MedicalHistoryJson),
+            ContextData = DeserializeStringDictionary(checkIn.ContextDataJson),
             MotherAge = checkIn.MotherAge,
             SystolicBloodPressure = checkIn.SystolicBloodPressure,
             DiastolicBloodPressure = checkIn.DiastolicBloodPressure,
@@ -625,6 +635,7 @@ public class HealthCheckInService : IHealthCheckInService
             PainTrend = checkIn.PainTrend,
             Symptoms = DeserializeStringList(checkIn.SymptomsJson),
             MedicalHistory = DeserializeStringList(checkIn.MedicalHistoryJson),
+            ContextData = DeserializeStringDictionary(checkIn.ContextDataJson),
             MotherAge = checkIn.MotherAge,
             SystolicBloodPressure = checkIn.SystolicBloodPressure,
             DiastolicBloodPressure = checkIn.DiastolicBloodPressure,
@@ -652,6 +663,8 @@ public class HealthCheckInService : IHealthCheckInService
 
     private static List<string> DeserializeStringList(string json) => JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
 
+    private static Dictionary<string, string> DeserializeStringDictionary(string json) => JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions) ?? [];
+
     private static string? Clean(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -665,6 +678,16 @@ public class HealthCheckInService : IHealthCheckInService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(20)
             .ToList() ?? [];
+    }
+
+    private static Dictionary<string, string> CleanContextData(Dictionary<string, string>? values)
+    {
+        return values?
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key) && !string.IsNullOrWhiteSpace(x.Value))
+            .Select(x => new KeyValuePair<string, string>(x.Key.Trim(), x.Value.Trim()))
+            .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+            .Take(40)
+            .ToDictionary(x => x.Key, x => x.First().Value, StringComparer.OrdinalIgnoreCase) ?? [];
     }
 
     private static string BuildUrgencyAction(string warningLevel)
@@ -796,6 +819,19 @@ public class HealthCheckInService : IHealthCheckInService
     {
         return DeserializeStringList(checkIn.MedicalHistoryJson)
             .Any(item => keywords.Any(keyword => item.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static bool HasContextValue(HealthCheckIn checkIn, string key, params string[] expectedValues)
+    {
+        var context = DeserializeStringDictionary(checkIn.ContextDataJson);
+        return context.TryGetValue(key, out var value)
+            && expectedValues.Any(expected => value.Equals(expected, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static double? GetContextNumber(HealthCheckIn checkIn, string key)
+    {
+        var context = DeserializeStringDictionary(checkIn.ContextDataJson);
+        return context.TryGetValue(key, out var value) && double.TryParse(value, out var parsed) ? parsed : null;
     }
 
     private static bool HasSymptom(HealthCheckIn checkIn, params string[] keywords)

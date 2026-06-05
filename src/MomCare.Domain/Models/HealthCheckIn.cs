@@ -41,6 +41,9 @@ public class HealthCheckIn
     [Column("medical_history_json")]
     public string MedicalHistoryJson { get; set; } = "[]";
 
+    [Column("context_data_json")]
+    public string ContextDataJson { get; set; } = "{}";
+
     [Column("mother_age")]
     public int? MotherAge { get; set; }
 

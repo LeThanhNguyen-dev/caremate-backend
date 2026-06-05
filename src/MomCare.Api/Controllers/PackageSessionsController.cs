@@ -54,6 +54,30 @@ public class PackageSessionsController : ControllerBase
         return Ok(result.Data);
     }
 
+    [HttpPost("{sessionId:int}/feedback")]
+    [Authorize(Roles = AppRoles.Customer)]
+    public async Task<IActionResult> SubmitPackageSessionFeedback(int bookingId, int sessionId, [FromBody] CustomerSessionFeedbackDto dto)
+    {
+        var userId = GetUserId();
+        var result = await _sessionService.SubmitPackageSessionFeedbackAsync(userId, bookingId, sessionId, dto);
+        if (!result.Success)
+            return BadRequest(new { message = result.Error });
+
+        return Ok(result.Data);
+    }
+
+    [HttpPost("feedback")]
+    [Authorize(Roles = AppRoles.Customer)]
+    public async Task<IActionResult> SubmitSingleSessionFeedback(int bookingId, [FromBody] CustomerSessionFeedbackDto dto)
+    {
+        var userId = GetUserId();
+        var result = await _sessionService.SubmitSingleSessionFeedbackAsync(userId, bookingId, dto);
+        if (!result.Success)
+            return BadRequest(new { message = result.Error });
+
+        return Ok(result.Data);
+    }
+
     private int GetUserId()
     {
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier)

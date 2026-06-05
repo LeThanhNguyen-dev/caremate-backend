@@ -32,6 +32,18 @@ public class Booking
     [Column("notes")]
     public string? Notes { get; set; }
 
+    [Column("customer_session_rating")]
+    public int? CustomerSessionRating { get; set; }
+
+    [Column("customer_session_note")]
+    public string? CustomerSessionNote { get; set; }
+
+    [Column("customer_session_tags_json")]
+    public string? CustomerSessionTagsJson { get; set; }
+
+    [Column("customer_session_reviewed_at")]
+    public DateTime? CustomerSessionReviewedAt { get; set; }
+
     [Column("address")]
     public string Address { get; set; } = string.Empty;
 

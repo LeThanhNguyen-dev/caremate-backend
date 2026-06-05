@@ -289,6 +289,7 @@ public class MomCareContext : IdentityDbContext<
         modelBuilder.Entity<Booking>(entity =>
         {
             entity.Property(b => b.TotalPrice).HasColumnType("decimal(18,2)");
+            entity.ToTable(t => t.HasCheckConstraint("CK_bookings_customer_session_rating", "\"customer_session_rating\" IS NULL OR (\"customer_session_rating\" >= 1 AND \"customer_session_rating\" <= 5)"));
         });
 
         modelBuilder.Entity<Review>(entity =>
@@ -370,6 +371,7 @@ public class MomCareContext : IdentityDbContext<
                 .HasForeignKey(p => p.BookingId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            entity.ToTable(t => t.HasCheckConstraint("CK_package_session_logs_customer_rating", "\"customer_rating\" IS NULL OR (\"customer_rating\" >= 1 AND \"customer_rating\" <= 5)"));
             entity.HasIndex(p => new { p.BookingId, p.SessionNumber }).IsUnique();
             entity.HasIndex(p => new { p.BookingId, p.SessionDate });
         });

@@ -43,6 +43,18 @@ public class PackageSessionLog
     [Column("nurse_note")]
     public string? NurseNote { get; set; }
 
+    [Column("customer_rating")]
+    public int? CustomerRating { get; set; }
+
+    [Column("customer_note")]
+    public string? CustomerNote { get; set; }
+
+    [Column("customer_tags_json")]
+    public string? CustomerTagsJson { get; set; }
+
+    [Column("customer_reviewed_at")]
+    public DateTime? CustomerReviewedAt { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

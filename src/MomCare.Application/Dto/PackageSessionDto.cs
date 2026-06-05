@@ -12,6 +12,10 @@ public class PackageSessionDto
     public DateTime? CheckInTime { get; set; }
     public DateTime? CheckOutTime { get; set; }
     public string? NurseNote { get; set; }
+    public int? CustomerRating { get; set; }
+    public string? CustomerNote { get; set; }
+    public List<string> CustomerTags { get; set; } = new();
+    public DateTime? CustomerReviewedAt { get; set; }
 }
 
 public class PackageProgressDto
@@ -20,6 +24,8 @@ public class PackageProgressDto
     public int TotalSessions { get; set; }
     public int CompletedSessions { get; set; }
     public double ProgressPercent { get; set; }
+    public int ReviewedSessions { get; set; }
+    public double? AverageCustomerRating { get; set; }
     public PackageSessionDto? TodaySession { get; set; }
     public List<PackageSessionDto> Sessions { get; set; } = new();
 }
@@ -32,4 +38,11 @@ public class CheckInSessionDto
 public class CheckOutSessionDto
 {
     public string? NurseNote { get; set; }
+}
+
+public class CustomerSessionFeedbackDto
+{
+    public int Rating { get; set; }
+    public string? Note { get; set; }
+    public List<string> Tags { get; set; } = new();
 }

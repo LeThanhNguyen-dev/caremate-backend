@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomCare.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MomCare.Infrastructure.PostgreSqlMigrations
 {
     [DbContext(typeof(MomCareContext))]
-    partial class MomCareContextModelSnapshot : ModelSnapshot
+    [Migration("20260602022228_AddCustomerSessionFeedback")]
+    partial class AddCustomerSessionFeedback
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -523,10 +526,6 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                     b.Property<DateTime?>("CustomerSessionReviewedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("customer_session_reviewed_at");
-
-                    b.Property<string>("CustomerSessionTagsJson")
-                        .HasColumnType("text")
-                        .HasColumnName("customer_session_tags_json");
 
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("timestamp with time zone")
@@ -1264,10 +1263,6 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                     b.Property<DateTime?>("CustomerReviewedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("customer_reviewed_at");
-
-                    b.Property<string>("CustomerTagsJson")
-                        .HasColumnType("text")
-                        .HasColumnName("customer_tags_json");
 
                     b.Property<string>("Description")
                         .HasColumnType("text")

@@ -300,6 +300,7 @@ public class BookingService : IBookingService
             .Include(b => b.Service)
             .Include(b => b.Nurse)
             .Include(b => b.Payment)
+            .Include(b => b.Review)
             .Where(b => b.CustomerId == customerId)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new BookingDetailDto
@@ -319,6 +320,13 @@ public class BookingService : IBookingService
                 EndTime = b.EndTime,
                 Address = b.Address,
                 Notes = b.Notes,
+                CustomerSessionRating = b.CustomerSessionRating,
+                CustomerSessionNote = b.CustomerSessionNote,
+                CustomerSessionReviewedAt = b.CustomerSessionReviewedAt,
+                FinalReviewId = b.Review != null && !b.Review.IsDeleted ? b.Review.Id : null,
+                FinalReviewRating = b.Review != null && !b.Review.IsDeleted ? b.Review.Rating : null,
+                FinalReviewComment = b.Review != null && !b.Review.IsDeleted ? b.Review.Comment : null,
+                FinalReviewCreatedAt = b.Review != null && !b.Review.IsDeleted ? b.Review.CreatedAt : null,
                 PaymentStatus = b.Payment != null ? b.Payment.Status : null,
                 RefundAmount = b.Payment != null ? b.Payment.RefundAmount : null,
                 RefundReason = b.Payment != null ? b.Payment.RefundReason : null,
@@ -337,6 +345,7 @@ public class BookingService : IBookingService
             .Include(b => b.Service)
             .Include(b => b.Nurse)
             .Include(b => b.Payment)
+            .Include(b => b.Review)
             .Where(b => b.NurseId == nurseId)
             .OrderByDescending(b => b.CreatedAt)
             .Select(b => new BookingDetailDto
@@ -356,6 +365,13 @@ public class BookingService : IBookingService
                 EndTime = b.EndTime,
                 Address = b.Address,
                 Notes = b.Notes,
+                CustomerSessionRating = b.CustomerSessionRating,
+                CustomerSessionNote = b.CustomerSessionNote,
+                CustomerSessionReviewedAt = b.CustomerSessionReviewedAt,
+                FinalReviewId = b.Review != null && !b.Review.IsDeleted ? b.Review.Id : null,
+                FinalReviewRating = b.Review != null && !b.Review.IsDeleted ? b.Review.Rating : null,
+                FinalReviewComment = b.Review != null && !b.Review.IsDeleted ? b.Review.Comment : null,
+                FinalReviewCreatedAt = b.Review != null && !b.Review.IsDeleted ? b.Review.CreatedAt : null,
                 PaymentStatus = b.Payment != null ? b.Payment.Status : null,
                 RefundAmount = b.Payment != null ? b.Payment.RefundAmount : null,
                 RefundReason = b.Payment != null ? b.Payment.RefundReason : null,
@@ -376,6 +392,7 @@ public class BookingService : IBookingService
             .Include(b => b.SessionLogs)
             .Include(b => b.StatusHistory)
             .Include(b => b.Payment)
+            .Include(b => b.Review)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (booking == null) return null;
@@ -420,6 +437,14 @@ public class BookingService : IBookingService
             Address = booking.Address,
             Notes = booking.Notes,
             NurseNote = nurseNote,
+            CustomerSessionRating = booking.CustomerSessionRating,
+            CustomerSessionNote = booking.CustomerSessionNote,
+            CustomerSessionTags = DeserializeTags(booking.CustomerSessionTagsJson),
+            CustomerSessionReviewedAt = booking.CustomerSessionReviewedAt,
+            FinalReviewId = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Id : null,
+            FinalReviewRating = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Rating : null,
+            FinalReviewComment = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Comment : null,
+            FinalReviewCreatedAt = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.CreatedAt : null,
             PaymentStatus = booking.Payment?.Status,
             RefundAmount = booking.Payment?.RefundAmount,
             RefundReason = booking.Payment?.RefundReason,
@@ -481,6 +506,15 @@ public class BookingService : IBookingService
             targetUserId,
             "Cập nhật trạng thái lịch hẹn",
             $"Lịch hẹn #{booking.Id} đã chuyển sang trạng thái {NotificationVietnameseText.BookingStatus(nextStatus)}.");
+
+        if (nextStatus == BookingStatuses.Completed && targetUserId == booking.CustomerId && booking.Service.ServiceKind != "package")
+        {
+            await _notificationService.CreateAsync(
+                booking.CustomerId,
+                "Buổi chăm sóc đã hoàn tất",
+                $"Lịch hẹn #{booking.Id} đã hoàn tất. Hãy đánh giá nhanh buổi chăm sóc để CareMate theo dõi chất lượng dịch vụ.",
+                "review");
+        }
 
         var bookingDetail = MapToDetailDto(booking, booking.Service);
 
@@ -693,6 +727,14 @@ public class BookingService : IBookingService
             EndTime = booking.EndTime,
             Address = booking.Address,
             Notes = booking.Notes,
+            CustomerSessionRating = booking.CustomerSessionRating,
+            CustomerSessionNote = booking.CustomerSessionNote,
+            CustomerSessionTags = DeserializeTags(booking.CustomerSessionTagsJson),
+            CustomerSessionReviewedAt = booking.CustomerSessionReviewedAt,
+            FinalReviewId = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Id : null,
+            FinalReviewRating = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Rating : null,
+            FinalReviewComment = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Comment : null,
+            FinalReviewCreatedAt = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.CreatedAt : null,
             PaymentStatus = booking.Payment?.Status,
             RefundAmount = booking.Payment?.RefundAmount,
             RefundReason = booking.Payment?.RefundReason,
@@ -746,5 +788,19 @@ public class BookingService : IBookingService
         public string? Title { get; set; }
         public string? Description { get; set; }
         public string? ServiceKeys { get; set; }
+    }
+
+    private static List<string> DeserializeTags(string? tagsJson)
+    {
+        if (string.IsNullOrWhiteSpace(tagsJson)) return new List<string>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(tagsJson) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
     }
 }

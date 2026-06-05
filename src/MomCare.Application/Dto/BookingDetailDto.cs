@@ -22,6 +22,14 @@ public class BookingDetailDto
     public string Address { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public string? NurseNote { get; set; }
+    public int? CustomerSessionRating { get; set; }
+    public string? CustomerSessionNote { get; set; }
+    public List<string> CustomerSessionTags { get; set; } = new();
+    public DateTime? CustomerSessionReviewedAt { get; set; }
+    public int? FinalReviewId { get; set; }
+    public int? FinalReviewRating { get; set; }
+    public string? FinalReviewComment { get; set; }
+    public DateTime? FinalReviewCreatedAt { get; set; }
     public string? PaymentStatus { get; set; }
     public decimal? RefundAmount { get; set; }
     public string? RefundReason { get; set; }

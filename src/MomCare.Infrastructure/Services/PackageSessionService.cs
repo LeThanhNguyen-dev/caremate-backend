@@ -4,6 +4,7 @@ using MomCare.Dto;
 using MomCare.Enums;
 using MomCare.Interfaces;
 using MomCare.Models;
+using System.Text.Json;
 
 namespace MomCare.Services;
 
@@ -37,6 +38,7 @@ public class PackageSessionService : IPackageSessionService
 
         var sessions = booking.SessionLogs.Select(MapToDto).ToList();
         var completed = sessions.Count(s => s.Status == "completed");
+        var reviewed = sessions.Where(s => s.CustomerRating.HasValue).ToList();
         var total = sessions.Count;
 
         var today = DateTime.UtcNow.Date;
@@ -48,6 +50,8 @@ public class PackageSessionService : IPackageSessionService
             TotalSessions = total,
             CompletedSessions = completed,
             ProgressPercent = total > 0 ? Math.Round((double)completed / total * 100, 1) : 0,
+            ReviewedSessions = reviewed.Count,
+            AverageCustomerRating = reviewed.Count > 0 ? Math.Round(reviewed.Average(s => s.CustomerRating!.Value), 1) : null,
             TodaySession = todaySession,
             Sessions = sessions
         });
@@ -113,6 +117,88 @@ public class PackageSessionService : IPackageSessionService
         return ServiceResult<PackageSessionDto>.Ok(MapToDto(session));
     }
 
+    public async Task<ServiceResult<PackageSessionDto>> SubmitPackageSessionFeedbackAsync(int customerUserId, int bookingId, int sessionId, CustomerSessionFeedbackDto dto)
+    {
+        var validationError = ValidateFeedback(dto);
+        if (validationError != null)
+            return ServiceResult<PackageSessionDto>.Fail(validationError);
+
+        var booking = await _context.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.SessionLogs)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (booking == null)
+            return ServiceResult<PackageSessionDto>.Fail("KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n.");
+
+        if (booking.CustomerId != customerUserId)
+            return ServiceResult<PackageSessionDto>.Fail("Báº¡n khÃ´ng cÃ³ quyá»n Ä‘Ã¡nh giÃ¡ buá»•i nÃ y.");
+
+        if (booking.Service.ServiceKind != "package")
+            return ServiceResult<PackageSessionDto>.Fail("Lá»‹ch háº¹n nÃ y khÃ´ng pháº£i gÃ³i dá»‹ch vá»¥.");
+
+        var session = booking.SessionLogs.FirstOrDefault(s => s.Id == sessionId);
+        if (session == null)
+            return ServiceResult<PackageSessionDto>.Fail("KhÃ´ng tÃ¬m tháº¥y buá»•i chÄƒm sÃ³c.");
+
+        if (session.Status != "completed")
+            return ServiceResult<PackageSessionDto>.Fail("Chá»‰ cÃ³ thá»ƒ Ä‘Ã¡nh giÃ¡ sau khi buá»•i chÄƒm sÃ³c hoÃ n thÃ nh.");
+
+        session.CustomerRating = dto.Rating;
+        session.CustomerNote = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
+        session.CustomerTagsJson = SerializeTags(dto.Tags);
+        session.CustomerReviewedAt = DateTime.UtcNow;
+        session.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        await _notificationService.CreateAsync(booking.NurseId, "KhÃ¡ch hÃ ng Ä‘Ã¡nh giÃ¡ buá»•i chÄƒm sÃ³c",
+            $"Buá»•i {session.SessionNumber}/{booking.SessionLogs.Count} vá»«a Ä‘Æ°á»£c Ä‘Ã¡nh giÃ¡ {session.CustomerRating}/5 sao.");
+
+        return ServiceResult<PackageSessionDto>.Ok(MapToDto(session));
+    }
+
+    public async Task<ServiceResult<BookingDetailDto>> SubmitSingleSessionFeedbackAsync(int customerUserId, int bookingId, CustomerSessionFeedbackDto dto)
+    {
+        var validationError = ValidateFeedback(dto);
+        if (validationError != null)
+            return ServiceResult<BookingDetailDto>.Fail(validationError);
+
+        var booking = await _context.Bookings
+            .Include(b => b.Service)
+            .Include(b => b.Nurse)
+            .Include(b => b.SessionLogs)
+            .Include(b => b.StatusHistory)
+            .Include(b => b.Payment)
+            .Include(b => b.Review)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (booking == null)
+            return ServiceResult<BookingDetailDto>.Fail("KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n.");
+
+        if (booking.CustomerId != customerUserId)
+            return ServiceResult<BookingDetailDto>.Fail("Báº¡n khÃ´ng cÃ³ quyá»n Ä‘Ã¡nh giÃ¡ buá»•i nÃ y.");
+
+        if (booking.Service.ServiceKind == "package")
+            return ServiceResult<BookingDetailDto>.Fail("GÃ³i dá»‹ch vá»¥ cáº§n Ä‘Ã¡nh giÃ¡ theo tá»«ng buá»•i.");
+
+        if (booking.Status != BookingStatuses.Completed)
+            return ServiceResult<BookingDetailDto>.Fail("Chá»‰ cÃ³ thá»ƒ Ä‘Ã¡nh giÃ¡ sau khi buá»•i chÄƒm sÃ³c hoÃ n thÃ nh.");
+
+        booking.CustomerSessionRating = dto.Rating;
+        booking.CustomerSessionNote = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
+        booking.CustomerSessionTagsJson = SerializeTags(dto.Tags);
+        booking.CustomerSessionReviewedAt = DateTime.UtcNow;
+        booking.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        await _notificationService.CreateAsync(booking.NurseId, "KhÃ¡ch hÃ ng Ä‘Ã¡nh giÃ¡ buá»•i chÄƒm sÃ³c",
+            $"Lá»‹ch háº¹n #{booking.Id} vá»«a Ä‘Æ°á»£c Ä‘Ã¡nh giÃ¡ {booking.CustomerSessionRating}/5 sao.");
+
+        return ServiceResult<BookingDetailDto>.Ok(MapBookingToDetailDto(booking));
+    }
+
     public async Task<ServiceResult<PackageSessionDto>> CheckOutAsync(int nurseUserId, int bookingId, CheckOutSessionDto dto)
     {
         var booking = await _context.Bookings
@@ -168,8 +254,9 @@ public class PackageSessionService : IPackageSessionService
         var total = booking.SessionLogs.Count;
         var completed = booking.SessionLogs.Count(s => s.Status == "completed");
 
-        await _notificationService.CreateAsync(booking.CustomerId, "Buổi chăm sóc hoàn tất",
-            $"Buổi {session.SessionNumber}/{total} đã hoàn tất. Tiến độ: {completed}/{total}.");
+        await _notificationService.CreateAsync(booking.CustomerId, "Buổi chăm sóc đã hoàn tất",
+            $"Buổi {session.SessionNumber}/{total} đã hoàn tất. Hãy đánh giá nhanh buổi này để CareMate tổng hợp chất lượng gói. Tiến độ: {completed}/{total}.",
+            "review");
 
         return ServiceResult<PackageSessionDto>.Ok(MapToDto(session));
     }
@@ -204,7 +291,117 @@ public class PackageSessionService : IPackageSessionService
             Status = session.Status,
             CheckInTime = session.CheckInTime,
             CheckOutTime = session.CheckOutTime,
-            NurseNote = session.NurseNote
+            NurseNote = session.NurseNote,
+            CustomerRating = session.CustomerRating,
+            CustomerNote = session.CustomerNote,
+            CustomerTags = DeserializeTags(session.CustomerTagsJson),
+            CustomerReviewedAt = session.CustomerReviewedAt
+        };
+    }
+
+    private static string? ValidateFeedback(CustomerSessionFeedbackDto dto)
+    {
+        if (dto.Rating is < 1 or > 5)
+            return "Sá»‘ sao Ä‘Ã¡nh giÃ¡ pháº£i tá»« 1 Ä‘áº¿n 5.";
+
+        if (dto.Note?.Length > 1000)
+            return "Ghi chÃº Ä‘Ã¡nh giÃ¡ khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 1000 kÃ½ tá»±.";
+
+        if (NormalizeTags(dto.Tags).Count > 8)
+            return "Chá»‰ cÃ³ thá»ƒ chá»n tá»‘i Ä‘a 8 nhÃ£n Ä‘Ã¡nh giÃ¡.";
+
+        return null;
+    }
+
+    private static List<string> NormalizeTags(IEnumerable<string>? tags)
+    {
+        if (tags == null) return new List<string>();
+
+        return tags
+            .Select(tag => tag.Trim())
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(tag => tag.Length > 80 ? tag[..80] : tag)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+    }
+
+    private static string? SerializeTags(IEnumerable<string>? tags)
+    {
+        var normalized = NormalizeTags(tags);
+        return normalized.Count == 0 ? null : JsonSerializer.Serialize(normalized);
+    }
+
+    private static List<string> DeserializeTags(string? tagsJson)
+    {
+        if (string.IsNullOrWhiteSpace(tagsJson)) return new List<string>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(tagsJson) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    private static BookingDetailDto MapBookingToDetailDto(Booking booking)
+    {
+        var checkInTime = booking.StatusHistory
+            .Where(h => h.Status == BookingStatuses.InProgress)
+            .OrderBy(h => h.CreatedAt)
+            .Select(h => (DateTime?)h.CreatedAt)
+            .FirstOrDefault();
+        var checkOutTime = booking.StatusHistory
+            .Where(h => h.Status == BookingStatuses.Completed)
+            .OrderBy(h => h.CreatedAt)
+            .Select(h => (DateTime?)h.CreatedAt)
+            .FirstOrDefault();
+        var nurseNote = booking.StatusHistory
+            .Where(h => (h.Status == BookingStatuses.Completed || h.Status == BookingStatuses.InProgress)
+                && !string.IsNullOrWhiteSpace(h.Note))
+            .OrderByDescending(h => h.CreatedAt)
+            .Select(h => h.Note)
+            .FirstOrDefault();
+
+        return new BookingDetailDto
+        {
+            Id = booking.Id,
+            CustomerId = booking.CustomerId,
+            NurseId = booking.NurseId,
+            ServiceId = booking.ServiceId,
+            ServiceName = booking.Service.Name,
+            ServiceKind = booking.Service.ServiceKind,
+            NurseName = booking.Nurse.FullName,
+            Status = booking.Status,
+            TotalPrice = booking.TotalPrice,
+            StartTime = booking.StartTime,
+            EndTime = booking.EndTime,
+            CheckInTime = checkInTime,
+            CheckOutTime = checkOutTime,
+            ActualDurationMinutes = checkInTime.HasValue && checkOutTime.HasValue
+                ? (int)Math.Max(0, Math.Round((checkOutTime.Value - checkInTime.Value).TotalMinutes))
+                : null,
+            Address = booking.Address,
+            Notes = booking.Notes,
+            NurseNote = nurseNote,
+            CustomerSessionRating = booking.CustomerSessionRating,
+            CustomerSessionNote = booking.CustomerSessionNote,
+            CustomerSessionTags = DeserializeTags(booking.CustomerSessionTagsJson),
+            CustomerSessionReviewedAt = booking.CustomerSessionReviewedAt,
+            FinalReviewId = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Id : null,
+            FinalReviewRating = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Rating : null,
+            FinalReviewComment = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.Comment : null,
+            FinalReviewCreatedAt = booking.Review != null && !booking.Review.IsDeleted ? booking.Review.CreatedAt : null,
+            PaymentStatus = booking.Payment?.Status,
+            RefundAmount = booking.Payment?.RefundAmount,
+            RefundReason = booking.Payment?.RefundReason,
+            RefundStatus = booking.Payment?.RefundStatus,
+            RefundedAt = booking.Payment?.RefundedAt,
+            AvailabilitySlotId = booking.AvailabilitySlotId,
+            PackageDays = booking.Service.PackageDays,
+            CompletedSessions = booking.SessionLogs.Count(s => s.Status == "completed")
         };
     }
 }

@@ -23,11 +23,11 @@ jobs:
         with:
           dotnet-version: '9.x'
 
-      - name: Build with dotnet
-        run: dotnet build src/MomCare.Api/MomCare.Api.csproj --configuration Release
+      - name: Clean publish folder
+        run: rm -rf ${{env.DOTNET_ROOT}}/myapp
 
       - name: dotnet publish
-        run: dotnet publish src/MomCare.Api/MomCare.Api.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        run: dotnet publish src/MomCare.Api/MomCare.Api.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp --no-self-contained
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4

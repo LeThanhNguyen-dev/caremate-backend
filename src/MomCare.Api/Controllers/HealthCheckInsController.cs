@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using MomCare.Dto;
 using MomCare.Interfaces;
@@ -18,6 +19,7 @@ public class HealthCheckInsController : ControllerBase
         _healthCheckInService = healthCheckInService;
     }
 
+    [EnableRateLimiting("health-checkin")]
     [HttpPost("analyze")]
     public async Task<IActionResult> Analyze([FromBody] AnalyzeHealthCheckInRequest request, CancellationToken cancellationToken)
     {

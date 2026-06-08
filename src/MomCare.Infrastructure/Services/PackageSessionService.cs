@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MomCare.Data;
 using MomCare.Dto;
 using MomCare.Enums;
@@ -129,20 +129,20 @@ public class PackageSessionService : IPackageSessionService
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (booking == null)
-            return ServiceResult<PackageSessionDto>.Fail("KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n.");
+            return ServiceResult<PackageSessionDto>.Fail("Không tìm thấy lịch hẹn.");
 
         if (booking.CustomerId != customerUserId)
-            return ServiceResult<PackageSessionDto>.Fail("Báº¡n khÃ´ng cÃ³ quyá»n Ä‘Ã¡nh giÃ¡ buá»•i nÃ y.");
+            return ServiceResult<PackageSessionDto>.Fail("Bạn không có quyền đánh giá buổi này.");
 
         if (booking.Service.ServiceKind != "package")
-            return ServiceResult<PackageSessionDto>.Fail("Lá»‹ch háº¹n nÃ y khÃ´ng pháº£i gÃ³i dá»‹ch vá»¥.");
+            return ServiceResult<PackageSessionDto>.Fail("Lịch hẹn này không phải gói dịch vụ.");
 
         var session = booking.SessionLogs.FirstOrDefault(s => s.Id == sessionId);
         if (session == null)
-            return ServiceResult<PackageSessionDto>.Fail("KhÃ´ng tÃ¬m tháº¥y buá»•i chÄƒm sÃ³c.");
+            return ServiceResult<PackageSessionDto>.Fail("Không tìm thấy buổi chăm sóc.");
 
         if (session.Status != "completed")
-            return ServiceResult<PackageSessionDto>.Fail("Chá»‰ cÃ³ thá»ƒ Ä‘Ã¡nh giÃ¡ sau khi buá»•i chÄƒm sÃ³c hoÃ n thÃ nh.");
+            return ServiceResult<PackageSessionDto>.Fail("Chỉ có thể đánh giá sau khi buổi chăm sóc hoàn thành.");
 
         session.CustomerRating = dto.Rating;
         session.CustomerNote = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
@@ -152,8 +152,8 @@ public class PackageSessionService : IPackageSessionService
 
         await _context.SaveChangesAsync();
 
-        await _notificationService.CreateAsync(booking.NurseId, "KhÃ¡ch hÃ ng Ä‘Ã¡nh giÃ¡ buá»•i chÄƒm sÃ³c",
-            $"Buá»•i {session.SessionNumber}/{booking.SessionLogs.Count} vá»«a Ä‘Æ°á»£c Ä‘Ã¡nh giÃ¡ {session.CustomerRating}/5 sao.");
+        await _notificationService.CreateAsync(booking.NurseId, "Khách hàng đánh giá buổi chăm sóc",
+            $"Buổi {session.SessionNumber}/{booking.SessionLogs.Count} vừa được đánh giá {session.CustomerRating}/5 sao.");
 
         return ServiceResult<PackageSessionDto>.Ok(MapToDto(session));
     }
@@ -174,16 +174,16 @@ public class PackageSessionService : IPackageSessionService
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (booking == null)
-            return ServiceResult<BookingDetailDto>.Fail("KhÃ´ng tÃ¬m tháº¥y lá»‹ch háº¹n.");
+            return ServiceResult<BookingDetailDto>.Fail("Không tìm thấy lịch hẹn.");
 
         if (booking.CustomerId != customerUserId)
-            return ServiceResult<BookingDetailDto>.Fail("Báº¡n khÃ´ng cÃ³ quyá»n Ä‘Ã¡nh giÃ¡ buá»•i nÃ y.");
+            return ServiceResult<BookingDetailDto>.Fail("Bạn không có quyền đánh giá buổi này.");
 
         if (booking.Service.ServiceKind == "package")
-            return ServiceResult<BookingDetailDto>.Fail("GÃ³i dá»‹ch vá»¥ cáº§n Ä‘Ã¡nh giÃ¡ theo tá»«ng buá»•i.");
+            return ServiceResult<BookingDetailDto>.Fail("Gói dịch vụ cần đánh giá theo từng buổi.");
 
         if (booking.Status != BookingStatuses.Completed)
-            return ServiceResult<BookingDetailDto>.Fail("Chá»‰ cÃ³ thá»ƒ Ä‘Ã¡nh giÃ¡ sau khi buá»•i chÄƒm sÃ³c hoÃ n thÃ nh.");
+            return ServiceResult<BookingDetailDto>.Fail("Chỉ có thể đánh giá sau khi buổi chăm sóc hoàn thành.");
 
         booking.CustomerSessionRating = dto.Rating;
         booking.CustomerSessionNote = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
@@ -193,8 +193,8 @@ public class PackageSessionService : IPackageSessionService
 
         await _context.SaveChangesAsync();
 
-        await _notificationService.CreateAsync(booking.NurseId, "KhÃ¡ch hÃ ng Ä‘Ã¡nh giÃ¡ buá»•i chÄƒm sÃ³c",
-            $"Lá»‹ch háº¹n #{booking.Id} vá»«a Ä‘Æ°á»£c Ä‘Ã¡nh giÃ¡ {booking.CustomerSessionRating}/5 sao.");
+        await _notificationService.CreateAsync(booking.NurseId, "Khách hàng đánh giá buổi chăm sóc",
+            $"Lịch hẹn #{booking.Id} vừa được đánh giá {booking.CustomerSessionRating}/5 sao.");
 
         return ServiceResult<BookingDetailDto>.Ok(MapBookingToDetailDto(booking));
     }
@@ -302,13 +302,13 @@ public class PackageSessionService : IPackageSessionService
     private static string? ValidateFeedback(CustomerSessionFeedbackDto dto)
     {
         if (dto.Rating is < 1 or > 5)
-            return "Sá»‘ sao Ä‘Ã¡nh giÃ¡ pháº£i tá»« 1 Ä‘áº¿n 5.";
+            return "Số sao đánh giá phải từ 1 đến 5.";
 
         if (dto.Note?.Length > 1000)
-            return "Ghi chÃº Ä‘Ã¡nh giÃ¡ khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 1000 kÃ½ tá»±.";
+            return "Ghi chú đánh giá không được vượt quá 1000 ký tự.";
 
         if (NormalizeTags(dto.Tags).Count > 8)
-            return "Chá»‰ cÃ³ thá»ƒ chá»n tá»‘i Ä‘a 8 nhÃ£n Ä‘Ã¡nh giÃ¡.";
+            return "Chỉ có thể chọn tối đa 8 nhãn đánh giá.";
 
         return null;
     }

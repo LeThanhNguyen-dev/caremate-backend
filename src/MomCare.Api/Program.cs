@@ -127,6 +127,13 @@ builder.Services.AddRateLimiter(options =>
         opt.PermitLimit = 10;
         opt.QueueLimit = 0;
     });
+
+    options.AddFixedWindowLimiter("health-checkin", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(5);
+        opt.PermitLimit = 10;
+        opt.QueueLimit = 0;
+    });
 });
 
 builder.Services.AddOpenApi();

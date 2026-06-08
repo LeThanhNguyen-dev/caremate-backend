@@ -15,10 +15,12 @@ namespace MomCare.Controllers;
 public class NurseController : ControllerBase
 {
     private readonly INurseService _nurseService;
+    private readonly ICccdOcrService _cccdOcrService;
 
-    public NurseController(INurseService nurseService)
+    public NurseController(INurseService nurseService, ICccdOcrService cccdOcrService)
     {
         _nurseService = nurseService;
+        _cccdOcrService = cccdOcrService;
     }
 
     [HttpGet("profile")]
@@ -103,6 +105,34 @@ public class NurseController : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("documents/ocr")]
+    [EnableRateLimiting("upload")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> OcrCccd([FromForm] CccdOcrRequestDto ocrDto, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _cccdOcrService.ExtractAsync(ocrDto.Type, ocrDto.File, cancellationToken);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new { message = "FPT AI OCR quota or rate limit has been reached. Please check FPT AI billing/quota or try again later." });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = ex.Message });
         }
     }
 

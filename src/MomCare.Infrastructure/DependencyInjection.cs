@@ -15,6 +15,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
+        services.Configure<FptAiOptions>(configuration.GetSection(FptAiOptions.SectionName));
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -35,7 +36,7 @@ public static class DependencyInjection
         services.AddScoped<ICloudinaryService, CloudinaryService>();
         services.AddScoped<IHealthCheckInService, HealthCheckInService>();
         services.AddScoped<IPackageSessionService, PackageSessionService>();
-        services.AddHttpClient<IOpenAiHealthAnalysisService, OpenAiHealthAnalysisService>();
+        services.AddHttpClient<ICccdOcrService, FptAiCccdOcrService>();
 
         services.AddDbContext<MomCareContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));

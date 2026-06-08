@@ -75,32 +75,75 @@ public class GoongController : ControllerBase
         return await ForwardGoongRequestAsync(url, cancellationToken);
     }
 
+    [HttpGet("reverse-geocode")]
+    public async Task<IActionResult> ReverseGeocode(
+        [FromQuery] double latitude,
+        [FromQuery] double longitude,
+        CancellationToken cancellationToken)
+    {
+        if (!double.IsFinite(latitude) || !double.IsFinite(longitude))
+        {
+            return BadRequest(new { message = "latitude and longitude are required." });
+        }
+
+        var apiKey = GetApiKey();
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "GOONG_API_KEY is not configured." });
+        }
+
+        var url = BuildUrl("/Geocode", new Dictionary<string, string>
+        {
+            ["api_key"] = apiKey,
+            ["latlng"] = $"{latitude},{longitude}"
+        });
+
+        return await ForwardGoongRequestAsync(url, cancellationToken);
+    }
+
     private string? GetApiKey() =>
         _configuration["Goong:RestApiKey"]
         ?? _configuration["GOONG_REST_API_KEY"]
         ?? Environment.GetEnvironmentVariable("GOONG_REST_API_KEY")
         ?? _configuration["Goong:ApiKey"]
         ?? _configuration["GOONG_API_KEY"]
-        ?? Environment.GetEnvironmentVariable("GOONG_API_KEY");
+        ?? Environment.GetEnvironmentVariable("GOONG_API_KEY")
+        ?? _configuration["VITE_GOONG_API_KEY"]
+        ?? Environment.GetEnvironmentVariable("VITE_GOONG_API_KEY");
 
     private async Task<IActionResult> ForwardGoongRequestAsync(string url, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient();
-        using var response = await client.GetAsync(url, cancellationToken);
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            return StatusCode((int)response.StatusCode, new
+            using var response = await client.GetAsync(url, cancellationToken);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
             {
-                message = "Goong request failed.",
-                statusCode = (int)response.StatusCode,
-                detail = content
+                return StatusCode((int)response.StatusCode, new
+                {
+                    message = "Goong request failed.",
+                    statusCode = (int)response.StatusCode,
+                    detail = content
+                });
+            }
+
+            using var document = JsonDocument.Parse(content);
+            return Ok(document.RootElement.Clone());
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return StatusCode(499, new { message = "Goong request was cancelled by the client." });
+        }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new
+            {
+                message = "Goong request timed out."
             });
         }
-
-        using var document = JsonDocument.Parse(content);
-        return Ok(document.RootElement.Clone());
     }
 
     private static string BuildUrl(string path, IReadOnlyDictionary<string, string> parameters)

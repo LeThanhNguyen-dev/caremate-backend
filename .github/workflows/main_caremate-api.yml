@@ -33,11 +33,14 @@ jobs:
       - name: Verify output
         run: ls -la publish
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
         with:
-          name: .net-app
-          path: publish
+          app-name: 'caremate-api'
+          slot-name: 'Production'
+          package: .
+          clean: true
 
   deploy:
     runs-on: ubuntu-latest

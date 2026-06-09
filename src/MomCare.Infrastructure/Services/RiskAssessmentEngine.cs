@@ -8,8 +8,20 @@ namespace MomCare.Services;
 
 public static class RiskAssessmentEngine
 {
-    public const string EngineVersion = "rule-v2.0";
+    public const string EngineVersion = "rule-v3.0";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly Dictionary<string, double> CategoryWeights = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["VitalSigns"] = 1.3,
+        ["Pain"] = 1.0,
+        ["Baby"] = 1.2,
+        ["Mental"] = 0.9,
+        ["Wound"] = 1.1,
+        ["Feeding"] = 1.0,
+        ["Bleeding"] = 1.4,
+        ["Medication"] = 0.7,
+        ["General"] = 1.0
+    };
     private static readonly string[] DangerousKeywords =
     [
         "sốt cao", "khó thở", "chảy máu nhiều", "đau dữ dội", "vết mổ sưng đỏ", "vết mổ chảy dịch"
@@ -19,13 +31,31 @@ public static class RiskAssessmentEngine
         List<HealthCheckIn> recentHistory,
         IReadOnlyList<SuggestedServiceDto> availableServices)
     {
-        var factors = BuildRiskFactors(currentCheckIn, recentHistory);
-        var riskScore = Math.Min(100, factors.Sum(x => x.Points));
+        var historyBeforeCurrent = recentHistory
+            .Where(x => x.Id != currentCheckIn.Id)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToList();
+        var factors = BuildRiskFactors(currentCheckIn, historyBeforeCurrent);
+        var previousScore = historyBeforeCurrent.Count > 0
+            ? CalculateWeightedRiskScore(BuildRiskFactors(historyBeforeCurrent[0], historyBeforeCurrent.Skip(1).ToList()), GetPostpartumDay(historyBeforeCurrent[0]))
+            : 0;
+        var riskScore = CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCheckIn));
+        if (previousScore > 0 && riskScore - previousScore >= 30)
+        {
+            AddFactorIf(factors, true, "rapid_deterioration", "Điểm rủi ro tăng nhanh so với lần check-in trước", 25, "VitalSigns");
+            riskScore = CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCheckIn));
+        }
+
         var warningLevel = DetermineWarningLevel(riskScore, currentCheckIn, recentHistory);
         var trendSignals = BuildTrendSignals(recentHistory);
         var confidence = CalculateConfidence(currentCheckIn, recentHistory);
+        var coverage = CalculateDataCoverage(currentCheckIn);
+        var ppd = ScreenPostpartumDepression(currentCheckIn, recentHistory);
+        var nutrition = BuildNutritionGuidance(currentCheckIn, recentHistory);
+        var recommendations = BuildRecommendations(currentCheckIn, recentHistory, factors, warningLevel);
+        var carePlan = BuildCarePlan(warningLevel, currentCheckIn, recentHistory);
 
-        return new HealthAnalysisResult
+        var result = new HealthAnalysisResult
         {
             Summary = BuildSummary(warningLevel, riskScore, factors),
             WarningLevel = warningLevel,
@@ -36,10 +66,20 @@ public static class RiskAssessmentEngine
             WeeklySummary = BuildWeeklySummary(currentCheckIn, recentHistory),
             RiskFactors = factors,
             TrendSignals = trendSignals,
-            Recommendations = BuildRecommendations(currentCheckIn, recentHistory, factors, warningLevel),
-            CarePlan = BuildCarePlan(warningLevel, currentCheckIn, recentHistory),
-            SuggestedServices = BuildSuggestedServices(currentCheckIn, recentHistory, availableServices)
+            Recommendations = recommendations,
+            CarePlan = carePlan,
+            SuggestedServices = BuildSuggestedServices(currentCheckIn, recentHistory, availableServices),
+            PpdScreeningScore = ppd.Score,
+            PpdScreeningLevel = ppd.Level,
+            PpdScreeningNote = ppd.Note,
+            NutritionGuidance = nutrition,
+            DataCoveragePercent = coverage.Percent,
+            DataCoverageItems = coverage.FilledItems,
+            MissingDataItems = coverage.MissingItems
         };
+
+        result.NarrativeSummary = NarrativeSummaryBuilder.Build(result, currentCheckIn, recentHistory);
+        return result;
     }
 
     private static List<RiskFactorDto> BuildRiskFactors(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
@@ -99,25 +139,49 @@ public static class RiskAssessmentEngine
         AddFactorIf(factors, IsPainIncreasing(recentHistory), "pain_increasing", "Mức đau có xu hướng tăng", 15);
         AddFactorIf(factors, IsDeterioration(recentHistory, x => x.PainLevel, 3), "pain_deterioration", "Mức đau tăng liên tục 3 lần check-in gần đây", 30);
 
+        var postpartumDay = GetPostpartumDay(currentCheckIn);
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "swellingLevel", "Severe") && ContainsAny(currentCheckIn.PainLocation, "chân", "chan", "bắp chân", "bap chan") && postpartumDay is <= 21, "dvt_signs", "Phù chân nặng kèm đau bắp chân trong giai đoạn sớm sau sinh", 70, "VitalSigns");
+        AddFactorIf(factors, ContainsAny(currentCheckIn.PainLocation, "ngực/sữa", "nguc", "sữa", "sua", "vú", "vu") && currentCheckIn.TemperatureCelsius >= 38 && (HasContextValue(currentCheckIn, "incisionStatus", "RedSwollen") || HasSymptom(currentCheckIn, "sưng đỏ", "sung do")), "mastitis_signs", "Đau vùng ngực/sữa kèm sốt và sưng đỏ, nghi viêm vú", 55, "Feeding");
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "bleedingLevel", "Heavy") && HasSymptom(currentCheckIn, "chóng mặt", "chong mat") && postpartumDay is >= 1 and <= 42, "late_pph_signs", "Ra máu nhiều kèm chóng mặt trong 42 ngày sau sinh", 75, "Bleeding");
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "babyActivity", "Lethargic") && IsFeedingConcern(currentCheckIn.BabyFeeding) && postpartumDay is <= 14, "neonatal_jaundice_signs", "Bé lừ đừ và bú ít trong 14 ngày đầu, cần sàng lọc vàng da sơ sinh", 60, "Baby");
+        AddFactorIf(factors, HasContextValue(currentCheckIn, "urinationIssue", "true") && currentCheckIn.TemperatureCelsius >= 38 && ContainsAny(currentCheckIn.PainLocation, "bụng dưới", "bung duoi"), "uti_signs", "Khó tiểu kèm sốt và đau bụng dưới, nghi nhiễm trùng tiết niệu", 45, "VitalSigns");
+        AddFactorIf(factors, (currentCheckIn.SystolicBloodPressure >= 140 || currentCheckIn.DiastolicBloodPressure >= 90) && ContainsAny(currentCheckIn.PainLocation, "bụng trên", "bung tren") && HasSymptom(currentCheckIn, "buồn nôn", "buon non"), "late_hellp_signs", "Huyết áp cao kèm đau bụng trên và buồn nôn, cần loại trừ HELLP muộn", 85, "VitalSigns");
+        AddFactorIf(factors, HasSymptom(currentCheckIn, "chóng mặt", "chong mat", "mệt", "met") && ContainsAny(currentCheckIn.Note, "tim nhanh", "mạch nhanh", "mach nhanh", "hồi hộp", "hoi hop"), "severe_anemia_signs", "Chóng mặt, mệt và hồi hộp có thể gợi ý thiếu máu cần theo dõi", 40, "VitalSigns");
+        AddFactorIf(factors, currentCheckIn.TemperatureCelsius >= 38 && ContainsAny(currentCheckIn.Note, "tim nhanh", "mạch nhanh", "mach nhanh", "hồi hộp", "hoi hop"), "tachycardia_fever", "Sốt kèm dấu hiệu nhịp tim nhanh cần theo dõi nhiễm trùng nặng", 50, "VitalSigns");
+        AddFactorIf(factors, currentCheckIn.TookMedicationToday == false && recentHistory.Take(5).Count(x => x.TookMedicationToday == false) >= 2, "repeated_medication_skip", "Không dùng thuốc theo dặn dò lặp lại nhiều lần gần đây", 15, "Medication");
+        AddFactorIf(factors, ContainsAny(currentCheckIn.Note, "ban đêm", "ban dem", "về đêm", "ve dem"), "night_only_symptoms", "Triệu chứng có xu hướng xuất hiện về đêm", 10, "General");
+        AddFactorIf(factors, postpartumDay is >= 0 and <= 7 && factors.Any(x => x.Points >= 55), "first_week_critical", "Tuần đầu sau sinh có dấu hiệu cảnh báo cần nhạy hơn", 15, "General");
+        AddFactorIf(factors, CountPainLocations(currentCheckIn) >= 3, "multiple_pain_sites", "Có từ 3 vùng đau trở lên cùng lúc", 12, "Pain");
+
+        var categoryCount = factors
+            .Select(x => x.Category)
+            .Where(x => !string.IsNullOrWhiteSpace(x) && x != "General")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        AddFactorIf(factors, categoryCount >= 2, "category_synergy_2", "Có từ 2 nhóm nguy cơ cùng xuất hiện", 15, "General");
+        AddFactorIf(factors, categoryCount >= 3, "category_synergy_3", "Có từ 3 nhóm nguy cơ cùng xuất hiện", 20, "General");
+        AddFactorIf(factors, categoryCount >= 4, "category_synergy_4", "Có từ 4 nhóm nguy cơ cùng xuất hiện", 35, "General");
+
         return factors
             .GroupBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
             .Select(x => x.First())
             .ToList();
     }
 
-    private static void AddFactorIf(List<RiskFactorDto> factors, bool condition, string code, string label, int points)
+    private static void AddFactorIf(List<RiskFactorDto> factors, bool condition, string code, string label, int points, string? category = null)
     {
         if (condition)
         {
-            factors.Add(new RiskFactorDto { Code = code, Label = label, Points = points });
+            factors.Add(new RiskFactorDto { Code = code, Label = label, Points = points, Category = category ?? InferCategory(code) });
         }
     }
 
     private static string DetermineWarningLevel(int riskScore, HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
     {
+        var thresholds = GetStageThresholds(GetPostpartumDay(currentCheckIn));
         if (HasEmergencySymptom(currentCheckIn)
             || HasChestPainBreathingCombo(currentCheckIn)
-            || riskScore >= 85)
+            || riskScore >= thresholds.Emergency)
         {
             return "Emergency";
         }
@@ -128,13 +192,13 @@ public static class RiskAssessmentEngine
             || HasContextValue(currentCheckIn, "babyActivity", "Lethargic")
             || currentCheckIn.PainLevel >= 9
             || currentCheckIn.BabyFeeding.Equals("RefusesFeeding", StringComparison.OrdinalIgnoreCase)
-            || riskScore >= 55)
+            || riskScore >= thresholds.Red)
         {
             return "Red";
         }
 
         if (currentCheckIn.PainLevel >= 8
-            || riskScore >= 25
+            || riskScore >= thresholds.Yellow
             || recentHistory.Take(3).Count(x => x.SleepHours < 5) >= 3)
         {
             return "Yellow";
@@ -536,6 +600,169 @@ public static class RiskAssessmentEngine
 
         var recent = ordered.TakeLast(minConsecutive).Select(selector).ToList();
         return recent.Zip(recent.Skip(1)).All(pair => pair.Second >= pair.First);
+    }
+
+    private static int CalculateWeightedRiskScore(List<RiskFactorDto> factors, double? postpartumDay)
+    {
+        var weighted = factors.Sum(factor =>
+        {
+            var category = string.IsNullOrWhiteSpace(factor.Category) ? InferCategory(factor.Code) : factor.Category;
+            var weight = CategoryWeights.TryGetValue(category, out var value) ? value : 1.0;
+            return factor.Points * weight;
+        });
+
+        if (postpartumDay is >= 0 and <= 7)
+        {
+            weighted *= 1.15;
+        }
+        else if (postpartumDay is >= 15 and <= 42)
+        {
+            weighted *= 0.9;
+        }
+
+        return Math.Clamp((int)Math.Round(weighted), 0, 100);
+    }
+
+    private static (int Yellow, int Red, int Emergency) GetStageThresholds(double? postpartumDay)
+    {
+        var multiplier = postpartumDay switch
+        {
+            >= 0 and <= 7 => 0.85,
+            >= 15 and <= 42 => 1.1,
+            _ => 1.0
+        };
+
+        return ((int)Math.Round(25 * multiplier), (int)Math.Round(55 * multiplier), (int)Math.Round(85 * multiplier));
+    }
+
+    private static string InferCategory(string code)
+    {
+        if (code.Contains("baby", StringComparison.OrdinalIgnoreCase) || code.Contains("jaundice", StringComparison.OrdinalIgnoreCase)) return "Baby";
+        if (code.Contains("sleep", StringComparison.OrdinalIgnoreCase) || code.Contains("stress", StringComparison.OrdinalIgnoreCase)) return "Mental";
+        if (code.Contains("pain", StringComparison.OrdinalIgnoreCase)) return "Pain";
+        if (code.Contains("wound", StringComparison.OrdinalIgnoreCase) || code.Contains("incision", StringComparison.OrdinalIgnoreCase)) return "Wound";
+        if (code.Contains("milk", StringComparison.OrdinalIgnoreCase) || code.Contains("feeding", StringComparison.OrdinalIgnoreCase) || code.Contains("mastitis", StringComparison.OrdinalIgnoreCase)) return "Feeding";
+        if (code.Contains("bleeding", StringComparison.OrdinalIgnoreCase) || code.Contains("pph", StringComparison.OrdinalIgnoreCase)) return "Bleeding";
+        if (code.Contains("medication", StringComparison.OrdinalIgnoreCase)) return "Medication";
+        if (code.Contains("bp", StringComparison.OrdinalIgnoreCase) || code.Contains("temperature", StringComparison.OrdinalIgnoreCase) || code.Contains("fever", StringComparison.OrdinalIgnoreCase) || code.Contains("hellp", StringComparison.OrdinalIgnoreCase) || code.Contains("dvt", StringComparison.OrdinalIgnoreCase)) return "VitalSigns";
+        return "General";
+    }
+
+    private static double? GetPostpartumDay(HealthCheckIn checkIn) => GetContextNumber(checkIn, "postpartumDay");
+
+    private static int CountPainLocations(HealthCheckIn checkIn)
+    {
+        return (checkIn.PainLocation ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Count();
+    }
+
+    private static (int Score, string Level, string Note) ScreenPostpartumDepression(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    {
+        var recent = recentHistory
+            .Where(x => x.Id != currentCheckIn.Id)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(6)
+            .Prepend(currentCheckIn)
+            .ToList();
+
+        var score = Math.Min(15, recent.Count(x => IsStressMood(x.Mood)) * 5);
+        if (recent.Take(3).Count(x => x.SleepHours < 4) >= 3) score += 4;
+        else if (recent.Take(5).Count(x => x.SleepHours < 5) >= 5) score += 3;
+        if (recent.Take(3).Count(x => IsFeedingConcern(x.BabyFeeding)) >= 2) score += 2;
+        if (IsPainIncreasing(recent) || IsWorseningPain(currentCheckIn)) score += 2;
+        if (currentCheckIn.TookMedicationToday == false && recent.Take(3).Count(x => x.TookMedicationToday == false) >= 2) score += 2;
+        if (recent.Take(3).Count(x => IsLowMilk(x.MilkStatus)) >= 2) score += 1;
+
+        var keywordHits = new[] { "buồn", "buon", "khóc", "khoc", "không muốn", "khong muon", "mệt mỏi", "met moi", "cô đơn", "co don", "sợ", "so" }
+            .Count(keyword => VietnameseTextHelper.ContainsAny(currentCheckIn.Note, keyword));
+        score += Math.Min(6, keywordHits * 3);
+        score = Math.Clamp(score, 0, 30);
+
+        return score switch
+        {
+            >= 16 => (score, "High", "Khuyến nghị tư vấn chuyên gia tâm lý hoặc bác sĩ nếu cảm giác buồn, sợ hãi, quá tải kéo dài."),
+            >= 9 => (score, "Moderate", "Cần theo dõi tâm lý sát hơn và nên có người hỗ trợ chăm mẹ, chăm bé trong vài ngày tới."),
+            _ => (score, "Low", "Tâm lý hiện tương đối ổn định, tiếp tục quan sát giấc ngủ và mức căng thẳng hằng ngày.")
+        };
+    }
+
+    private static List<NutritionTipDto> BuildNutritionGuidance(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    {
+        var tips = new List<NutritionTipDto>();
+        var postpartumDay = GetPostpartumDay(currentCheckIn);
+
+        if (postpartumDay is null or <= 7)
+        {
+            tips.Add(new() { Category = "Phục hồi", Tip = "Ưu tiên protein, sắt và 2-2.5L nước mỗi ngày.", Reason = "Tuần đầu cần phục hồi mô, bù dịch và hỗ trợ tạo sữa.", Icon = "💪" });
+        }
+        else if (postpartumDay is <= 14)
+        {
+            tips.Add(new() { Category = "Sữa chính", Tip = "Tăng omega-3, calcium khoảng 1000mg/ngày và thực phẩm lợi sữa.", Reason = "Giai đoạn sữa chuyển ổn định cần thêm vi chất và năng lượng.", Icon = "🥛" });
+        }
+        else if (postpartumDay is <= 42)
+        {
+            tips.Add(new() { Category = "Phục hồi dài hơn", Tip = "Ăn cân bằng, bổ sung vitamin D và bắt đầu vận động nhẹ nếu bác sĩ cho phép.", Reason = "Cơ thể đang ổn định dần nhưng vẫn cần nền dinh dưỡng đều.", Icon = "🌿" });
+        }
+
+        if (IsLowMilk(currentCheckIn.MilkStatus) || IsFeedingConcern(currentCheckIn.BabyFeeding))
+        {
+            tips.Add(new() { Category = "Cho bú", Tip = "Thêm rau ngót, đu đủ xanh, hạt, cá và uống nước đều trong ngày.", Reason = "Có thể hỗ trợ năng lượng và nguồn chất lỏng cho quá trình tạo sữa.", Icon = "🍼" });
+        }
+
+        if (currentCheckIn.SleepHours < 5 || recentHistory.Take(3).Count(x => x.SleepHours < 5) >= 2)
+        {
+            tips.Add(new() { Category = "Giấc ngủ", Tip = "Dùng bữa nhẹ giàu tryptophan hoặc magnesium như sữa ấm, chuối, hạt.", Reason = "Dinh dưỡng nhẹ buổi tối có thể hỗ trợ thư giãn.", Icon = "🌙" });
+        }
+
+        if (IsStressMood(currentCheckIn.Mood))
+        {
+            tips.Add(new() { Category = "Tâm trạng", Tip = "Bổ sung omega-3, B6, folate từ cá, trứng, rau xanh đậm và đậu.", Reason = "Các vi chất này liên quan tới năng lượng và ổn định tâm trạng.", Icon = "🧠" });
+        }
+
+        if (currentCheckIn.PainLevel >= 6 || IsWorseningPain(currentCheckIn))
+        {
+            tips.Add(new() { Category = "Kháng viêm", Tip = "Tăng cá béo, gừng, nghệ và rau lá xanh trong bữa ăn.", Reason = "Nhóm thực phẩm này hỗ trợ nền dinh dưỡng chống viêm tự nhiên.", Icon = "🔥" });
+        }
+
+        return tips
+            .GroupBy(x => x.Category, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .Take(6)
+            .ToList();
+    }
+
+    private static (int Percent, List<string> FilledItems, List<string> MissingItems) CalculateDataCoverage(HealthCheckIn checkIn)
+    {
+        var context = DeserializeStringDictionary(checkIn.ContextDataJson);
+        var checks = new List<(string Label, bool Filled)>
+        {
+            ("Giấc ngủ", true),
+            ("Mức đau", true),
+            ("Vị trí đau", !string.IsNullOrWhiteSpace(checkIn.PainLocation)),
+            ("Kiểu đau", !string.IsNullOrWhiteSpace(checkIn.PainType)),
+            ("Diễn tiến đau", !string.IsNullOrWhiteSpace(checkIn.PainTrend)),
+            ("Triệu chứng", DeserializeStringList(checkIn.SymptomsJson).Count > 0),
+            ("Tiền sử", DeserializeStringList(checkIn.MedicalHistoryJson).Count > 0),
+            ("Ngày sau sinh", context.ContainsKey("postpartumDay")),
+            ("Kiểu sinh", context.ContainsKey("deliveryMethod")),
+            ("Sản dịch", context.ContainsKey("bleedingLevel")),
+            ("Vết mổ/khâu", context.ContainsKey("incisionStatus")),
+            ("Phù chân", context.ContainsKey("swellingLevel")),
+            ("Khó tiểu", context.ContainsKey("urinationIssue")),
+            ("Tã ướt của bé", context.ContainsKey("babyWetDiapers")),
+            ("Hoạt động của bé", context.ContainsKey("babyActivity")),
+            ("Tuổi mẹ", checkIn.MotherAge.HasValue),
+            ("Huyết áp", checkIn.SystolicBloodPressure.HasValue && checkIn.DiastolicBloodPressure.HasValue),
+            ("Nhiệt độ", checkIn.TemperatureCelsius.HasValue),
+            ("Tình trạng thuốc", true),
+            ("Ghi chú", !string.IsNullOrWhiteSpace(checkIn.Note))
+        };
+
+        var filled = checks.Where(x => x.Filled).Select(x => x.Label).ToList();
+        var missing = checks.Where(x => !x.Filled).Select(x => x.Label).ToList();
+        var percent = (int)Math.Round(filled.Count * 100.0 / checks.Count);
+        return (percent, filled, missing);
     }
 
     private static (int Score, string Label) CalculateConfidence(HealthCheckIn checkIn, List<HealthCheckIn> history)

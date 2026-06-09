@@ -55,6 +55,34 @@ public class AiHealthAnalysis
     [Column("raw_ai_response")]
     public string? RawAiResponse { get; set; }
 
+    // v3.0 — PPD Screening
+    [Column("ppd_screening_score")]
+    public int PpdScreeningScore { get; set; }
+
+    [Column("ppd_screening_level")]
+    public string PpdScreeningLevel { get; set; } = string.Empty;
+
+    [Column("ppd_screening_note")]
+    public string PpdScreeningNote { get; set; } = string.Empty;
+
+    // v3.0 — AI Narrative Summary (local NLG)
+    [Column("narrative_summary")]
+    public string NarrativeSummary { get; set; } = string.Empty;
+
+    // v3.0 — Nutrition Guidance
+    [Column("nutrition_guidance_json")]
+    public string NutritionGuidanceJson { get; set; } = "[]";
+
+    // v3.0 — Data Coverage
+    [Column("data_coverage_percent")]
+    public int DataCoveragePercent { get; set; }
+
+    [Column("data_coverage_items_json")]
+    public string DataCoverageItemsJson { get; set; } = "[]";
+
+    [Column("missing_data_items_json")]
+    public string MissingDataItemsJson { get; set; } = "[]";
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

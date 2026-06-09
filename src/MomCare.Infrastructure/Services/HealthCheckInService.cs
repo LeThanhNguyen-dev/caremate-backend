@@ -77,6 +77,14 @@ public class HealthCheckInService : IHealthCheckInService
             RecommendationsJson = JsonSerializer.Serialize(analysisResult.Recommendations, JsonOptions),
             CarePlanJson = JsonSerializer.Serialize(analysisResult.CarePlan, JsonOptions),
             SuggestedServicesJson = JsonSerializer.Serialize(analysisResult.SuggestedServices, JsonOptions),
+            PpdScreeningScore = analysisResult.PpdScreeningScore,
+            PpdScreeningLevel = analysisResult.PpdScreeningLevel,
+            PpdScreeningNote = analysisResult.PpdScreeningNote,
+            NarrativeSummary = analysisResult.NarrativeSummary,
+            NutritionGuidanceJson = JsonSerializer.Serialize(analysisResult.NutritionGuidance, JsonOptions),
+            DataCoveragePercent = analysisResult.DataCoveragePercent,
+            DataCoverageItemsJson = JsonSerializer.Serialize(analysisResult.DataCoverageItems, JsonOptions),
+            MissingDataItemsJson = JsonSerializer.Serialize(analysisResult.MissingDataItems, JsonOptions),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -146,6 +154,14 @@ public class HealthCheckInService : IHealthCheckInService
             Recommendations = DeserializeRecommendations(analysis.RecommendationsJson),
             CarePlan = DeserializeCarePlan(analysis.CarePlanJson),
             SuggestedServices = DeserializeSuggestedServices(analysis.SuggestedServicesJson),
+            PpdScreeningScore = analysis.PpdScreeningScore,
+            PpdScreeningLevel = analysis.PpdScreeningLevel,
+            PpdScreeningNote = analysis.PpdScreeningNote,
+            NutritionGuidance = DeserializeNutritionGuidance(analysis.NutritionGuidanceJson),
+            NarrativeSummary = analysis.NarrativeSummary,
+            DataCoveragePercent = analysis.DataCoveragePercent,
+            DataCoverageItems = DeserializeStringList(analysis.DataCoverageItemsJson),
+            MissingDataItems = DeserializeStringList(analysis.MissingDataItemsJson),
             Disclaimer = Disclaimer,
             ConfidenceLabel = BuildConfidenceLabel(analysis.ConfidenceScore),
             EngineVersion = RiskAssessmentEngine.EngineVersion
@@ -221,6 +237,8 @@ public class HealthCheckInService : IHealthCheckInService
     private static List<RiskFactorDto> DeserializeRiskFactors(string json) => JsonSerializer.Deserialize<List<RiskFactorDto>>(json, JsonOptions) ?? [];
 
     private static List<TrendSignalDto> DeserializeTrendSignals(string json) => JsonSerializer.Deserialize<List<TrendSignalDto>>(json, JsonOptions) ?? [];
+
+    private static List<NutritionTipDto> DeserializeNutritionGuidance(string json) => JsonSerializer.Deserialize<List<NutritionTipDto>>(json, JsonOptions) ?? [];
 
     private static List<string> DeserializeStringList(string json) => JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
 

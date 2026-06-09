@@ -12,8 +12,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -23,23 +21,23 @@ jobs:
         with:
           dotnet-version: '9.x'
 
-      - name: Restore dependencies
+      - name: Restore
         run: dotnet restore src/MomCare.Api/MomCare.Api.csproj
 
-      - name: Build with dotnet
+      - name: Build
         run: dotnet build src/MomCare.Api/MomCare.Api.csproj --configuration Release --no-restore
 
-      - name: Clean publish folder
-        run: rm -rf ${{env.DOTNET_ROOT}}/myapp
+      - name: Publish
+        run: dotnet publish src/MomCare.Api/MomCare.Api.csproj -c Release -o publish --no-build
 
-      - name: dotnet publish
-        run: dotnet publish src/MomCare.Api/MomCare.Api.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp --no-restore --no-self-contained
+      - name: Verify output
+        run: ls -la publish
 
-      - name: Upload artifact for deployment job
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          path: publish
 
   deploy:
     runs-on: ubuntu-latest

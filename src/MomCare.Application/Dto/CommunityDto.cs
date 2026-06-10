@@ -54,6 +54,17 @@ public class CreateCommunityPostDto
     public IFormFile? Image { get; set; }
 }
 
+public class UpdateCommunityPostDto
+{
+    [MaxLength(180)]
+    public string? Title { get; set; }
+
+    [MaxLength(4000)]
+    public string? Content { get; set; }
+
+    public string[] Tags { get; set; } = [];
+}
+
 public class CreateCommunityCommentDto
 {
     [Required]

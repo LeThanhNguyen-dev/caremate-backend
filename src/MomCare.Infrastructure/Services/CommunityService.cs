@@ -139,6 +139,71 @@ public class CommunityService : ICommunityService
         }
     }
 
+    public async Task<bool?> DeletePostAsync(int actorId, bool actorIsAdmin, int postId)
+    {
+        var post = await _context.CommunityPosts
+            .FirstOrDefaultAsync(p => p.Id == postId && !p.IsDeleted);
+        if (post == null) return null;
+        if (!actorIsAdmin && post.AuthorId != actorId) return false;
+
+        post.IsDeleted = true;
+        post.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        if (!string.IsNullOrWhiteSpace(post.ImagePublicId))
+        {
+            try
+            {
+                await _cloudinaryService.DeleteAsync(post.ImagePublicId);
+            }
+            catch
+            {
+                // The post is already hidden; Cloudinary cleanup can be retried manually if needed.
+            }
+        }
+
+        return true;
+    }
+
+    public async Task<(CommunityPostDto? Post, bool Forbidden)> UpdatePostAsync(
+        int actorId,
+        bool actorIsAdmin,
+        int postId,
+        UpdateCommunityPostDto dto)
+    {
+        var post = await _context.CommunityPosts
+            .FirstOrDefaultAsync(p => p.Id == postId && !p.IsDeleted);
+        if (post == null) return (null, false);
+        if (!actorIsAdmin && post.AuthorId != actorId) return (null, true);
+
+        var title = dto.Title?.Trim() ?? string.Empty;
+        var content = dto.Content?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(content) && string.IsNullOrWhiteSpace(post.ImageUrl))
+        {
+            return (null, false);
+        }
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = string.IsNullOrWhiteSpace(content)
+                ? "Bai viet moi"
+                : content.Length > 80 ? $"{content[..77]}..." : content;
+        }
+
+        post.Title = title;
+        post.Content = content;
+        post.Tags = SerializeTags(dto.Tags);
+        post.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        var updated = await GetPostEntityAsync(postId);
+        if (updated == null) return (null, false);
+
+        var roleMap = await GetRoleMapAsync(
+            updated.Comments.Select(c => c.AuthorId).Append(updated.AuthorId).Distinct().ToList());
+        return (ToPostDto(updated, actorId, roleMap), false);
+    }
+
     public async Task<CommunityPostDto?> ToggleLikeAsync(int userId, int postId)
     {
         var targetPost = await _context.CommunityPosts

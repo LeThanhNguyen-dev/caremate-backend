@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MomCare.Dto;
+using MomCare.Enums;
 using MomCare.Interfaces;
 
 namespace MomCare.Controllers;
@@ -67,6 +68,29 @@ public class CommunityController : ControllerBase
         if (post == null) return NotFound(new { message = "Post not found." });
 
         return Ok(post);
+    }
+
+    [HttpDelete("posts/{postId:int}")]
+    [Authorize]
+    public async Task<IActionResult> DeletePost(int postId)
+    {
+        var deleted = await _communityService.DeletePostAsync(GetUserId(), User.IsInRole(AppRoles.Admin), postId);
+        if (deleted == null) return NotFound(new { message = "Post not found." });
+        if (deleted == false) return Forbid();
+
+        return NoContent();
+    }
+
+    [HttpPut("posts/{postId:int}")]
+    [Authorize]
+    [EnableRateLimiting("community")]
+    public async Task<IActionResult> UpdatePost(int postId, [FromBody] UpdateCommunityPostDto dto)
+    {
+        var result = await _communityService.UpdatePostAsync(GetUserId(), User.IsInRole(AppRoles.Admin), postId, dto);
+        if (result.Forbidden) return Forbid();
+        if (result.Post == null) return BadRequest(new { message = "Post not found or content cannot be empty." });
+
+        return Ok(result.Post);
     }
 
     [HttpPost("posts/{postId:int}/comments/{commentId:int}/like")]

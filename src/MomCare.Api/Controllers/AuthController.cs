@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MomCare.Dto;
 using MomCare.Interfaces;
 using System.Security.Claims;
@@ -17,6 +18,7 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
     {
         var result = await _authService.RegisterAsync(registerDto);
@@ -30,6 +32,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("signup/customer")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> RegisterCustomer([FromBody] RegisterDto registerDto)
     {
         registerDto.Role = "customer";
@@ -44,6 +47,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("signup/nurse")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> RegisterNurse([FromBody] RegisterNurseDto registerDto)
     {
         var result = await _authService.RegisterNurseAsync(registerDto);
@@ -57,6 +61,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login/external")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginDto externalLoginDto)
     {
         var result = await _authService.ExternalLoginAsync(externalLoginDto);
@@ -70,6 +75,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
     {
         var result = await _authService.LoginAsync(loginDto);
@@ -83,6 +89,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("refresh-token")]
+    [EnableRateLimiting("refresh-token")]
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto request)
     {
         var result = await _authService.RefreshTokenAsync(request);
@@ -145,6 +152,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
     {
         var token = await _authService.GenerateResetPasswordTokenAsync(dto.Email);
@@ -163,6 +171,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("reset-password")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
     {
         var ok = await _authService.ResetPasswordAsync(dto);

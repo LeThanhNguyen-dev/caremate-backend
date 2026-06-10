@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MomCare.Dto;
 using MomCare.Interfaces;
 
@@ -27,6 +28,7 @@ public class ChatController : ControllerBase
     }
 
     [HttpPost("conversations/by-booking/{bookingId:int}")]
+    [EnableRateLimiting("chat")]
     public async Task<IActionResult> GetOrCreateConversation(int bookingId)
     {
         var userId = GetUserId();
@@ -40,6 +42,7 @@ public class ChatController : ControllerBase
     }
 
     [HttpPost("conversations/support")]
+    [EnableRateLimiting("chat")]
     public async Task<IActionResult> GetOrCreateSupportConversation([FromBody] CreateSupportConversationDto? dto)
     {
         var userId = GetUserId();
@@ -61,6 +64,7 @@ public class ChatController : ControllerBase
     }
 
     [HttpPost("conversations/{conversationId:int}/messages")]
+    [EnableRateLimiting("chat")]
     public async Task<IActionResult> SendMessage(int conversationId, [FromBody] SendChatMessageDto dto)
     {
         var userId = GetUserId();

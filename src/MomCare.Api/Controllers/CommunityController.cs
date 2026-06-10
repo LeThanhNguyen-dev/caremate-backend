@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MomCare.Dto;
 using MomCare.Interfaces;
 
@@ -27,6 +28,7 @@ public class CommunityController : ControllerBase
 
     [HttpPost("posts")]
     [Authorize]
+    [EnableRateLimiting("community")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(8 * 1024 * 1024)]
     public async Task<IActionResult> CreatePost([FromForm] CreateCommunityPostDto dto)
@@ -58,6 +60,7 @@ public class CommunityController : ControllerBase
 
     [HttpPost("posts/{postId:int}/like")]
     [Authorize]
+    [EnableRateLimiting("community")]
     public async Task<IActionResult> ToggleLike(int postId)
     {
         var post = await _communityService.ToggleLikeAsync(GetUserId(), postId);
@@ -68,6 +71,7 @@ public class CommunityController : ControllerBase
 
     [HttpPost("posts/{postId:int}/comments/{commentId:int}/like")]
     [Authorize]
+    [EnableRateLimiting("community")]
     public async Task<IActionResult> ToggleCommentLike(int postId, int commentId)
     {
         var comment = await _communityService.ToggleCommentLikeAsync(GetUserId(), postId, commentId);
@@ -88,6 +92,7 @@ public class CommunityController : ControllerBase
 
     [HttpPost("posts/{postId:int}/comments")]
     [Authorize]
+    [EnableRateLimiting("community")]
     public async Task<IActionResult> CreateComment(int postId, [FromBody] CreateCommunityCommentDto dto)
     {
         var comment = await _communityService.CreateCommentAsync(GetUserId(), postId, dto);

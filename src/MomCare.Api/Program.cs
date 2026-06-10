@@ -10,6 +10,7 @@ using MomCare.Infrastructure;
 using MomCare.Interfaces;
 using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 
 var envCandidates = new[]
@@ -118,26 +119,14 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    options.AddFixedWindowLimiter("upload", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(10);
-        opt.PermitLimit = 5;
-        opt.QueueLimit = 0;
-    });
-
-    options.AddFixedWindowLimiter("booking", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 10;
-        opt.QueueLimit = 0;
-    });
-
-    options.AddFixedWindowLimiter("health-checkin", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(5);
-        opt.PermitLimit = 10;
-        opt.QueueLimit = 0;
-    });
+    options.AddPolicy("auth", context => FixedWindow(context, 5, TimeSpan.FromMinutes(5)));
+    options.AddPolicy("refresh-token", context => FixedWindow(context, 20, TimeSpan.FromMinutes(5)));
+    options.AddPolicy("upload", context => FixedWindow(context, 5, TimeSpan.FromMinutes(10)));
+    options.AddPolicy("booking", context => FixedWindow(context, 10, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("health-checkin", context => FixedWindow(context, 10, TimeSpan.FromMinutes(5)));
+    options.AddPolicy("chat", context => FixedWindow(context, 30, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("community", context => FixedWindow(context, 20, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("payment", context => FixedWindow(context, 5, TimeSpan.FromMinutes(1)));
 });
 
 builder.Services.AddOpenApi();
@@ -174,9 +163,8 @@ else
 
 app.UseCors("AllowReactApp");
 
-app.UseRateLimiter();
-
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -185,3 +173,34 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
+
+static RateLimitPartition<string> FixedWindow(HttpContext context, int permitLimit, TimeSpan window)
+{
+    return RateLimitPartition.GetFixedWindowLimiter(
+        GetRateLimitKey(context),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = window,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+}
+
+static string GetRateLimitKey(HttpContext context)
+{
+    var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? context.User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+
+    if (!string.IsNullOrWhiteSpace(userId))
+    {
+        return $"user:{userId}";
+    }
+
+    var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+    var clientIp = forwardedFor?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
+        ?? context.Connection.RemoteIpAddress?.ToString()
+        ?? "unknown";
+
+    return $"ip:{clientIp}";
+}

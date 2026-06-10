@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MomCare.Dto;
 using MomCare.Enums;
 using MomCare.Interfaces;
@@ -21,6 +22,7 @@ public class PaymentsController : ControllerBase
 
     [HttpPost("booking/payos-link")]
     [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Admin}")]
+    [EnableRateLimiting("payment")]
     public async Task<IActionResult> CreatePayOSLinkForBooking([FromBody] CreatePayOSBookingPaymentDto dto)
     {
         var userId = GetUserId();
@@ -30,6 +32,7 @@ public class PaymentsController : ControllerBase
 
     [HttpPost("booking/{bookingId:int}/payos-link")]
     [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Admin}")]
+    [EnableRateLimiting("payment")]
     public async Task<IActionResult> CreatePayOSLink(int bookingId, [FromBody] CreatePayOSPaymentLinkDto dto)
     {
         var userId = GetUserId();

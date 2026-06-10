@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MomCare.Data;
 using MomCare.Dto;
+using MomCare.Enums;
 using MomCare.Interfaces;
 using MomCare.Models;
 using System.Collections.Concurrent;
@@ -69,12 +70,6 @@ public class CommunityService : ICommunityService
         var title = dto.Title?.Trim() ?? string.Empty;
         var content = dto.Content?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(content) && dto.Image == null) return null;
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            title = string.IsNullOrWhiteSpace(content)
-                ? "Bai viet moi"
-                : content.Length > 80 ? $"{content[..77]}..." : content;
-        }
 
         var tags = SerializeTags(dto.Tags);
         var duplicateKey = $"{authorId}|{title}|{content}|{tags}|{dto.Image?.FileName}|{dto.Image?.Length}";
@@ -181,13 +176,6 @@ public class CommunityService : ICommunityService
         if (string.IsNullOrWhiteSpace(content) && string.IsNullOrWhiteSpace(post.ImageUrl))
         {
             return (null, false);
-        }
-
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            title = string.IsNullOrWhiteSpace(content)
-                ? "Bai viet moi"
-                : content.Length > 80 ? $"{content[..77]}..." : content;
         }
 
         post.Title = title;
@@ -391,9 +379,10 @@ public class CommunityService : ICommunityService
             var roles = await _userManager.GetRolesAsync(user);
             result[user.Id] = roles.FirstOrDefault() switch
             {
-                "nurse_confirmed" => "Chuyen gia CareMate",
-                "admin" => "Quan tri vien",
-                _ => "Thanh vien CareMate"
+                AppRoles.NurseConfirmed => "Chuyên gia CareMate",
+                AppRoles.Admin => "Quản trị viên",
+                AppRoles.Customer => "Thành viên CareMate",
+                _ => "Thành viên CareMate"
             };
         }
 
@@ -407,7 +396,7 @@ public class CommunityService : ICommunityService
             Id = post.Id,
             AuthorId = post.AuthorId,
             Author = post.Author.FullName,
-            Role = roleMap.TryGetValue(post.AuthorId, out var role) ? role : "Thanh vien CareMate",
+            Role = roleMap.TryGetValue(post.AuthorId, out var role) ? role : "Thành viên CareMate",
             Avatar = post.Author.Avatar,
             Title = post.Title,
             Content = post.Content,

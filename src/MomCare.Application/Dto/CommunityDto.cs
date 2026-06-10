@@ -8,7 +8,7 @@ public class CommunityPostDto
     public int Id { get; set; }
     public int AuthorId { get; set; }
     public string Author { get; set; } = string.Empty;
-    public string Role { get; set; } = "Thanh vien CareMate";
+    public string Role { get; set; } = "Thành viên CareMate";
     public string? Avatar { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;

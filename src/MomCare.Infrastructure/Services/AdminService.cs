@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using MomCare.Data;
 using MomCare.Dto;
 using MomCare.Enums;
+using MomCare.Infrastructure.Configurations;
 using MomCare.Interfaces;
 using MomCare.Models;
 
@@ -14,6 +17,9 @@ public class AdminService : IAdminService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IConfiguration _configuration;
+    private readonly ICccdOcrService _cccdOcrService;
+    private readonly IHttpClientFactory _httpClientFactory;
     private const decimal PlatformFeeRate = 0.15m;
 
     private static readonly string[] RequiredDocumentTypes =
@@ -27,12 +33,18 @@ public class AdminService : IAdminService
         MomCareContext context,
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
-        ICloudinaryService cloudinaryService)
+        ICloudinaryService cloudinaryService,
+        IConfiguration configuration,
+        ICccdOcrService cccdOcrService,
+        IHttpClientFactory httpClientFactory)
     {
         _context = context;
         _userManager = userManager;
         _roleManager = roleManager;
         _cloudinaryService = cloudinaryService;
+        _configuration = configuration;
+        _cccdOcrService = cccdOcrService;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<IEnumerable<AdminUserDto>> GetUsersAsync()
@@ -651,6 +663,70 @@ public class AdminService : IAdminService
         return true;
     }
 
+    public Task<AdminOcrSettingsDto> GetOcrSettingsAsync()
+    {
+        var endpoint = _configuration[$"{FptAiOptions.SectionName}:IdCardEndpoint"];
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            endpoint = "https://api.fpt.ai/vision/idr/vnm";
+        }
+
+        var apiKey = GetFptAiApiKey();
+
+        return Task.FromResult(new AdminOcrSettingsDto
+        {
+            Provider = "FPT AI",
+            Purpose = "CCCD OCR",
+            IdCardEndpoint = endpoint.Trim(),
+            IsConfigured = !string.IsNullOrWhiteSpace(apiKey),
+            MaskedApiKey = MaskSecret(apiKey)
+        });
+    }
+
+    public async Task<CccdOcrResultDto?> OcrNurseDocumentAsync(int documentId, CancellationToken cancellationToken)
+    {
+        var document = await _context.Documents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken);
+
+        if (document == null)
+        {
+            return null;
+        }
+
+        if (!DocumentTypes.IsIdCard(document.Type))
+        {
+            throw new ArgumentException("OCR is only supported for CCCD front/back images.");
+        }
+
+        var signedUrl = _cloudinaryService.GetSignedUrl(document.PublicId);
+        var httpClient = _httpClientFactory.CreateClient();
+        using var response = await httpClient.GetAsync(signedUrl, cancellationToken);
+        var rawImage = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Unable to download document image with status {(int)response.StatusCode}.", null, response.StatusCode);
+        }
+
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            contentType = document.PublicId.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                ? "image/png"
+                : "image/jpeg";
+        }
+
+        await using var stream = new MemoryStream(rawImage);
+        var formFile = new FormFile(stream, 0, rawImage.Length, "File", $"{document.Type}.{GetExtension(contentType)}")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = contentType
+        };
+
+        return await _cccdOcrService.ExtractAsync(document.Type, formFile, cancellationToken);
+    }
+
     private static string? BuildVietQrUrl(string? bankBin, string? accountNumber, decimal? amount, int bookingId)
     {
         if (string.IsNullOrWhiteSpace(bankBin) || string.IsNullOrWhiteSpace(accountNumber))
@@ -721,5 +797,39 @@ public class AdminService : IAdminService
         }
 
         return phone.Trim().Replace(" ", string.Empty).Replace("-", string.Empty);
+    }
+
+    private string? GetFptAiApiKey()
+    {
+        return new[]
+            {
+                _configuration[$"{FptAiOptions.SectionName}:ApiKey"],
+                _configuration["FPT_AI_API_KEY"],
+                _configuration["FPTAI_API_KEY"],
+                Environment.GetEnvironmentVariable("FPT_AI_API_KEY"),
+                Environment.GetEnvironmentVariable("FPTAI_API_KEY")
+            }
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private static string? MaskSecret(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length <= 8)
+        {
+            return "********";
+        }
+
+        return $"{trimmed[..4]}...{trimmed[^4..]}";
+    }
+
+    private static string GetExtension(string contentType)
+    {
+        return contentType.Equals("image/png", StringComparison.OrdinalIgnoreCase) ? "png" : "jpg";
     }
 }

@@ -17,4 +17,6 @@ public interface IAdminService
     Task<bool> CompleteRefundAsync(int bookingId, CompleteRefundDto dto);
     Task<IEnumerable<AdminPayoutDto>> GetPayoutsAsync(string? payoutStatus);
     Task<bool> CompletePayoutAsync(int payoutId, CompletePayoutDto dto);
+    Task<AdminOcrSettingsDto> GetOcrSettingsAsync();
+    Task<CccdOcrResultDto?> OcrNurseDocumentAsync(int documentId, CancellationToken cancellationToken);
 }

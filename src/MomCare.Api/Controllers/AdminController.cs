@@ -133,4 +133,40 @@ public class AdminController : ControllerBase
 
         return Ok(new { message = "Payout marked as completed" });
     }
+
+    [HttpGet("settings/ocr")]
+    public async Task<IActionResult> GetOcrSettings()
+    {
+        var result = await _adminService.GetOcrSettingsAsync();
+        return Ok(result);
+    }
+
+    [HttpPost("nurses/documents/{documentId:int}/ocr")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> OcrNurseDocument(int documentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _adminService.OcrNurseDocumentAsync(documentId, cancellationToken);
+            if (result == null) return NotFound(new { message = "Document not found" });
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new { message = "FPT AI OCR quota or rate limit has been reached. Please check FPT AI billing/quota or try again later." });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = ex.Message });
+        }
+    }
 }

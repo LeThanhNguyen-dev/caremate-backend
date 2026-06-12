@@ -45,7 +45,10 @@ public class DomainConstantsTests
             AppRoles.Nurse,
             AppRoles.NurseUnconfirmed,
             AppRoles.NurseConfirmed,
-            AppRoles.Admin
+            AppRoles.Admin,
+            AppRoles.FinanceAdmin,
+            AppRoles.VerificationAdmin,
+            AppRoles.SupportStaff
         };
 
         Assert.Equal(roles.Length, roles.Distinct().Count());

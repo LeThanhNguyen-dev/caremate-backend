@@ -8,4 +8,5 @@ public interface IPaymentService
     Task<PayOSPaymentLinkDto?> CreatePayOSPaymentLinkAsync(int actorUserId, bool isAdmin, int bookingId, CreatePayOSPaymentLinkDto dto);
     Task<PayOSPaymentLinkDto> CreatePayOSBookingPaymentLinkAsync(int actorUserId, CreatePayOSBookingPaymentDto dto);
     Task<bool> HandlePayOSWebhookAsync(PayOSWebhookDto webhook);
+    Task<bool> RetryPayOSWebhookLogAsync(Guid logId);
 }

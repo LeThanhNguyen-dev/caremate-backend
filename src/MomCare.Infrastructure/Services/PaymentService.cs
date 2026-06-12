@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MomCare.Data;
 using MomCare.Dto;
+using System.Text.Json;
 using NurseServiceModel = MomCare.Models.NurseService;
 using MomCare.Enums;
 using PayOSConfig = MomCare.Infrastructure.Configurations.PayOSOptions;
@@ -20,6 +21,7 @@ public class PaymentService : IPaymentService
     private readonly PayOSConfig _payOSOptions;
     private readonly PayOSClient? _payOSClient;
     private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public PaymentService(
         MomCareContext context,
@@ -192,34 +194,134 @@ public class PaymentService : IPaymentService
 
     public async Task<bool> HandlePayOSWebhookAsync(PayOSWebhookDto webhook)
     {
-        EnsurePayOSConfigured();
+        var log = new PayOsWebhookLog
+        {
+            Id = Guid.NewGuid(),
+            OrderCode = webhook.Data?.OrderCode.ToString(),
+            EventCode = webhook.Code ?? webhook.Data?.Code,
+            EventDescription = webhook.Description ?? webhook.Data?.Description,
+            RawPayload = JsonSerializer.Serialize(webhook, JsonOptions),
+            ReceivedAt = DateTime.UtcNow
+        };
 
-        var verifiedData = await _payOSClient!.Webhooks.VerifyAsync(MapWebhook(webhook));
-        var orderCode = verifiedData.OrderCode.ToString();
+        _context.PayOsWebhookLogs.Add(log);
+        await _context.SaveChangesAsync();
 
-        var payment = await _context.Payments
-            .Include(p => p.Booking)
-            .FirstOrDefaultAsync(p => p.TransactionId == orderCode);
+        return await ProcessPayOSWebhookAsync(webhook, log, isRetry: false);
+    }
 
-        if (payment == null)
+    public async Task<bool> RetryPayOSWebhookLogAsync(Guid logId)
+    {
+        var log = await _context.PayOsWebhookLogs.FirstOrDefaultAsync(x => x.Id == logId);
+        if (log == null)
         {
             return false;
         }
 
-        payment.Method = "payos";
-        payment.Status = verifiedData.Code == "00" ? PaymentStatuses.Paid : PaymentStatuses.Failed;
-
-        await _context.SaveChangesAsync();
-
-        var booking = payment.Booking;
-        if (booking != null)
+        PayOSWebhookDto? webhook;
+        try
         {
-            var statusText = NotificationVietnameseText.PaymentStatus(payment.Status);
-            await _notificationService.CreateAsync(booking.NurseId, "Cap nhat thanh toan", $"Thanh toan cho lich hen #{booking.Id} hien {statusText}.", "payment");
-            await _notificationService.CreateAsync(booking.CustomerId, "Cap nhat thanh toan", $"Thanh toan cua ban cho lich hen #{booking.Id} hien {statusText}.", "payment");
+            webhook = JsonSerializer.Deserialize<PayOSWebhookDto>(log.RawPayload, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            log.ProcessingError = $"Cannot parse stored webhook payload: {ex.Message}";
+            log.RetryCount += 1;
+            await _context.SaveChangesAsync();
+            return false;
         }
 
-        return true;
+        if (webhook == null)
+        {
+            log.ProcessingError = "Stored webhook payload is empty.";
+            log.RetryCount += 1;
+            await _context.SaveChangesAsync();
+            return false;
+        }
+
+        return await ProcessPayOSWebhookAsync(webhook, log, isRetry: true);
+    }
+
+    private async Task<bool> ProcessPayOSWebhookAsync(PayOSWebhookDto webhook, PayOsWebhookLog log, bool isRetry)
+    {
+        try
+        {
+            if (isRetry)
+            {
+                log.RetryCount += 1;
+            }
+
+            EnsurePayOSConfigured();
+
+            var verifiedData = await _payOSClient!.Webhooks.VerifyAsync(MapWebhook(webhook));
+            var orderCode = verifiedData.OrderCode.ToString();
+
+            log.OrderCode = orderCode;
+            log.EventCode = webhook.Code ?? verifiedData.Code;
+            log.EventDescription = webhook.Description ?? verifiedData.Description;
+            log.IsVerified = true;
+
+            var payment = await _context.Payments
+                .Include(p => p.Booking)
+                .FirstOrDefaultAsync(p => p.TransactionId == orderCode);
+
+            if (payment == null)
+            {
+                log.IsProcessed = false;
+                log.ProcessingError = $"Payment not found for order code {orderCode}.";
+                await _context.SaveChangesAsync();
+                await NotifyAdminsAsync("PayOS webhook canh bao", log.ProcessingError, "payment_alert");
+                return false;
+            }
+
+            payment.Method = "payos";
+            payment.Status = verifiedData.Code == "00" ? PaymentStatuses.Paid : PaymentStatuses.Failed;
+
+            log.IsProcessed = true;
+            log.ProcessingError = null;
+            log.ProcessedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            var booking = payment.Booking;
+            if (booking != null)
+            {
+                var statusText = NotificationVietnameseText.PaymentStatus(payment.Status);
+                await _notificationService.CreateAsync(booking.NurseId, "Cap nhat thanh toan", $"Thanh toan cho lich hen #{booking.Id} hien {statusText}.", "payment");
+                await _notificationService.CreateAsync(booking.CustomerId, "Cap nhat thanh toan", $"Thanh toan cua ban cho lich hen #{booking.Id} hien {statusText}.", "payment");
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            log.IsProcessed = false;
+            log.ProcessingError = ex.Message;
+            if (isRetry)
+            {
+                log.ProcessedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+            await NotifyAdminsAsync("PayOS webhook loi", $"Webhook order {log.OrderCode ?? "unknown"} xu ly that bai: {ex.Message}", "payment_alert");
+            return false;
+        }
+    }
+
+    private async Task NotifyAdminsAsync(string title, string content, string type)
+    {
+        var adminUserIds = await (
+            from userRole in _context.Set<ApplicationUserRole>()
+            join role in _context.Set<ApplicationRole>() on userRole.RoleId equals role.Id
+            where role.Name == AppRoles.Admin
+            select userRole.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var adminUserId in adminUserIds)
+        {
+            await _notificationService.CreateAsync(adminUserId, title, content, type);
+        }
     }
 
     private static PaymentDto MapPayment(Payment p) => new()
@@ -353,32 +455,34 @@ public class PaymentService : IPaymentService
         }
     }
 
-    private static Webhook MapWebhook(PayOSWebhookDto source) => new()
+    private static Webhook MapWebhook(PayOSWebhookDto source)
     {
-        Code = source.Code ?? string.Empty,
-        Description = source.Description ?? string.Empty,
-        Success = source.Success,
-        Signature = source.Signature ?? string.Empty,
-        Data = source.Data is null
-            ? null
-            : new WebhookData
+        var data = source.Data;
+        return new Webhook
+        {
+            Code = source.Code ?? string.Empty,
+            Description = source.Description ?? string.Empty,
+            Success = source.Success,
+            Signature = source.Signature ?? string.Empty,
+            Data = new WebhookData
             {
-                OrderCode = source.Data.OrderCode,
-                Amount = source.Data.Amount,
-                Description = source.Data.Description ?? string.Empty,
-                AccountNumber = source.Data.AccountNumber ?? string.Empty,
-                Reference = source.Data.Reference ?? string.Empty,
-                TransactionDateTime = source.Data.TransactionDateTime ?? string.Empty,
-                Currency = source.Data.Currency ?? string.Empty,
-                PaymentLinkId = source.Data.PaymentLinkId ?? string.Empty,
-                Code = source.Data.Code ?? string.Empty,
-                Description2 = source.Data.Description2 ?? string.Empty,
-                CounterAccountBankId = source.Data.CounterAccountBankId ?? string.Empty,
-                CounterAccountBankName = source.Data.CounterAccountBankName ?? string.Empty,
-                CounterAccountName = source.Data.CounterAccountName,
-                CounterAccountNumber = source.Data.CounterAccountNumber,
-                VirtualAccountName = source.Data.VirtualAccountName,
-                VirtualAccountNumber = source.Data.VirtualAccountNumber
+                OrderCode = data?.OrderCode ?? 0,
+                Amount = data?.Amount ?? 0,
+                Description = data?.Description ?? string.Empty,
+                AccountNumber = data?.AccountNumber ?? string.Empty,
+                Reference = data?.Reference ?? string.Empty,
+                TransactionDateTime = data?.TransactionDateTime ?? string.Empty,
+                Currency = data?.Currency ?? string.Empty,
+                PaymentLinkId = data?.PaymentLinkId ?? string.Empty,
+                Code = data?.Code ?? string.Empty,
+                Description2 = data?.Description2 ?? string.Empty,
+                CounterAccountBankId = data?.CounterAccountBankId ?? string.Empty,
+                CounterAccountBankName = data?.CounterAccountBankName ?? string.Empty,
+                CounterAccountName = data?.CounterAccountName,
+                CounterAccountNumber = data?.CounterAccountNumber,
+                VirtualAccountName = data?.VirtualAccountName,
+                VirtualAccountNumber = data?.VirtualAccountNumber
             }
-    };
+        };
+    }
 }

@@ -23,6 +23,7 @@ public class MomCareContext : IdentityDbContext<
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<NurseProfile> NurseProfiles => Set<NurseProfile>();
     public DbSet<Document> Documents => Set<Document>();
+    public DbSet<NurseDocumentOcrResult> NurseDocumentOcrResults => Set<NurseDocumentOcrResult>();
 
     // Services & Operations
     public DbSet<Service> Services => Set<Service>();
@@ -37,6 +38,8 @@ public class MomCareContext : IdentityDbContext<
     // Finance
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Payout> Payouts => Set<Payout>();
+    public DbSet<PayOsWebhookLog> PayOsWebhookLogs => Set<PayOsWebhookLog>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     // Feedback & Review
     public DbSet<Review> Reviews => Set<Review>();
@@ -281,6 +284,17 @@ public class MomCareContext : IdentityDbContext<
             entity.HasIndex(n => new { n.IsActive, n.AverageRating });
         });
 
+        modelBuilder.Entity<NurseDocumentOcrResult>(entity =>
+        {
+            entity.HasOne(x => x.NurseDocument)
+                .WithMany()
+                .HasForeignKey(x => x.NurseDocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.NurseDocumentId, x.ProcessedAt });
+            entity.HasIndex(x => x.OcrStatus);
+        });
+
         modelBuilder.Entity<AvailabilitySlot>(entity =>
         {
             entity.HasIndex(a => new { a.NurseProfileId, a.StartTime, a.EndTime });
@@ -386,6 +400,18 @@ public class MomCareContext : IdentityDbContext<
         {
             entity.Property(p => p.Amount).HasColumnType("decimal(18,2)");
             entity.Property(p => p.PlatformFee).HasColumnType("decimal(18,2)");
+        });
+
+        modelBuilder.Entity<PayOsWebhookLog>(entity =>
+        {
+            entity.HasIndex(x => x.OrderCode);
+            entity.HasIndex(x => new { x.IsProcessed, x.ReceivedAt });
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasIndex(x => new { x.ActorUserId, x.CreatedAt });
+            entity.HasIndex(x => new { x.Path, x.CreatedAt });
         });
     }
 }

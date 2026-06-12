@@ -34,7 +34,7 @@ public class HealthCheckInService : IHealthCheckInService
             Id = Guid.NewGuid(),
             UserId = userId,
             SleepHours = request.SleepHours,
-            PainLevel = request.PainLevel,
+            PainLevel = request.PainLevel ?? 0,
             PainLocation = Clean(request.PainLocation),
             PainType = Clean(request.PainType),
             PainDuration = Clean(request.PainDuration),
@@ -330,6 +330,7 @@ Dữ liệu:
             DataCoveragePercent = analysis.DataCoveragePercent,
             DataCoverageItems = DeserializeStringList(analysis.DataCoverageItemsJson),
             MissingDataItems = DeserializeStringList(analysis.MissingDataItemsJson),
+            FollowUpQuestions = BuildFollowUpQuestions(DeserializeStringList(analysis.MissingDataItemsJson)),
             Disclaimer = Disclaimer,
             ConfidenceLabel = BuildConfidenceLabel(analysis.ConfidenceScore),
             EngineVersion = RiskAssessmentEngine.EngineVersion
@@ -365,6 +366,7 @@ Dữ liệu:
             DataCoveragePercent = result.DataCoveragePercent,
             DataCoverageItems = result.DataCoverageItems,
             MissingDataItems = result.MissingDataItems,
+            FollowUpQuestions = result.FollowUpQuestions,
             Disclaimer = Disclaimer,
             ConfidenceLabel = BuildConfidenceLabel(result.ConfidenceScore),
             EngineVersion = RiskAssessmentEngine.EngineVersion
@@ -378,7 +380,7 @@ Dữ liệu:
             CheckInId = checkIn.Id,
             CreatedAt = checkIn.CreatedAt,
             SleepHours = checkIn.SleepHours,
-            PainLevel = checkIn.PainLevel,
+            PainLevel = checkIn.PainLevel > 0 ? checkIn.PainLevel : null,
             PainLocation = checkIn.PainLocation,
             PainType = checkIn.PainType,
             PainDuration = checkIn.PainDuration,
@@ -408,7 +410,7 @@ Dữ liệu:
             CheckInId = checkIn.Id,
             CreatedAt = checkIn.CreatedAt,
             SleepHours = checkIn.SleepHours,
-            PainLevel = checkIn.PainLevel,
+            PainLevel = checkIn.PainLevel > 0 ? checkIn.PainLevel : null,
             PainLocation = checkIn.PainLocation,
             PainType = checkIn.PainType,
             PainDuration = checkIn.PainDuration,
@@ -446,6 +448,26 @@ Dữ liệu:
     private static List<string> DeserializeStringList(string json) => JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
 
     private static Dictionary<string, string> DeserializeStringDictionary(string json) => JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions) ?? [];
+
+    private static List<FollowUpQuestionDto> BuildFollowUpQuestions(List<string> missingItems)
+    {
+        return missingItems
+            .Take(6)
+            .Select(item => item switch
+            {
+                "Mức đau" => new FollowUpQuestionDto { Key = "painLevel", QuestionVi = "Hiện tại mẹ đau ở mức mấy trên thang 1-10?", InputType = "scale" },
+                "Huyết áp" => new FollowUpQuestionDto { Key = "bloodPressure", QuestionVi = "Huyết áp gần nhất của mẹ là bao nhiêu?", InputType = "blood_pressure", Unit = "mmHg" },
+                "Nhiệt độ" => new FollowUpQuestionDto { Key = "temperatureCelsius", QuestionVi = "Nhiệt độ cơ thể hiện tại của mẹ là bao nhiêu?", InputType = "number", Unit = "°C" },
+                "Ngày sau sinh" => new FollowUpQuestionDto { Key = "postpartumDay", QuestionVi = "Mẹ đang ở ngày thứ mấy sau sinh?", InputType = "number", Unit = "ngày" },
+                "Sản dịch" => new FollowUpQuestionDto { Key = "bleedingLevel", QuestionVi = "Sản dịch/ra máu hiện ở mức nào?", InputType = "select" },
+                "Vết mổ/khâu" => new FollowUpQuestionDto { Key = "incisionStatus", QuestionVi = "Vết mổ hoặc vết khâu hiện thế nào?", InputType = "select" },
+                "Tã ướt của bé" => new FollowUpQuestionDto { Key = "babyWetDiapers", QuestionVi = "Trong 24 giờ qua bé có khoảng bao nhiêu tã ướt?", InputType = "number", Unit = "tã" },
+                "Hoạt động của bé" => new FollowUpQuestionDto { Key = "babyActivity", QuestionVi = "Bé hôm nay tỉnh táo hay lừ đừ hơn thường ngày?", InputType = "select" },
+                "Tuổi mẹ" => new FollowUpQuestionDto { Key = "motherAge", QuestionVi = "Tuổi của mẹ là bao nhiêu?", InputType = "number", Unit = "tuổi" },
+                _ => new FollowUpQuestionDto { Key = "missingData", QuestionVi = $"Bổ sung thông tin: {item}", InputType = "text" }
+            })
+            .ToList();
+    }
 
     private static string? Clean(string? value)
     {

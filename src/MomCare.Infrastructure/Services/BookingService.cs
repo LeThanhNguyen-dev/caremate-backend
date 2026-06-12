@@ -456,6 +456,40 @@ public class BookingService : IBookingService
         };
     }
 
+    public async Task<IEnumerable<BookingStatusHistoryDto>?> GetBookingHistoryAsync(int actorUserId, int bookingId, bool isAdmin)
+    {
+        var booking = await _context.Bookings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (booking == null)
+        {
+            return null;
+        }
+
+        if (!isAdmin && booking.CustomerId != actorUserId && booking.NurseId != actorUserId)
+        {
+            return null;
+        }
+
+        return await _context.BookingStatusHistories
+            .AsNoTracking()
+            .Include(h => h.Changer)
+            .Where(h => h.BookingId == bookingId)
+            .OrderBy(h => h.CreatedAt)
+            .Select(h => new BookingStatusHistoryDto
+            {
+                Id = h.Id,
+                BookingId = h.BookingId,
+                Status = h.Status,
+                ChangedBy = h.ChangedBy,
+                ChangedByName = h.Changer != null ? h.Changer.FullName : null,
+                Note = h.Note,
+                CreatedAt = h.CreatedAt
+            })
+            .ToListAsync();
+    }
+
     public async Task<ServiceResult<bool>> UpdateBookingStatusAsync(int actorUserId, bool isAdmin, UpdateBookingStatusDto dto, int bookingId)
     {
         var booking = await _context.Bookings
@@ -633,8 +667,8 @@ public class BookingService : IBookingService
     {
         var hoursUntilStart = (booking.StartTime - DateTime.UtcNow).TotalHours;
 
-        if (hoursUntilStart >= 24) return booking.TotalPrice;
-        if (hoursUntilStart >= 0) return booking.TotalPrice * 0.5m;
+        if (hoursUntilStart > 48) return booking.TotalPrice;
+        if (hoursUntilStart > 24) return booking.TotalPrice * 0.5m;
         return 0;
     }
 

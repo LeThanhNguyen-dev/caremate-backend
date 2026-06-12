@@ -13,10 +13,12 @@ namespace MomCare.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
+    private readonly IPaymentService _paymentService;
 
-    public AdminController(IAdminService adminService)
+    public AdminController(IAdminService adminService, IPaymentService paymentService)
     {
         _adminService = adminService;
+        _paymentService = paymentService;
     }
 
     [HttpGet("users")]
@@ -134,6 +136,52 @@ public class AdminController : ControllerBase
         return Ok(new { message = "Payout marked as completed" });
     }
 
+    [HttpGet("payments/webhook-logs")]
+    public async Task<IActionResult> GetPayOsWebhookLogs([FromQuery] string? status)
+    {
+        var result = await _adminService.GetPayOsWebhookLogsAsync(status);
+        return Ok(result);
+    }
+
+    [HttpPost("payments/webhook-logs/{logId:guid}/retry")]
+    public async Task<IActionResult> RetryPayOsWebhookLog(Guid logId)
+    {
+        var result = await _paymentService.RetryPayOSWebhookLogAsync(logId);
+        if (!result)
+        {
+            return BadRequest(new { message = "Unable to retry PayOS webhook log" });
+        }
+
+        return Ok(new { message = "PayOS webhook retried" });
+    }
+
+    [HttpGet("transactions")]
+    public async Task<IActionResult> GetTransactionHistory(
+        [FromQuery] string? type,
+        [FromQuery] string? status,
+        [FromQuery] int? userId,
+        [FromQuery] int? bookingId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to)
+    {
+        var result = await _adminService.GetTransactionHistoryAsync(type, status, userId, bookingId, from, to);
+        return Ok(result);
+    }
+
+    [HttpGet("finance/analytics")]
+    public async Task<IActionResult> GetFinanceAnalytics([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var result = await _adminService.GetFinanceAnalyticsAsync(from, to);
+        return Ok(result);
+    }
+
+    [HttpGet("audit-logs")]
+    public async Task<IActionResult> GetAuditLogs([FromQuery] int? actorUserId, [FromQuery] string? path, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var result = await _adminService.GetAuditLogsAsync(actorUserId, path, from, to);
+        return Ok(result);
+    }
+
     [HttpGet("settings/ocr")]
     public async Task<IActionResult> GetOcrSettings()
     {
@@ -168,5 +216,37 @@ public class AdminController : ControllerBase
         {
             return StatusCode(StatusCodes.Status502BadGateway, new { message = ex.Message });
         }
+    }
+
+    [HttpPost("ocr/reprocess/{documentId:int}")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public Task<IActionResult> ReprocessOcr(int documentId, CancellationToken cancellationToken)
+    {
+        return OcrNurseDocument(documentId, cancellationToken);
+    }
+
+    [HttpGet("ocr/logs/{nurseUserId:int}")]
+    public async Task<IActionResult> GetOcrLogs(int nurseUserId)
+    {
+        var result = await _adminService.GetNurseOcrLogsAsync(nurseUserId);
+        return Ok(result);
+    }
+
+    [HttpPut("nurses/{nurseUserId:int}/documents/{documentId:int}/approve")]
+    public async Task<IActionResult> ApproveNurseDocument(int nurseUserId, int documentId, [FromBody] ReviewNurseDocumentDto dto)
+    {
+        var result = await _adminService.UpdateNurseDocumentStatusAsync(nurseUserId, documentId, DocumentStatuses.Approved, dto);
+        if (!result) return NotFound(new { message = "Document not found" });
+
+        return Ok(new { message = "Document approved" });
+    }
+
+    [HttpPut("nurses/{nurseUserId:int}/documents/{documentId:int}/reject")]
+    public async Task<IActionResult> RejectNurseDocument(int nurseUserId, int documentId, [FromBody] ReviewNurseDocumentDto dto)
+    {
+        var result = await _adminService.UpdateNurseDocumentStatusAsync(nurseUserId, documentId, DocumentStatuses.Rejected, dto);
+        if (!result) return NotFound(new { message = "Document not found" });
+
+        return Ok(new { message = "Document rejected" });
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomCare.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MomCare.Infrastructure.PostgreSqlMigrations
 {
     [DbContext(typeof(MomCareContext))]
-    partial class MomCareContextModelSnapshot : ModelSnapshot
+    [Migration("20260612041847_AddNurseDocumentOcrResults")]
+    partial class AddNurseDocumentOcrResults
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -494,60 +497,6 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("user_roles", (string)null);
-                });
-
-            modelBuilder.Entity("MomCare.Models.AuditLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ActorName")
-                        .HasColumnType("text")
-                        .HasColumnName("actor_name");
-
-                    b.Property<int?>("ActorUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("actor_user_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("IpAddress")
-                        .HasColumnType("text")
-                        .HasColumnName("ip_address");
-
-                    b.Property<string>("Method")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("method");
-
-                    b.Property<string>("Path")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("path");
-
-                    b.Property<string>("QueryString")
-                        .HasColumnType("text")
-                        .HasColumnName("query_string");
-
-                    b.Property<int>("StatusCode")
-                        .HasColumnType("integer")
-                        .HasColumnName("status_code");
-
-                    b.Property<string>("UserAgent")
-                        .HasColumnType("text")
-                        .HasColumnName("user_agent");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActorUserId", "CreatedAt");
-
-                    b.HasIndex("Path", "CreatedAt");
-
-                    b.ToTable("audit_logs");
                 });
 
             modelBuilder.Entity("MomCare.Models.AvailabilitySlot", b =>
@@ -1471,63 +1420,6 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                         {
                             t.HasCheckConstraint("CK_package_session_logs_customer_rating", "\"customer_rating\" IS NULL OR (\"customer_rating\" >= 1 AND \"customer_rating\" <= 5)");
                         });
-                });
-
-            modelBuilder.Entity("MomCare.Models.PayOsWebhookLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("EventCode")
-                        .HasColumnType("text")
-                        .HasColumnName("event_code");
-
-                    b.Property<string>("EventDescription")
-                        .HasColumnType("text")
-                        .HasColumnName("event_description");
-
-                    b.Property<bool>("IsProcessed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_processed");
-
-                    b.Property<bool>("IsVerified")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_verified");
-
-                    b.Property<string>("OrderCode")
-                        .HasColumnType("text")
-                        .HasColumnName("order_code");
-
-                    b.Property<DateTime?>("ProcessedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("processed_at");
-
-                    b.Property<string>("ProcessingError")
-                        .HasColumnType("text")
-                        .HasColumnName("processing_error");
-
-                    b.Property<string>("RawPayload")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("raw_payload");
-
-                    b.Property<DateTime>("ReceivedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("received_at");
-
-                    b.Property<int>("RetryCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("retry_count");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrderCode");
-
-                    b.HasIndex("IsProcessed", "ReceivedAt");
-
-                    b.ToTable("payos_webhook_logs");
                 });
 
             modelBuilder.Entity("MomCare.Models.Payment", b =>

@@ -79,7 +79,8 @@ public static class RiskAssessmentEngine
             NutritionGuidance = nutrition,
             DataCoveragePercent = coverage.Percent,
             DataCoverageItems = coverage.FilledItems,
-            MissingDataItems = coverage.MissingItems
+            MissingDataItems = coverage.MissingItems,
+            FollowUpQuestions = BuildFollowUpQuestions(coverage.MissingItems)
         };
 
         result.NarrativeSummary = NarrativeSummaryBuilder.Build(result, currentCheckIn, recentHistory);
@@ -798,7 +799,7 @@ public static class RiskAssessmentEngine
         var checks = new List<(string Label, bool Filled)>
         {
             ("Giấc ngủ", true),
-            ("Mức đau", true),
+            ("Mức đau", checkIn.PainLevel > 0),
             ("Vị trí đau", !string.IsNullOrWhiteSpace(checkIn.PainLocation)),
             ("Kiểu đau", !string.IsNullOrWhiteSpace(checkIn.PainType)),
             ("Diễn tiến đau", !string.IsNullOrWhiteSpace(checkIn.PainTrend)),
@@ -823,6 +824,46 @@ public static class RiskAssessmentEngine
         var missing = checks.Where(x => !x.Filled).Select(x => x.Label).ToList();
         var percent = (int)Math.Round(filled.Count * 100.0 / checks.Count);
         return (percent, filled, missing);
+    }
+
+    private static List<FollowUpQuestionDto> BuildFollowUpQuestions(List<string> missingItems)
+    {
+        var questions = new List<FollowUpQuestionDto>();
+
+        foreach (var item in missingItems.Take(6))
+        {
+            questions.Add(item switch
+            {
+                "Mức đau" => new FollowUpQuestionDto { Key = "painLevel", QuestionVi = "Hiện tại mẹ đau ở mức mấy trên thang 1-10?", InputType = "scale" },
+                "Huyết áp" => new FollowUpQuestionDto { Key = "bloodPressure", QuestionVi = "Huyết áp gần nhất của mẹ là bao nhiêu?", InputType = "blood_pressure", Unit = "mmHg" },
+                "Nhiệt độ" => new FollowUpQuestionDto { Key = "temperatureCelsius", QuestionVi = "Nhiệt độ cơ thể hiện tại của mẹ là bao nhiêu?", InputType = "number", Unit = "°C" },
+                "Ngày sau sinh" => new FollowUpQuestionDto { Key = "postpartumDay", QuestionVi = "Mẹ đang ở ngày thứ mấy sau sinh?", InputType = "number", Unit = "ngày" },
+                "Sản dịch" => new FollowUpQuestionDto { Key = "bleedingLevel", QuestionVi = "Sản dịch/ra máu hiện ở mức nào?", InputType = "select" },
+                "Vết mổ/khâu" => new FollowUpQuestionDto { Key = "incisionStatus", QuestionVi = "Vết mổ hoặc vết khâu hiện thế nào?", InputType = "select" },
+                "Tã ướt của bé" => new FollowUpQuestionDto { Key = "babyWetDiapers", QuestionVi = "Trong 24 giờ qua bé có khoảng bao nhiêu tã ướt?", InputType = "number", Unit = "tã" },
+                "Hoạt động của bé" => new FollowUpQuestionDto { Key = "babyActivity", QuestionVi = "Bé hôm nay tỉnh táo hay lừ đừ hơn thường ngày?", InputType = "select" },
+                "Tuổi mẹ" => new FollowUpQuestionDto { Key = "motherAge", QuestionVi = "Tuổi của mẹ là bao nhiêu?", InputType = "number", Unit = "tuổi" },
+                _ => new FollowUpQuestionDto { Key = ToCamelKey(item), QuestionVi = $"Bổ sung thông tin: {item}", InputType = "text" }
+            });
+        }
+
+        return questions;
+    }
+
+    private static string ToCamelKey(string value)
+    {
+        var words = value
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(VietnameseTextHelper.RemoveDiacritics)
+            .Select(word => new string(word.Where(char.IsLetterOrDigit).ToArray()))
+            .Where(word => !string.IsNullOrWhiteSpace(word))
+            .ToList();
+
+        if (words.Count == 0) return "missingData";
+        return string.Concat(words.Select((word, index) =>
+            index == 0
+                ? char.ToLowerInvariant(word[0]) + word[1..]
+                : char.ToUpperInvariant(word[0]) + word[1..]));
     }
 
     private static (int Score, string Label) CalculateConfidence(HealthCheckIn checkIn, List<HealthCheckIn> history)

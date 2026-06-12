@@ -68,6 +68,21 @@ public class BookingsController : ControllerBase
         return Ok(booking);
     }
 
+    [HttpGet("{id:int}/history")]
+    public async Task<IActionResult> GetHistory(int id)
+    {
+        var userId = GetUserId();
+        var isAdmin = User.IsInRole(AppRoles.Admin);
+
+        var history = await _bookingService.GetBookingHistoryAsync(userId, id, isAdmin);
+        if (history == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(history);
+    }
+
     [HttpPatch("{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateBookingStatusDto dto)
     {

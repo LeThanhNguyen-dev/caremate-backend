@@ -5,7 +5,7 @@ public class HealthCheckInHistoryDto
     public Guid CheckInId { get; set; }
     public DateTime CreatedAt { get; set; }
     public double SleepHours { get; set; }
-    public int PainLevel { get; set; }
+    public int? PainLevel { get; set; }
     public string? PainLocation { get; set; }
     public string? PainType { get; set; }
     public string? PainDuration { get; set; }

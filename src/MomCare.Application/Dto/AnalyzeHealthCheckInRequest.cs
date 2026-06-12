@@ -8,7 +8,7 @@ public class AnalyzeHealthCheckInRequest
     public double SleepHours { get; set; }
 
     [Range(1, 10)]
-    public int PainLevel { get; set; }
+    public int? PainLevel { get; set; }
 
     [MaxLength(120)]
     public string? PainLocation { get; set; }

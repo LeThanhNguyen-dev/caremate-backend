@@ -10,6 +10,7 @@ using MomCare.Infrastructure;
 using MomCare.Interfaces;
 using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 
@@ -133,6 +134,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("MomCare.Requests");
 
 var shouldSeedData = app.Configuration.GetValue<bool>("SeedData:Enabled");
 if (shouldSeedData)
@@ -163,12 +165,81 @@ else
 
 app.UseCors("AllowReactApp");
 
+app.Use(async (context, next) =>
+{
+    var stopwatch = Stopwatch.StartNew();
+    try
+    {
+        await next();
+    }
+    finally
+    {
+        stopwatch.Stop();
+        var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+
+        requestLogger.LogInformation(
+            "HTTP {Method} {Path} responded {StatusCode} in {ElapsedMs} ms for user {UserId}",
+            context.Request.Method,
+            context.Request.Path.Value,
+            context.Response.StatusCode,
+            stopwatch.ElapsedMilliseconds,
+            userId ?? "anonymous");
+    }
+});
+
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 
+app.Use(async (context, next) =>
+{
+    await next();
+
+    var method = context.Request.Method;
+    if (!context.Request.Path.StartsWithSegments("/api/admin") ||
+        method is not ("POST" or "PUT" or "PATCH" or "DELETE"))
+    {
+        return;
+    }
+
+    try
+    {
+        var db = context.RequestServices.GetRequiredService<MomCareContext>();
+        var actorUserIdRaw = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+
+        int? actorUserId = int.TryParse(actorUserIdRaw, out var parsedUserId) ? parsedUserId : null;
+        var actorName = context.User.FindFirstValue(ClaimTypes.Name)
+            ?? context.User.FindFirstValue(ClaimTypes.Email)
+            ?? context.User.Identity?.Name;
+
+        db.AuditLogs.Add(new MomCare.Models.AuditLog
+        {
+            Id = Guid.NewGuid(),
+            ActorUserId = actorUserId,
+            ActorName = actorName,
+            Method = method,
+            Path = context.Request.Path.Value ?? string.Empty,
+            QueryString = context.Request.QueryString.HasValue ? context.Request.QueryString.Value : null,
+            StatusCode = context.Response.StatusCode,
+            IpAddress = context.Connection.RemoteIpAddress?.ToString(),
+            UserAgent = context.Request.Headers.UserAgent.ToString(),
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+    }
+    catch
+    {
+        // Audit logging must not break the admin action response.
+    }
+});
+
 app.MapControllers();
 app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/ready");
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<ChatHub>("/hubs/chat");
 

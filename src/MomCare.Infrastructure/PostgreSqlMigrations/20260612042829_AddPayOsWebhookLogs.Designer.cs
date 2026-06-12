@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MomCare.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MomCare.Infrastructure.PostgreSqlMigrations
 {
     [DbContext(typeof(MomCareContext))]
-    partial class MomCareContextModelSnapshot : ModelSnapshot
+    [Migration("20260612042829_AddPayOsWebhookLogs")]
+    partial class AddPayOsWebhookLogs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -494,60 +497,6 @@ namespace MomCare.Infrastructure.PostgreSqlMigrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("user_roles", (string)null);
-                });
-
-            modelBuilder.Entity("MomCare.Models.AuditLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ActorName")
-                        .HasColumnType("text")
-                        .HasColumnName("actor_name");
-
-                    b.Property<int?>("ActorUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("actor_user_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("IpAddress")
-                        .HasColumnType("text")
-                        .HasColumnName("ip_address");
-
-                    b.Property<string>("Method")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("method");
-
-                    b.Property<string>("Path")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("path");
-
-                    b.Property<string>("QueryString")
-                        .HasColumnType("text")
-                        .HasColumnName("query_string");
-
-                    b.Property<int>("StatusCode")
-                        .HasColumnType("integer")
-                        .HasColumnName("status_code");
-
-                    b.Property<string>("UserAgent")
-                        .HasColumnType("text")
-                        .HasColumnName("user_agent");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActorUserId", "CreatedAt");
-
-                    b.HasIndex("Path", "CreatedAt");
-
-                    b.ToTable("audit_logs");
                 });
 
             modelBuilder.Entity("MomCare.Models.AvailabilitySlot", b =>

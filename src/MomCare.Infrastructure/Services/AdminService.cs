@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json;
 using MomCare.Data;
 using MomCare.Dto;
 using MomCare.Enums;
@@ -20,7 +21,9 @@ public class AdminService : IAdminService
     private readonly IConfiguration _configuration;
     private readonly ICccdOcrService _cccdOcrService;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly INotificationService _notificationService;
     private const decimal PlatformFeeRate = 0.15m;
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private static readonly string[] RequiredDocumentTypes =
     [
@@ -36,7 +39,8 @@ public class AdminService : IAdminService
         ICloudinaryService cloudinaryService,
         IConfiguration configuration,
         ICccdOcrService cccdOcrService,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        INotificationService notificationService)
     {
         _context = context;
         _userManager = userManager;
@@ -45,6 +49,7 @@ public class AdminService : IAdminService
         _configuration = configuration;
         _cccdOcrService = cccdOcrService;
         _httpClientFactory = httpClientFactory;
+        _notificationService = notificationService;
     }
 
     public async Task<IEnumerable<AdminUserDto>> GetUsersAsync()
@@ -663,6 +668,359 @@ public class AdminService : IAdminService
         return true;
     }
 
+    public async Task<IEnumerable<PayOsWebhookLogDto>> GetPayOsWebhookLogsAsync(string? status)
+    {
+        var query = _context.PayOsWebhookLogs.AsNoTracking().AsQueryable();
+        var normalized = status?.Trim().ToLowerInvariant();
+
+        query = normalized switch
+        {
+            "failed" => query.Where(x => !x.IsProcessed || x.ProcessingError != null),
+            "processed" => query.Where(x => x.IsProcessed),
+            "unverified" => query.Where(x => !x.IsVerified),
+            _ => query
+        };
+
+        return await query
+            .OrderByDescending(x => x.ReceivedAt)
+            .Take(200)
+            .Select(x => new PayOsWebhookLogDto
+            {
+                Id = x.Id,
+                OrderCode = x.OrderCode,
+                EventCode = x.EventCode,
+                EventDescription = x.EventDescription,
+                IsVerified = x.IsVerified,
+                IsProcessed = x.IsProcessed,
+                ProcessingError = x.ProcessingError,
+                RetryCount = x.RetryCount,
+                ReceivedAt = x.ReceivedAt,
+                ProcessedAt = x.ProcessedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<TransactionHistoryItemDto>> GetTransactionHistoryAsync(string? type, string? status, int? userId, int? bookingId, DateTime? from, DateTime? to)
+    {
+        var normalizedType = type?.Trim().ToLowerInvariant();
+        var normalizedStatus = status?.Trim().ToLowerInvariant();
+        var fromUtc = NormalizeDateFilter(from);
+        var toUtc = NormalizeDateFilter(to)?.AddDays(1);
+        var items = new List<TransactionHistoryItemDto>();
+
+        if (normalizedType is null or "" or "payment")
+        {
+            var payments = _context.Payments
+                .AsNoTracking()
+                .Include(p => p.Booking)
+                    .ThenInclude(b => b.Customer)
+                .Include(p => p.Booking)
+                    .ThenInclude(b => b.Service)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(normalizedStatus))
+            {
+                payments = payments.Where(p => p.Status == normalizedStatus);
+            }
+
+            if (userId.HasValue)
+            {
+                payments = payments.Where(p => p.Booking.CustomerId == userId.Value || p.Booking.NurseId == userId.Value);
+            }
+
+            if (bookingId.HasValue)
+            {
+                payments = payments.Where(p => p.BookingId == bookingId.Value);
+            }
+
+            if (fromUtc.HasValue)
+            {
+                payments = payments.Where(p => p.CreatedAt >= fromUtc.Value);
+            }
+
+            if (toUtc.HasValue)
+            {
+                payments = payments.Where(p => p.CreatedAt < toUtc.Value);
+            }
+
+            items.AddRange(await payments
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(200)
+                .Select(p => new TransactionHistoryItemDto
+                {
+                    Id = $"payment-{p.Id}",
+                    Type = "payment",
+                    BookingId = p.BookingId,
+                    UserId = p.Booking.CustomerId,
+                    UserName = p.Booking.Customer.FullName,
+                    ServiceName = p.Booking.Service.Name,
+                    Amount = p.Amount,
+                    Status = p.Status,
+                    Method = p.Method,
+                    TransactionId = p.TransactionId,
+                    CreatedAt = p.CreatedAt
+                })
+                .ToListAsync());
+        }
+
+        if (normalizedType is null or "" or "refund")
+        {
+            var refunds = _context.Payments
+                .AsNoTracking()
+                .Include(p => p.Booking)
+                    .ThenInclude(b => b.Customer)
+                .Include(p => p.Booking)
+                    .ThenInclude(b => b.Service)
+                .Where(p => p.RefundAmount != null && p.RefundAmount > 0)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(normalizedStatus))
+            {
+                refunds = refunds.Where(p => p.RefundStatus == normalizedStatus);
+            }
+
+            if (userId.HasValue)
+            {
+                refunds = refunds.Where(p => p.Booking.CustomerId == userId.Value);
+            }
+
+            if (bookingId.HasValue)
+            {
+                refunds = refunds.Where(p => p.BookingId == bookingId.Value);
+            }
+
+            if (fromUtc.HasValue)
+            {
+                refunds = refunds.Where(p => (p.RefundedAt ?? p.CreatedAt) >= fromUtc.Value);
+            }
+
+            if (toUtc.HasValue)
+            {
+                refunds = refunds.Where(p => (p.RefundedAt ?? p.CreatedAt) < toUtc.Value);
+            }
+
+            items.AddRange(await refunds
+                .OrderByDescending(p => p.RefundedAt ?? p.CreatedAt)
+                .Take(200)
+                .Select(p => new TransactionHistoryItemDto
+                {
+                    Id = $"refund-{p.Id}",
+                    Type = "refund",
+                    BookingId = p.BookingId,
+                    UserId = p.Booking.CustomerId,
+                    UserName = p.Booking.Customer.FullName,
+                    ServiceName = p.Booking.Service.Name,
+                    Amount = p.RefundAmount ?? 0,
+                    Status = p.RefundStatus ?? "pending",
+                    Method = "bank_transfer",
+                    TransactionId = p.TransactionId,
+                    CreatedAt = p.RefundedAt ?? p.CreatedAt
+                })
+                .ToListAsync());
+        }
+
+        if (normalizedType is null or "" or "payout")
+        {
+            var payouts = _context.Payouts
+                .AsNoTracking()
+                .Include(p => p.Nurse)
+                .Include(p => p.Booking)
+                    .ThenInclude(b => b.Service)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(normalizedStatus))
+            {
+                payouts = payouts.Where(p => p.Status == normalizedStatus);
+            }
+
+            if (userId.HasValue)
+            {
+                payouts = payouts.Where(p => p.NurseId == userId.Value);
+            }
+
+            if (bookingId.HasValue)
+            {
+                payouts = payouts.Where(p => p.BookingId == bookingId.Value);
+            }
+
+            if (fromUtc.HasValue)
+            {
+                payouts = payouts.Where(p => (p.ReleasedAt ?? p.CreatedAt) >= fromUtc.Value);
+            }
+
+            if (toUtc.HasValue)
+            {
+                payouts = payouts.Where(p => (p.ReleasedAt ?? p.CreatedAt) < toUtc.Value);
+            }
+
+            items.AddRange(await payouts
+                .OrderByDescending(p => p.ReleasedAt ?? p.CreatedAt)
+                .Take(200)
+                .Select(p => new TransactionHistoryItemDto
+                {
+                    Id = $"payout-{p.Id}",
+                    Type = "payout",
+                    BookingId = p.BookingId,
+                    UserId = p.NurseId,
+                    UserName = p.Nurse.FullName,
+                    ServiceName = p.Booking.Service.Name,
+                    Amount = p.Amount,
+                    Status = p.Status,
+                    Method = "bank_transfer",
+                    TransactionId = null,
+                    CreatedAt = p.ReleasedAt ?? p.CreatedAt
+                })
+                .ToListAsync());
+        }
+
+        return items
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(300)
+            .ToList();
+    }
+
+    public async Task<AdminFinanceAnalyticsDto> GetFinanceAnalyticsAsync(DateTime? from, DateTime? to)
+    {
+        var fromUtc = NormalizeDateFilter(from) ?? DateTime.UtcNow.Date.AddDays(-29);
+        var toUtcExclusive = (NormalizeDateFilter(to) ?? DateTime.UtcNow.Date).AddDays(1);
+
+        var payments = await _context.Payments
+            .AsNoTracking()
+            .Include(p => p.Booking)
+                .ThenInclude(b => b.Nurse)
+            .Where(p => p.CreatedAt >= fromUtc && p.CreatedAt < toUtcExclusive)
+            .ToListAsync();
+
+        var payouts = await _context.Payouts
+            .AsNoTracking()
+            .Include(p => p.Booking)
+                .ThenInclude(b => b.Nurse)
+            .Where(p => (p.ReleasedAt ?? p.CreatedAt) >= fromUtc && (p.ReleasedAt ?? p.CreatedAt) < toUtcExclusive)
+            .ToListAsync();
+
+        var bookings = await _context.Bookings
+            .AsNoTracking()
+            .Where(b => b.CreatedAt >= fromUtc && b.CreatedAt < toUtcExclusive)
+            .ToListAsync();
+
+        var paidPayments = payments.Where(p => p.Status == PaymentStatuses.Paid).ToList();
+        var refundPayments = payments.Where(p => p.RefundAmount is > 0).ToList();
+        var completedBookings = bookings.Count(b => b.Status == BookingStatuses.Completed);
+        var grossRevenue = paidPayments.Sum(p => p.Amount);
+        var refundAmount = refundPayments.Sum(p => p.RefundAmount ?? 0);
+        var payoutAmount = payouts.Sum(p => p.Amount);
+
+        var dailyMetrics = new List<FinanceDailyMetricDto>();
+        for (var day = fromUtc.Date; day < toUtcExclusive.Date; day = day.AddDays(1))
+        {
+            var nextDay = day.AddDays(1);
+            dailyMetrics.Add(new FinanceDailyMetricDto
+            {
+                Date = day,
+                Revenue = paidPayments.Where(p => p.CreatedAt >= day && p.CreatedAt < nextDay).Sum(p => p.Amount),
+                Refunds = refundPayments.Where(p => (p.RefundedAt ?? p.CreatedAt) >= day && (p.RefundedAt ?? p.CreatedAt) < nextDay).Sum(p => p.RefundAmount ?? 0),
+                Payouts = payouts.Where(p => (p.ReleasedAt ?? p.CreatedAt) >= day && (p.ReleasedAt ?? p.CreatedAt) < nextDay).Sum(p => p.Amount),
+                BookingCount = bookings.Count(b => b.CreatedAt >= day && b.CreatedAt < nextDay)
+            });
+        }
+
+        var nursePerformance = paidPayments
+            .Where(p => p.Booking != null)
+            .GroupBy(p => new { p.Booking.NurseId, p.Booking.Nurse.FullName })
+            .Select(group => new NursePerformanceMetricDto
+            {
+                NurseId = group.Key.NurseId,
+                NurseName = group.Key.FullName,
+                CompletedBookingCount = group.Count(p => p.Booking.Status == BookingStatuses.Completed),
+                Revenue = group.Sum(p => p.Amount),
+                PayoutAmount = payouts.Where(p => p.NurseId == group.Key.NurseId).Sum(p => p.Amount)
+            })
+            .OrderByDescending(x => x.Revenue)
+            .Take(10)
+            .ToList();
+
+        var failedWebhookCount = await _context.PayOsWebhookLogs
+            .AsNoTracking()
+            .CountAsync(x => x.ReceivedAt >= fromUtc && x.ReceivedAt < toUtcExclusive && (!x.IsProcessed || x.ProcessingError != null));
+
+        return new AdminFinanceAnalyticsDto
+        {
+            GrossRevenue = grossRevenue,
+            RefundAmount = refundAmount,
+            PayoutAmount = payoutAmount,
+            PlatformFeeAmount = payouts.Sum(p => p.PlatformFee),
+            PaidPaymentCount = paidPayments.Count,
+            RefundCount = refundPayments.Count,
+            PendingPayoutCount = payouts.Count(p => p.Status != "released"),
+            FailedWebhookCount = failedWebhookCount,
+            RefundRatePercent = grossRevenue > 0 ? decimal.Round(refundAmount / grossRevenue * 100, 2) : 0,
+            BookingCompletionRatePercent = bookings.Count > 0 ? decimal.Round((decimal)completedBookings / bookings.Count * 100, 2) : 0,
+            DailyMetrics = dailyMetrics,
+            NursePerformance = nursePerformance
+        };
+    }
+
+    public async Task<IEnumerable<AuditLogDto>> GetAuditLogsAsync(int? actorUserId, string? path, DateTime? from, DateTime? to)
+    {
+        var query = _context.AuditLogs.AsNoTracking().AsQueryable();
+        var fromUtc = NormalizeDateFilter(from);
+        var toUtc = NormalizeDateFilter(to)?.AddDays(1);
+
+        if (actorUserId.HasValue)
+        {
+            query = query.Where(x => x.ActorUserId == actorUserId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            var normalizedPath = path.Trim().ToLowerInvariant();
+            query = query.Where(x => x.Path.ToLower().Contains(normalizedPath));
+        }
+
+        if (fromUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt >= fromUtc.Value);
+        }
+
+        if (toUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt < toUtc.Value);
+        }
+
+        return await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(300)
+            .Select(x => new AuditLogDto
+            {
+                Id = x.Id,
+                ActorUserId = x.ActorUserId,
+                ActorName = x.ActorName,
+                Method = x.Method,
+                Path = x.Path,
+                QueryString = x.QueryString,
+                StatusCode = x.StatusCode,
+                IpAddress = x.IpAddress,
+                UserAgent = x.UserAgent,
+                CreatedAt = x.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    private static DateTime? NormalizeDateFilter(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value.Date,
+            DateTimeKind.Local => value.Value.ToUniversalTime().Date,
+            _ => DateTime.SpecifyKind(value.Value.Date, DateTimeKind.Utc)
+        };
+    }
+
     public Task<AdminOcrSettingsDto> GetOcrSettingsAsync()
     {
         var endpoint = _configuration[$"{FptAiOptions.SectionName}:IdCardEndpoint"];
@@ -724,7 +1082,93 @@ public class AdminService : IAdminService
             ContentType = contentType
         };
 
-        return await _cccdOcrService.ExtractAsync(document.Type, formFile, cancellationToken);
+        var result = await _cccdOcrService.ExtractAsync(document.Type, formFile, cancellationToken);
+        await SaveOcrResultAsync(document, result, cancellationToken);
+
+        return result;
+    }
+
+    public async Task<IEnumerable<NurseDocumentOcrLogDto>> GetNurseOcrLogsAsync(int nurseUserId)
+    {
+        var profile = await _context.NurseProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UserId == nurseUserId);
+
+        if (profile == null)
+        {
+            return [];
+        }
+
+        var documentIds = await _context.Documents
+            .AsNoTracking()
+            .Where(x => x.NurseProfileId == profile.Id)
+            .Select(x => x.Id)
+            .ToListAsync();
+
+        var logs = await _context.NurseDocumentOcrResults
+            .AsNoTracking()
+            .Where(x => documentIds.Contains(x.NurseDocumentId))
+            .OrderByDescending(x => x.ProcessedAt)
+            .ToListAsync();
+
+        return logs.Select(x => new NurseDocumentOcrLogDto
+            {
+                Id = x.Id,
+                NurseDocumentId = x.NurseDocumentId,
+                DocumentType = x.DocumentType,
+                OcrStatus = x.OcrStatus,
+                Warnings = DeserializeList(x.WarningsJson),
+                AttemptCount = x.AttemptCount,
+                ProcessedBy = x.ProcessedBy,
+                ProcessedAt = x.ProcessedAt,
+                Result = DeserializeOcrResult(x.ParsedDataJson)
+            })
+            .ToList();
+    }
+
+    public async Task<bool> UpdateNurseDocumentStatusAsync(int nurseUserId, int documentId, string status, ReviewNurseDocumentDto dto)
+    {
+        if (status is not (DocumentStatuses.Approved or DocumentStatuses.Rejected))
+        {
+            return false;
+        }
+
+        var profile = await _context.NurseProfiles
+            .Include(x => x.Documents)
+            .FirstOrDefaultAsync(x => x.UserId == nurseUserId);
+
+        if (profile == null)
+        {
+            return false;
+        }
+
+        var document = profile.Documents.FirstOrDefault(x => x.Id == documentId);
+        if (document == null)
+        {
+            return false;
+        }
+
+        document.Status = status;
+        document.UpdatedAt = DateTime.UtcNow;
+
+        if (status == DocumentStatuses.Rejected)
+        {
+            profile.IsVerified = "rejected";
+            profile.VerificationSubmissionStatus = "rejected";
+            profile.RejectionReason = string.IsNullOrWhiteSpace(dto.Reason)
+                ? $"Document {document.Type} rejected."
+                : dto.Reason.Trim();
+            profile.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+
+        var message = status == DocumentStatuses.Approved
+            ? $"Tài liệu '{document.Type}' đã được duyệt."
+            : $"Tài liệu '{document.Type}' bị từ chối. {dto.Reason}".Trim();
+        await _notificationService.CreateAsync(nurseUserId, "Cập nhật hồ sơ xác minh", message, "verification");
+
+        return true;
     }
 
     private static string? BuildVietQrUrl(string? bankBin, string? accountNumber, decimal? amount, int bookingId)
@@ -810,6 +1254,58 @@ public class AdminService : IAdminService
                 Environment.GetEnvironmentVariable("FPTAI_API_KEY")
             }
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private async Task SaveOcrResultAsync(Document document, CccdOcrResultDto result, CancellationToken cancellationToken)
+    {
+        var previousAttemptCount = await _context.NurseDocumentOcrResults
+            .Where(x => x.NurseDocumentId == document.Id)
+            .Select(x => x.AttemptCount)
+            .DefaultIfEmpty()
+            .MaxAsync(cancellationToken);
+
+        var warnings = new List<string>();
+        if (!result.IsIdentityCard)
+        {
+            warnings.Add("OCR did not confirm this is a Vietnamese ID card.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Warning))
+        {
+            warnings.Add(result.Warning);
+        }
+
+        var status = result.IsIdentityCard && warnings.Count == 0
+            ? "PASSED"
+            : result.IsIdentityCard
+                ? "WARNING"
+                : "FAILED";
+
+        _context.NurseDocumentOcrResults.Add(new NurseDocumentOcrResult
+        {
+            Id = Guid.NewGuid(),
+            NurseDocumentId = document.Id,
+            DocumentType = document.Type,
+            RawOcrText = result.RawText,
+            ParsedDataJson = JsonSerializer.Serialize(result, JsonOptions),
+            OcrStatus = status,
+            WarningsJson = JsonSerializer.Serialize(warnings, JsonOptions),
+            ProcessedBy = "admin",
+            ProcessedAt = DateTime.UtcNow,
+            AttemptCount = previousAttemptCount + 1
+        });
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static List<string> DeserializeList(string json)
+    {
+        return JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
+    }
+
+    private static CccdOcrResultDto? DeserializeOcrResult(string json)
+    {
+        return JsonSerializer.Deserialize<CccdOcrResultDto>(json, JsonOptions);
     }
 
     private static string? MaskSecret(string? value)

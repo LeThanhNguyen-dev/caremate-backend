@@ -11,15 +11,22 @@ namespace MomCare.Controllers;
 public class GeminiController : ControllerBase
 {
     private readonly IGeminiService _geminiService;
+    private readonly IConfiguration _configuration;
 
-    public GeminiController(IGeminiService geminiService)
+    public GeminiController(IGeminiService geminiService, IConfiguration configuration)
     {
         _geminiService = geminiService;
+        _configuration = configuration;
     }
 
     [HttpPost("generate")]
     public async Task<IActionResult> Generate([FromBody] GeminiGenerateRequest request, CancellationToken cancellationToken)
     {
+        if (!_configuration.GetValue<bool>("Features:EnableGeminiTestEndpoint"))
+        {
+            return NotFound();
+        }
+
         if (!ModelState.IsValid)
         {
             return ValidationProblem(ModelState);

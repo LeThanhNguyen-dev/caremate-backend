@@ -35,4 +35,5 @@ public class HealthAnalysisResponse
     public int DataCoveragePercent { get; set; }
     public List<string> DataCoverageItems { get; set; } = [];
     public List<string> MissingDataItems { get; set; } = [];
+    public List<FollowUpQuestionDto> FollowUpQuestions { get; set; } = [];
 }

@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MomCare.Data;
@@ -12,6 +13,21 @@ public class HealthCheckInService : IHealthCheckInService
 {
     private const string Disclaimer = "Thông tin từ CareMate Engine chỉ mang tính tham khảo, không thay thế tư vấn từ bác sĩ hoặc chuyên gia y tế.";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly (string Location, string[] Keywords)[] PainLocationKeywords =
+    [
+        ("bụng dưới", ["bung duoi", "ha vi", "vung duoi bung"]),
+        ("bụng trên", ["bung tren", "thuong vi", "vung tren bung"]),
+        ("vết mổ/khâu", ["vet mo", "vet khau", "duong khau", "mui khau"]),
+        ("tầng sinh môn", ["tang sinh mon", "cua minh", "am dao", "vung kin", "vet rach"]),
+        ("ngực/sữa", ["nguc", "vu", "bau vu", "num vu", "tac sua", "cang sua"]),
+        ("đầu", ["dau dau", "nhuc dau", "dau nua dau"]),
+        ("lưng", ["that lung", "dau lung", "lung"]),
+        ("xương chậu/hông", ["xuong chau", "hong", "khung chau"]),
+        ("bắp chân", ["bap chan", "cang chan"]),
+        ("chân", ["chan", "dau chan"]),
+        ("tay", ["tay", "co tay", "canh tay"]),
+        ("vai/cổ", ["vai", "co", "gayi", "gay"])
+    ];
 
     private readonly MomCareContext _context;
     private readonly IGeminiService _geminiService;
@@ -29,19 +45,28 @@ public class HealthCheckInService : IHealthCheckInService
     public async Task<HealthAnalysisResponse> AnalyzeAsync(int userId, AnalyzeHealthCheckInRequest request, CancellationToken cancellationToken)
     {
         var availableServices = await GetAvailableServicesAsync(cancellationToken);
+        var inferred = await TryInferContextWithGeminiAsync(request.Note, cancellationToken)
+            ?? InferContextFromNote(request.Note);
+        var contextData = CleanContextData(request.ContextData);
+        var symptoms = CleanList(request.Symptoms)
+            .Concat(inferred.Symptoms)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList();
+
         var checkIn = new HealthCheckIn
         {
             Id = Guid.NewGuid(),
             UserId = userId,
             SleepHours = request.SleepHours,
-            PainLevel = request.PainLevel ?? 0,
-            PainLocation = Clean(request.PainLocation),
-            PainType = Clean(request.PainType),
+            PainLevel = request.PainLevel ?? inferred.PainLevel ?? 0,
+            PainLocation = Clean(request.PainLocation) ?? inferred.PainLocation,
+            PainType = Clean(request.PainType) ?? inferred.PainType,
             PainDuration = Clean(request.PainDuration),
-            PainTrend = Clean(request.PainTrend),
-            SymptomsJson = JsonSerializer.Serialize(CleanList(request.Symptoms), JsonOptions),
+            PainTrend = Clean(request.PainTrend) ?? inferred.PainTrend,
+            SymptomsJson = JsonSerializer.Serialize(symptoms, JsonOptions),
             MedicalHistoryJson = JsonSerializer.Serialize(CleanList(request.MedicalHistory), JsonOptions),
-            ContextDataJson = JsonSerializer.Serialize(CleanContextData(request.ContextData), JsonOptions),
+            ContextDataJson = JsonSerializer.Serialize(contextData, JsonOptions),
             MotherAge = request.MotherAge,
             SystolicBloodPressure = request.SystolicBloodPressure,
             DiastolicBloodPressure = request.DiastolicBloodPressure,
@@ -302,6 +327,236 @@ Dữ liệu:
         public string? UrgencyAction { get; set; }
         public List<string> Recommendations { get; set; } = [];
         public string? NarrativeSummary { get; set; }
+    }
+
+    private async Task<InferredCheckInContext?> TryInferContextWithGeminiAsync(
+        string? note,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            return null;
+        }
+
+        try
+        {
+            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
+            {
+                SystemInstruction = """
+Bạn là bộ trích xuất dữ liệu check-in sau sinh cho CareMate.
+Chỉ chuyển câu tiếng Việt tự nhiên của người dùng thành JSON có cấu trúc.
+Không chẩn đoán, không tư vấn, không bịa thông tin không có trong câu.
+Chỉ trả JSON hợp lệ, không markdown.
+""",
+                Prompt = $$"""
+Trích xuất context y tế từ ghi chú sau:
+"{{note.Trim()}}"
+
+JSON schema:
+{
+  "painLevel": 1-10 hoặc null,
+  "painLocation": "vị trí đau tiếng Việt" hoặc null,
+  "painType": "kiểu đau tiếng Việt" hoặc null,
+  "painTrend": "Worse" | "Better" | "Stable" | null,
+  "symptoms": ["triệu chứng tiếng Việt"]
+}
+
+Quy ước:
+- "rất nhiều", "đau lắm", "đau quá", "dữ dội", "không chịu nổi" => painLevel 8-9.
+- "nhiều", "khá đau", "tăng lên", "nặng hơn" => painLevel 6-7.
+- "âm ỉ", "hơi đau", "nhẹ" => painLevel 3-4.
+- Nếu chỉ nói có đau nhưng không rõ mức, đặt painLevel 5.
+- Nếu nói "đau bụng dưới", painLocation là "bụng dưới"; tương tự cho lưng, ngực/sữa, vết mổ/khâu, tầng sinh môn, bắp chân...
+- Chỉ đưa symptom/location xuất hiện hoặc suy ra trực tiếp từ ghi chú.
+""",
+                Temperature = 0,
+                MaxOutputTokens = 220
+            }, cancellationToken);
+
+            var extracted = ParseGeminiInference(response.Text);
+            if (extracted is null)
+            {
+                return null;
+            }
+
+            return new InferredCheckInContext
+            {
+                PainLevel = extracted.PainLevel is >= 1 and <= 10 ? extracted.PainLevel : null,
+                PainLocation = Clean(extracted.PainLocation),
+                PainType = Clean(extracted.PainType),
+                PainTrend = NormalizePainTrend(extracted.PainTrend),
+                Symptoms = CleanList(extracted.Symptoms)
+            };
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException or JsonException)
+        {
+            _logger.LogWarning(ex, "Gemini context extraction failed. Falling back to local text inference.");
+            return null;
+        }
+    }
+
+    private static GeminiInferredCheckInContext? ParseGeminiInference(string text)
+    {
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        if (start < 0 || end <= start)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<GeminiInferredCheckInContext>(text[start..(end + 1)], JsonOptions);
+    }
+
+    private static string? NormalizePainTrend(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim() switch
+        {
+            var trend when trend.Equals("Worse", StringComparison.OrdinalIgnoreCase) => "Worse",
+            var trend when trend.Equals("Better", StringComparison.OrdinalIgnoreCase) => "Better",
+            var trend when trend.Equals("Stable", StringComparison.OrdinalIgnoreCase) => "Stable",
+            var trend when VietnameseTextHelper.ContainsAny(trend, "tăng", "tang", "nặng hơn", "nang hon") => "Worse",
+            var trend when VietnameseTextHelper.ContainsAny(trend, "giảm", "giam", "bớt", "bot") => "Better",
+            _ => null
+        };
+    }
+
+    private static InferredCheckInContext InferContextFromNote(string? note)
+    {
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            return new InferredCheckInContext();
+        }
+
+        var normalized = VietnameseTextHelper.RemoveDiacritics(note).ToLowerInvariant();
+        var inferred = new InferredCheckInContext
+        {
+            PainLevel = InferPainLevel(normalized),
+            PainLocation = InferPainLocation(normalized),
+            PainType = InferPainType(normalized),
+            PainTrend = InferPainTrend(normalized)
+        };
+
+        if (normalized.Contains("dau", StringComparison.OrdinalIgnoreCase))
+        {
+            inferred.Symptoms.Add(inferred.PainLocation is null ? "đau" : $"đau {inferred.PainLocation}");
+        }
+
+        if (VietnameseTextHelper.ContainsAny(note, "sốt", "sot"))
+        {
+            inferred.Symptoms.Add("sốt");
+        }
+
+        if (VietnameseTextHelper.ContainsAny(note, "khó thở", "kho tho"))
+        {
+            inferred.Symptoms.Add("khó thở");
+        }
+
+        if (VietnameseTextHelper.ContainsAny(note, "chóng mặt", "chong mat"))
+        {
+            inferred.Symptoms.Add("chóng mặt");
+        }
+
+        if (VietnameseTextHelper.ContainsAny(note, "buồn nôn", "buon non", "nôn", "non"))
+        {
+            inferred.Symptoms.Add("buồn nôn");
+        }
+
+        return inferred;
+    }
+
+    private static int? InferPainLevel(string normalizedNote)
+    {
+        var numericMatch = Regex.Match(normalizedNote, @"(?:dau|muc dau|cap do dau|pain)\D{0,24}(10|[1-9])\s*(?:/|tren)?\s*10?");
+        if (numericMatch.Success && int.TryParse(numericMatch.Groups[1].Value, out var explicitLevel))
+        {
+            return Math.Clamp(explicitLevel, 1, 10);
+        }
+
+        if (ContainsAnyNormalized(
+                normalizedNote,
+                "khong chiu noi",
+                "du doi",
+                "rat du doi",
+                "dau qua",
+                "dau lam",
+                "rat dau",
+                "rat nhieu",
+                "nhieu qua",
+                "nhieu lam",
+                "qua nhieu",
+                "quang quai",
+                "vat va vi dau"))
+        {
+            return 8;
+        }
+
+        if (ContainsAnyNormalized(normalizedNote, "dau nhieu", "nhieu", "kha dau", "dau nang", "tang len", "nang hon"))
+        {
+            return 6;
+        }
+
+        if (ContainsAnyNormalized(normalizedNote, "hoi dau", "am i", "nhe", "it dau", "dau it"))
+        {
+            return 3;
+        }
+
+        return normalizedNote.Contains("dau", StringComparison.OrdinalIgnoreCase) ? 5 : null;
+    }
+
+    private static string? InferPainLocation(string normalizedNote)
+    {
+        foreach (var (location, keywords) in PainLocationKeywords)
+        {
+            if (ContainsAnyNormalized(normalizedNote, keywords))
+            {
+                return location;
+            }
+        }
+
+        if (normalizedNote.Contains("bung", StringComparison.OrdinalIgnoreCase)) return "bụng";
+        return null;
+    }
+
+    private static string? InferPainType(string normalizedNote)
+    {
+        if (ContainsAnyNormalized(normalizedNote, "quang", "co that")) return "quặn";
+        if (ContainsAnyNormalized(normalizedNote, "nhoi")) return "nhói";
+        if (ContainsAnyNormalized(normalizedNote, "rat", "nong rat")) return "rát";
+        if (ContainsAnyNormalized(normalizedNote, "am i")) return "âm ỉ";
+        return null;
+    }
+
+    private static string? InferPainTrend(string normalizedNote)
+    {
+        if (ContainsAnyNormalized(normalizedNote, "tang len", "nang hon", "te hon", "dau hon", "moi luc mot dau")) return "Worse";
+        if (ContainsAnyNormalized(normalizedNote, "giam", "do hon", "bot dau")) return "Better";
+        return null;
+    }
+
+    private static bool ContainsAnyNormalized(string normalizedText, params string[] keywords) =>
+        keywords.Any(keyword => normalizedText.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+
+    private sealed class InferredCheckInContext
+    {
+        public int? PainLevel { get; set; }
+        public string? PainLocation { get; set; }
+        public string? PainType { get; set; }
+        public string? PainTrend { get; set; }
+        public List<string> Symptoms { get; set; } = [];
+    }
+
+    private sealed class GeminiInferredCheckInContext
+    {
+        public int? PainLevel { get; set; }
+        public string? PainLocation { get; set; }
+        public string? PainType { get; set; }
+        public string? PainTrend { get; set; }
+        public List<string> Symptoms { get; set; } = [];
     }
 
     private HealthAnalysisResponse MapAnalysisResponse(Guid checkInId, AiHealthAnalysis analysis)

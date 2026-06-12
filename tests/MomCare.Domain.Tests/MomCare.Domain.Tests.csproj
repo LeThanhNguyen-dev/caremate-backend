@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\MomCare.Domain\MomCare.Domain.csproj" />
     <ProjectReference Include="..\..\src\MomCare.Application\MomCare.Application.csproj" />
+    <ProjectReference Include="..\..\src\MomCare.Infrastructure\MomCare.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

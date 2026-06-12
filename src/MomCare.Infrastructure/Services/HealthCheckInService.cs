@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MomCare.Data;
 using MomCare.Dto;
 using MomCare.Interfaces;
@@ -13,10 +14,17 @@ public class HealthCheckInService : IHealthCheckInService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly MomCareContext _context;
+    private readonly IGeminiService _geminiService;
+    private readonly ILogger<HealthCheckInService> _logger;
 
-    public HealthCheckInService(MomCareContext context)
+    public HealthCheckInService(
+        MomCareContext context,
+        IGeminiService geminiService,
+        ILogger<HealthCheckInService> logger)
     {
         _context = context;
+        _geminiService = geminiService;
+        _logger = logger;
     }
     public async Task<HealthAnalysisResponse> AnalyzeAsync(int userId, AnalyzeHealthCheckInRequest request, CancellationToken cancellationToken)
     {
@@ -59,6 +67,7 @@ public class HealthCheckInService : IHealthCheckInService
             .ToListAsync(cancellationToken);
 
         var analysisResult = RiskAssessmentEngine.Analyze(checkIn, recentHistory, availableServices);
+        var rawGeminiResponse = await TryEnhanceWithGeminiAsync(checkIn, analysisResult, cancellationToken);
 
         var analysis = new AiHealthAnalysis
         {
@@ -77,6 +86,7 @@ public class HealthCheckInService : IHealthCheckInService
             RecommendationsJson = JsonSerializer.Serialize(analysisResult.Recommendations, JsonOptions),
             CarePlanJson = JsonSerializer.Serialize(analysisResult.CarePlan, JsonOptions),
             SuggestedServicesJson = JsonSerializer.Serialize(analysisResult.SuggestedServices, JsonOptions),
+            RawAiResponse = rawGeminiResponse,
             PpdScreeningScore = analysisResult.PpdScreeningScore,
             PpdScreeningLevel = analysisResult.PpdScreeningLevel,
             PpdScreeningNote = analysisResult.PpdScreeningNote,
@@ -103,7 +113,14 @@ public class HealthCheckInService : IHealthCheckInService
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return checkIn is null ? null : MapLatest(checkIn);
+        if (checkIn is null)
+        {
+            return null;
+        }
+
+        var latest = MapLatest(checkIn);
+        latest.Analysis = await AnalyzeExistingCheckInAsync(userId, checkIn, cancellationToken);
+        return latest;
     }
 
     public async Task<IReadOnlyList<HealthCheckInHistoryDto>> GetHistoryAsync(int userId, int page, int pageSize, CancellationToken cancellationToken)
@@ -136,6 +153,157 @@ public class HealthCheckInService : IHealthCheckInService
             })
             .ToListAsync(cancellationToken);
     }
+
+    private async Task<HealthAnalysisResponse> AnalyzeExistingCheckInAsync(
+        int userId,
+        HealthCheckIn checkIn,
+        CancellationToken cancellationToken)
+    {
+        var availableServices = await GetAvailableServicesAsync(cancellationToken);
+        var recentHistory = await _context.HealthCheckIns
+            .AsNoTracking()
+            .Where(x => x.UserId == userId && x.CreatedAt <= checkIn.CreatedAt)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(7)
+            .ToListAsync(cancellationToken);
+
+        if (recentHistory.All(x => x.Id != checkIn.Id))
+        {
+            recentHistory.Insert(0, checkIn);
+        }
+
+        var result = RiskAssessmentEngine.Analyze(checkIn, recentHistory, availableServices);
+        return MapAnalysisResponse(checkIn.Id, result, checkIn.Analysis?.Id ?? Guid.Empty);
+    }
+
+    private async Task<string?> TryEnhanceWithGeminiAsync(
+        HealthCheckIn checkIn,
+        HealthAnalysisResult result,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
+            {
+                SystemInstruction = """
+Bạn là trợ lý CareMate cho mẹ sau sinh. Giữ nguyên mức cảnh báo và điểm rủi ro từ rule engine.
+Chỉ viết lại kết quả cho dễ hiểu, ngắn gọn, bám sát ghi chú của mẹ. Không chẩn đoán, không kê đơn thuốc, không bịa dữ liệu.
+Chỉ trả JSON hợp lệ, không markdown.
+""",
+                Prompt = BuildGeminiPrompt(checkIn, result),
+                Temperature = 0.2,
+                MaxOutputTokens = 450
+            }, cancellationToken);
+
+            var enhanced = ParseGeminiResult(response.Text);
+            if (enhanced is null)
+            {
+                return response.RawResponse;
+            }
+
+            result.Summary = Limit(enhanced.Summary, 320) ?? result.Summary;
+            result.UrgencyAction = Limit(enhanced.UrgencyAction, 180) ?? result.UrgencyAction;
+            result.NarrativeSummary = Limit(enhanced.NarrativeSummary, 420) ?? result.NarrativeSummary;
+
+            var recommendations = enhanced.Recommendations
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => Limit(x, 160))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Take(3)
+                .Cast<string>()
+                .ToList();
+
+            if (recommendations.Count > 0)
+            {
+                result.Recommendations = recommendations;
+            }
+
+            return response.RawResponse;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException or JsonException)
+        {
+            _logger.LogWarning(ex, "Gemini enhancement failed. Falling back to rule-based health analysis.");
+            return null;
+        }
+    }
+
+    private static string BuildGeminiPrompt(HealthCheckIn checkIn, HealthAnalysisResult result)
+    {
+        var input = new
+        {
+            motherNote = checkIn.Note,
+            checkIn.PainLevel,
+            checkIn.MilkStatus,
+            checkIn.BabyFeeding,
+            symptoms = DeserializeStringList(checkIn.SymptomsJson),
+            contextData = DeserializeStringDictionary(checkIn.ContextDataJson),
+            fixedResult = new
+            {
+                result.WarningLevel,
+                result.RiskScore,
+                result.RiskFactors,
+                result.SuggestedServices
+            },
+            draft = new
+            {
+                result.Summary,
+                result.UrgencyAction,
+                result.Recommendations,
+                result.NarrativeSummary
+            }
+        };
+
+        return $$"""
+Viết lại kết quả check-in cho mẹ sau sinh theo JSON schema:
+{
+  "summary": "1-2 câu, tối đa 320 ký tự",
+  "urgencyAction": "1 câu hành động ưu tiên, tối đa 180 ký tự",
+  "recommendations": ["tối đa 3 ý ngắn, mỗi ý tối đa 160 ký tự"],
+  "narrativeSummary": "2 câu, tối đa 420 ký tự"
+}
+
+Quy tắc:
+- Giữ nguyên warningLevel và riskScore nếu nhắc tới.
+- Nếu mẹ có ghi chú, bám sát ghi chú đó.
+- Nếu Red hoặc Emergency, ưu tiên đi khám/liên hệ y tế.
+- Không lặp disclaimer.
+
+Dữ liệu:
+{{JsonSerializer.Serialize(input, JsonOptions)}}
+""";
+    }
+
+    private static EnhancedHealthAnalysis? ParseGeminiResult(string text)
+    {
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        if (start < 0 || end <= start)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<EnhancedHealthAnalysis>(text[start..(end + 1)], JsonOptions);
+    }
+
+    private static string? Limit(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength].TrimEnd() + "...";
+    }
+
+    private sealed class EnhancedHealthAnalysis
+    {
+        public string? Summary { get; set; }
+        public string? UrgencyAction { get; set; }
+        public List<string> Recommendations { get; set; } = [];
+        public string? NarrativeSummary { get; set; }
+    }
+
     private HealthAnalysisResponse MapAnalysisResponse(Guid checkInId, AiHealthAnalysis analysis)
     {
         return new HealthAnalysisResponse
@@ -164,6 +332,41 @@ public class HealthCheckInService : IHealthCheckInService
             MissingDataItems = DeserializeStringList(analysis.MissingDataItemsJson),
             Disclaimer = Disclaimer,
             ConfidenceLabel = BuildConfidenceLabel(analysis.ConfidenceScore),
+            EngineVersion = RiskAssessmentEngine.EngineVersion
+        };
+    }
+
+    private static HealthAnalysisResponse MapAnalysisResponse(
+        Guid checkInId,
+        HealthAnalysisResult result,
+        Guid analysisId)
+    {
+        return new HealthAnalysisResponse
+        {
+            CheckInId = checkInId,
+            AnalysisId = analysisId,
+            Summary = result.Summary,
+            WarningLevel = result.WarningLevel,
+            UrgencyAction = result.UrgencyAction,
+            WeeklySummary = result.WeeklySummary,
+            RiskScore = result.RiskScore,
+            ConfidenceScore = result.ConfidenceScore,
+            TrendSummary = result.TrendSummary,
+            RiskFactors = result.RiskFactors,
+            TrendSignals = result.TrendSignals,
+            Recommendations = result.Recommendations,
+            CarePlan = result.CarePlan,
+            SuggestedServices = result.SuggestedServices,
+            PpdScreeningScore = result.PpdScreeningScore,
+            PpdScreeningLevel = result.PpdScreeningLevel,
+            PpdScreeningNote = result.PpdScreeningNote,
+            NutritionGuidance = result.NutritionGuidance,
+            NarrativeSummary = result.NarrativeSummary,
+            DataCoveragePercent = result.DataCoveragePercent,
+            DataCoverageItems = result.DataCoverageItems,
+            MissingDataItems = result.MissingDataItems,
+            Disclaimer = Disclaimer,
+            ConfidenceLabel = BuildConfidenceLabel(result.ConfidenceScore),
             EngineVersion = RiskAssessmentEngine.EngineVersion
         };
     }

@@ -39,11 +39,15 @@ public static class RiskAssessmentEngine
         var previousScore = historyBeforeCurrent.Count > 0
             ? CalculateWeightedRiskScore(BuildRiskFactors(historyBeforeCurrent[0], historyBeforeCurrent.Skip(1).ToList()), GetPostpartumDay(historyBeforeCurrent[0]))
             : 0;
-        var riskScore = CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCheckIn));
+        var riskScore = CalibrateRiskScore(
+            CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCheckIn)),
+            currentCheckIn);
         if (previousScore > 0 && riskScore - previousScore >= 30)
         {
-            AddFactorIf(factors, true, "rapid_deterioration", "Điểm rủi ro tăng nhanh so với lần check-in trước", 25, "VitalSigns");
-            riskScore = CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCheckIn));
+            AddFactorIf(factors, true, "rapid_deterioration", "Điểm rủi ro tăng nhanh so với lần check-in trước", 12, "VitalSigns");
+            riskScore = CalibrateRiskScore(
+                CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCheckIn)),
+                currentCheckIn);
         }
 
         var warningLevel = DetermineWarningLevel(riskScore, currentCheckIn, recentHistory);
@@ -120,9 +124,9 @@ public static class RiskAssessmentEngine
         AddFactorIf(factors, GetContextNumber(currentCheckIn, "babyWetDiapers") is double wetDiapers && wetDiapers > 0 && wetDiapers < 4, "low_wet_diapers_context", "Số tã ướt của bé thấp", 30);
         AddFactorIf(factors, HasContextValue(currentCheckIn, "babyActivity", "Lethargic"), "baby_lethargy_context", "Bé có dấu hiệu lừ đừ hoặc yếu", 45);
         AddFactorIf(factors, IsWorseningPain(currentCheckIn), "pain_worsening", "Đau đang tăng lên", 18);
-        AddFactorIf(factors, currentCheckIn.PainLevel >= 9, "severe_pain", "Mức đau rất cao", 45);
-        AddFactorIf(factors, currentCheckIn.PainLevel == 8, "high_pain", "Mức đau cao", 35);
-        AddFactorIf(factors, currentCheckIn.PainLevel is >= 6 and <= 7, "elevated_pain", "Mức đau đang tăng", 20);
+        AddFactorIf(factors, currentCheckIn.PainLevel >= 9, "severe_pain", "Mức đau rất cao", 35);
+        AddFactorIf(factors, currentCheckIn.PainLevel == 8, "high_pain", "Mức đau cao", 28);
+        AddFactorIf(factors, currentCheckIn.PainLevel is >= 6 and <= 7, "elevated_pain", "Mức đau cần theo dõi", 16);
         AddFactorIf(factors, currentCheckIn.SleepHours < 4, "very_low_sleep", "Ngủ dưới 4 giờ", 25);
         AddFactorIf(factors, currentCheckIn.SleepHours is >= 4 and < 5, "low_sleep", "Ngủ dưới 5 giờ", 18);
         AddFactorIf(factors, currentCheckIn.SleepHours is >= 5 and < 6, "reduced_sleep", "Giấc ngủ hơi thấp", 10);
@@ -135,7 +139,7 @@ public static class RiskAssessmentEngine
         var lastThree = recentHistory.Take(3).ToList();
         AddFactorIf(factors, lastThree.Count == 3 && lastThree.Count(x => x.SleepHours < 5) >= 3, "repeated_low_sleep", "Mẹ ngủ dưới 5 giờ trong 3 lần check-in gần nhất", 25);
         AddFactorIf(factors, recentHistory.Count(x => IsStressMood(x.Mood)) >= 3, "repeated_stress", "Stress hoặc lo âu lặp lại nhiều lần trong lịch sử gần đây", 22);
-        AddFactorIf(factors, HasActiveRepeatedFeedingConcern(currentCheckIn, recentHistory), "repeated_feeding_concern", "Tình trạng bú của bé bất thường lặp lại trong các lần gần đây", 25);
+        AddFactorIf(factors, HasActiveRepeatedFeedingConcern(currentCheckIn, recentHistory), "repeated_feeding_concern", "Tình trạng bú của bé bất thường lặp lại trong các lần gần đây", 16);
         AddFactorIf(factors, IsPainIncreasing(recentHistory), "pain_increasing", "Mức đau có xu hướng tăng", 15);
         AddFactorIf(factors, IsDeterioration(recentHistory, x => x.PainLevel, 3), "pain_deterioration", "Mức đau tăng liên tục 3 lần check-in gần đây", 30);
 
@@ -148,7 +152,15 @@ public static class RiskAssessmentEngine
         AddFactorIf(factors, (currentCheckIn.SystolicBloodPressure >= 140 || currentCheckIn.DiastolicBloodPressure >= 90) && ContainsAny(currentCheckIn.PainLocation, "bụng trên", "bung tren") && HasSymptom(currentCheckIn, "buồn nôn", "buon non"), "late_hellp_signs", "Huyết áp cao kèm đau bụng trên và buồn nôn, cần loại trừ HELLP muộn", 85, "VitalSigns");
         AddFactorIf(factors, HasSymptom(currentCheckIn, "chóng mặt", "chong mat", "mệt", "met") && ContainsAny(currentCheckIn.Note, "tim nhanh", "mạch nhanh", "mach nhanh", "hồi hộp", "hoi hop"), "severe_anemia_signs", "Chóng mặt, mệt và hồi hộp có thể gợi ý thiếu máu cần theo dõi", 40, "VitalSigns");
         AddFactorIf(factors, currentCheckIn.TemperatureCelsius >= 38 && ContainsAny(currentCheckIn.Note, "tim nhanh", "mạch nhanh", "mach nhanh", "hồi hộp", "hoi hop"), "tachycardia_fever", "Sốt kèm dấu hiệu nhịp tim nhanh cần theo dõi nhiễm trùng nặng", 50, "VitalSigns");
-        AddFactorIf(factors, currentCheckIn.TookMedicationToday == false && recentHistory.Take(5).Count(x => x.TookMedicationToday == false) >= 2, "repeated_medication_skip", "Không dùng thuốc theo dặn dò lặp lại nhiều lần gần đây", 15, "Medication");
+        AddFactorIf(
+            factors,
+            HasMedicationPlan(currentCheckIn) &&
+                currentCheckIn.TookMedicationToday == false &&
+                recentHistory.Take(5).Count(x => HasMedicationPlan(x) && x.TookMedicationToday == false) >= 2,
+            "repeated_medication_skip",
+            "Không dùng thuốc theo dặn dò lặp lại nhiều lần gần đây",
+            15,
+            "Medication");
         AddFactorIf(factors, ContainsAny(currentCheckIn.Note, "ban đêm", "ban dem", "về đêm", "ve dem"), "night_only_symptoms", "Triệu chứng có xu hướng xuất hiện về đêm", 10, "General");
         AddFactorIf(factors, postpartumDay is >= 0 and <= 7 && factors.Any(x => x.Points >= 55), "first_week_critical", "Tuần đầu sau sinh có dấu hiệu cảnh báo cần nhạy hơn", 15, "General");
         AddFactorIf(factors, CountPainLocations(currentCheckIn) >= 3, "multiple_pain_sites", "Có từ 3 vùng đau trở lên cùng lúc", 12, "Pain");
@@ -158,9 +170,9 @@ public static class RiskAssessmentEngine
             .Where(x => !string.IsNullOrWhiteSpace(x) && x != "General")
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
-        AddFactorIf(factors, categoryCount >= 2, "category_synergy_2", "Có từ 2 nhóm nguy cơ cùng xuất hiện", 15, "General");
-        AddFactorIf(factors, categoryCount >= 3, "category_synergy_3", "Có từ 3 nhóm nguy cơ cùng xuất hiện", 20, "General");
-        AddFactorIf(factors, categoryCount >= 4, "category_synergy_4", "Có từ 4 nhóm nguy cơ cùng xuất hiện", 35, "General");
+        AddFactorIf(factors, categoryCount >= 2, "category_synergy_2", "Có từ 2 nhóm cần theo dõi cùng xuất hiện", 8, "General");
+        AddFactorIf(factors, categoryCount >= 3, "category_synergy_3", "Có từ 3 nhóm cần theo dõi cùng xuất hiện", 10, "General");
+        AddFactorIf(factors, categoryCount >= 4, "category_synergy_4", "Có nhiều nhóm dấu hiệu cùng xuất hiện", 12, "General");
 
         return factors
             .GroupBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
@@ -178,25 +190,17 @@ public static class RiskAssessmentEngine
 
     private static string DetermineWarningLevel(int riskScore, HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
     {
-        var thresholds = GetStageThresholds(GetPostpartumDay(currentCheckIn));
-        if (HasEmergencySymptom(currentCheckIn)
-            || HasChestPainBreathingCombo(currentCheckIn)
-            || riskScore >= thresholds.Emergency)
+        if (HasEmergencyCondition(currentCheckIn))
         {
             return "Emergency";
         }
 
-        if (HasDangerKeyword(currentCheckIn.Note)
-            || HasRedFlagSymptom(currentCheckIn)
-            || HasContextValue(currentCheckIn, "bleedingLevel", "Heavy")
-            || HasContextValue(currentCheckIn, "babyActivity", "Lethargic")
-            || currentCheckIn.PainLevel >= 9
-            || currentCheckIn.BabyFeeding.Equals("RefusesFeeding", StringComparison.OrdinalIgnoreCase)
-            || riskScore >= thresholds.Red)
+        if (HasStrongRedFlag(currentCheckIn))
         {
             return "Red";
         }
 
+        var thresholds = GetStageThresholds(GetPostpartumDay(currentCheckIn));
         if (currentCheckIn.PainLevel >= 8
             || riskScore >= thresholds.Yellow
             || recentHistory.Take(3).Count(x => x.SleepHours < 5) >= 3)
@@ -205,6 +209,26 @@ public static class RiskAssessmentEngine
         }
 
         return "Green";
+    }
+
+    private static int CalibrateRiskScore(int rawScore, HealthCheckIn checkIn)
+    {
+        if (HasEmergencyCondition(checkIn))
+        {
+            return Math.Clamp(rawScore, 85, 100);
+        }
+
+        if (HasStrongRedFlag(checkIn))
+        {
+            return Math.Clamp(rawScore, 55, 84);
+        }
+
+        if (HasModerateConcern(checkIn))
+        {
+            return Math.Clamp(rawScore, 25, 60);
+        }
+
+        return Math.Clamp(rawScore, 0, 45);
     }
 
     private static List<TrendSignalDto> BuildTrendSignals(List<HealthCheckIn> recentHistory)
@@ -280,10 +304,10 @@ public static class RiskAssessmentEngine
 
         return warningLevel switch
         {
-            "Emergency" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức đỏ khẩn cấp. Nên liên hệ cấp cứu hoặc cơ sở y tế ngay, đặc biệt khi triệu chứng đang tăng nhanh.{reason}",
-            "Red" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức đỏ. Cần ưu tiên liên hệ bác sĩ hoặc cơ sở y tế trong thời gian sớm.{reason}",
-            "Yellow" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức vàng. Tình trạng cần theo dõi thêm trong 24-48 giờ tới.{reason}",
-            _ => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức thấp. Tình trạng tương đối ổn nhưng vẫn nên tiếp tục check-in hằng ngày để phát hiện thay đổi sớm.{reason}"
+            "Emergency" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức đỏ khẩn cấp vì có dấu hiệu cần xử lý ngay. Nên liên hệ cấp cứu hoặc cơ sở y tế gần nhất.{reason}",
+            "Red" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức đỏ. Nên liên hệ bác sĩ hoặc cơ sở y tế trong ngày để được hướng dẫn cụ thể.{reason}",
+            "Yellow" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức cần theo dõi. Chưa ghi nhận dấu hiệu khẩn cấp rõ, nhưng mẹ nên quan sát sát trong 24-48 giờ tới.{reason}",
+            _ => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức thấp. Tình trạng tương đối ổn, tiếp tục check-in hằng ngày để phát hiện thay đổi sớm.{reason}"
         };
     }
 
@@ -517,6 +541,12 @@ public static class RiskAssessmentEngine
             || babySleep.Equals("WakingFrequently", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool HasMedicationPlan(HealthCheckIn checkIn)
+    {
+        return !string.IsNullOrWhiteSpace(checkIn.MedicationNote)
+            || checkIn.TookMedicationToday;
+    }
+
     private static bool HasDangerKeyword(string? note)
     {
         return VietnameseTextHelper.ContainsAny(note, DangerousKeywords);
@@ -527,6 +557,36 @@ public static class RiskAssessmentEngine
         return HasSymptom(checkIn, "khó thở", "kho tho", "đau ngực", "dau nguc", "ngất", "ngat", "co giật", "co giat")
             || HasSymptom(checkIn, "chảy máu nhiều", "chay mau nhieu")
             || (checkIn.TemperatureCelsius >= 39.5);
+    }
+
+    private static bool HasEmergencyCondition(HealthCheckIn checkIn)
+    {
+        return HasEmergencySymptom(checkIn)
+            || HasChestPainBreathingCombo(checkIn)
+            || checkIn.SystolicBloodPressure >= 180
+            || checkIn.DiastolicBloodPressure >= 120;
+    }
+
+    private static bool HasStrongRedFlag(HealthCheckIn checkIn)
+    {
+        return HasRedFlagSymptom(checkIn)
+            || HasContextValue(checkIn, "bleedingLevel", "Heavy")
+            || HasContextValue(checkIn, "babyActivity", "Lethargic")
+            || checkIn.PainLevel >= 9
+            || checkIn.BabyFeeding.Equals("RefusesFeeding", StringComparison.OrdinalIgnoreCase)
+            || checkIn.SystolicBloodPressure >= 160
+            || checkIn.DiastolicBloodPressure >= 110
+            || checkIn.TemperatureCelsius >= 38.5;
+    }
+
+    private static bool HasModerateConcern(HealthCheckIn checkIn)
+    {
+        return checkIn.PainLevel >= 6
+            || IsLowMilk(checkIn.MilkStatus)
+            || IsFeedingConcern(checkIn.BabyFeeding)
+            || IsStressMood(checkIn.Mood)
+            || checkIn.SleepHours < 5
+            || HasContextValue(checkIn, "incisionStatus", "RedSwollen", "Discharge");
     }
 
     private static bool HasRedFlagSymptom(HealthCheckIn checkIn)
@@ -671,7 +731,7 @@ public static class RiskAssessmentEngine
         else if (recent.Take(5).Count(x => x.SleepHours < 5) >= 5) score += 3;
         if (recent.Take(3).Count(x => IsFeedingConcern(x.BabyFeeding)) >= 2) score += 2;
         if (IsPainIncreasing(recent) || IsWorseningPain(currentCheckIn)) score += 2;
-        if (currentCheckIn.TookMedicationToday == false && recent.Take(3).Count(x => x.TookMedicationToday == false) >= 2) score += 2;
+        if (HasMedicationPlan(currentCheckIn) && currentCheckIn.TookMedicationToday == false && recent.Take(3).Count(x => HasMedicationPlan(x) && x.TookMedicationToday == false) >= 2) score += 2;
         if (recent.Take(3).Count(x => IsLowMilk(x.MilkStatus)) >= 2) score += 1;
 
         var keywordHits = new[] { "buồn", "buon", "khóc", "khoc", "không muốn", "khong muon", "mệt mỏi", "met moi", "cô đơn", "co don", "sợ", "so" }

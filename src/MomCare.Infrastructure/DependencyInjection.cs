@@ -16,6 +16,7 @@ public static class DependencyInjection
     {
         services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
         services.Configure<FptAiOptions>(configuration.GetSection(FptAiOptions.SectionName));
+        services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -37,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IHealthCheckInService, HealthCheckInService>();
         services.AddScoped<IPackageSessionService, PackageSessionService>();
         services.AddHttpClient<ICccdOcrService, FptAiCccdOcrService>();
+        services.AddHttpClient<IGeminiService, GeminiService>();
 
         services.AddDbContext<MomCareContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));

@@ -42,6 +42,14 @@ public class AiChatController : ControllerBase
         return result.Success ? Ok(result.Data) : BadRequest(new { message = result.Error });
     }
 
+    [HttpPost("messages")]
+    [EnableRateLimiting("chat")]
+    public async Task<IActionResult> SendOrCreateMessage([FromBody] SendAiChatMessageDto dto, CancellationToken cancellationToken)
+    {
+        var result = await _aiChatService.SendOrCreateMessageAsync(GetUserId(), dto.Content, cancellationToken);
+        return result.Success ? Ok(result.Data) : BadRequest(new { message = result.Error });
+    }
+
     private int GetUserId()
     {
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier)

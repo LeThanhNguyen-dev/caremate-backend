@@ -77,6 +77,30 @@ public class AiChatService : IAiChatService
             return ServiceResult<AiChatMessageDto>.Fail("Không tìm thấy cuộc trò chuyện.");
         }
 
+        return await SendMessageCoreAsync(userId, conversation, content, cancellationToken);
+    }
+
+    public async Task<ServiceResult<AiChatMessageDto>> SendOrCreateMessageAsync(int userId, string content, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return ServiceResult<AiChatMessageDto>.Fail("Tin nhắn không được để trống.");
+        }
+
+        var conversation = new AiChatConversation
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Status = "active",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.AiChatConversations.Add(conversation);
+        return await SendMessageCoreAsync(userId, conversation, content, cancellationToken);
+    }
+
+    private async Task<ServiceResult<AiChatMessageDto>> SendMessageCoreAsync(int userId, AiChatConversation conversation, string content, CancellationToken cancellationToken)
+    {
         var limitError = await GetLimitErrorAsync(userId, cancellationToken);
         if (limitError is not null)
         {
@@ -211,6 +235,7 @@ Trả lời tiếng Việt thân thiện, tối đa 150 từ.
     private static AiChatMessageDto Map(AiChatMessage message) => new()
     {
         MessageId = message.Id,
+        ConversationId = message.ConversationId,
         Role = message.Role,
         Content = message.Content,
         SafetyFlag = message.SafetyFlag,

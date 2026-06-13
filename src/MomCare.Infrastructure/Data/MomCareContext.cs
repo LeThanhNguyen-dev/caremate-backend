@@ -46,11 +46,14 @@ public class MomCareContext : IdentityDbContext<
     public DbSet<Dispute> Disputes => Set<Dispute>();
     public DbSet<HealthCheckIn> HealthCheckIns => Set<HealthCheckIn>();
     public DbSet<AiHealthAnalysis> AiHealthAnalyses => Set<AiHealthAnalysis>();
+    public DbSet<AiCarePlan> AiCarePlans => Set<AiCarePlan>();
 
     // Communication
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<AiChatConversation> AiChatConversations => Set<AiChatConversation>();
+    public DbSet<AiChatMessage> AiChatMessages => Set<AiChatMessage>();
     public DbSet<CommunityPost> CommunityPosts => Set<CommunityPost>();
     public DbSet<CommunityComment> CommunityComments => Set<CommunityComment>();
     public DbSet<CommunityPostLike> CommunityPostLikes => Set<CommunityPostLike>();
@@ -332,9 +335,52 @@ public class MomCareContext : IdentityDbContext<
             entity.HasIndex(a => a.HealthCheckInId).IsUnique();
         });
 
+        modelBuilder.Entity<AiCarePlan>(entity =>
+        {
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Booking)
+                .WithMany()
+                .HasForeignKey(x => x.BookingId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(x => x.HealthCheckIn)
+                .WithMany()
+                .HasForeignKey(x => x.HealthCheckInId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(x => new { x.UserId, x.Status, x.CreatedAt });
+            entity.HasIndex(x => x.BookingId);
+            entity.HasIndex(x => x.HealthCheckInId);
+        });
+
         modelBuilder.Entity<ChatMessage>(entity =>
         {
             entity.HasIndex(c => new { c.ConversationId, c.CreatedAt });
+        });
+
+        modelBuilder.Entity<AiChatConversation>(entity =>
+        {
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.UserId, x.Status, x.LastMessageAt });
+        });
+
+        modelBuilder.Entity<AiChatMessage>(entity =>
+        {
+            entity.HasOne(x => x.Conversation)
+                .WithMany(x => x.Messages)
+                .HasForeignKey(x => x.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.ConversationId, x.CreatedAt });
+            entity.HasIndex(x => new { x.Role, x.CreatedAt });
         });
 
         modelBuilder.Entity<CommunityPost>(entity =>

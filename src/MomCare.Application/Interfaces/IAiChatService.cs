@@ -1,0 +1,10 @@
+using MomCare.Dto;
+
+namespace MomCare.Interfaces;
+
+public interface IAiChatService
+{
+    Task<CreateAiChatConversationResponse> CreateConversationAsync(int userId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AiChatConversationDto>> GetConversationsAsync(int userId, CancellationToken cancellationToken);
+    Task<ServiceResult<AiChatMessageDto>> SendMessageAsync(int userId, Guid conversationId, string content, CancellationToken cancellationToken);
+}

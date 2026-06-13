@@ -55,6 +55,21 @@ public class AiHealthAnalysis
     [Column("raw_ai_response")]
     public string? RawAiResponse { get; set; }
 
+    [Column("ai_model")]
+    [MaxLength(120)]
+    public string? AiModel { get; set; }
+
+    [Column("ai_latency_ms")]
+    public long? AiLatencyMs { get; set; }
+
+    [Column("ai_fallback_mode")]
+    [MaxLength(80)]
+    public string? AiFallbackMode { get; set; }
+
+    [Column("engine_version")]
+    [MaxLength(80)]
+    public string EngineVersion { get; set; } = string.Empty;
+
     // v3.0 — PPD Screening
     [Column("ppd_screening_score")]
     public int PpdScreeningScore { get; set; }

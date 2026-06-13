@@ -17,6 +17,8 @@ public class NurseDiscoveryDto
     public string? DistanceSource { get; set; }
     public int MatchScore { get; set; }
     public List<string> MatchReasons { get; set; } = new();
+    public string? AiMatchSummary { get; set; }
+    public bool AiSummaryFallback { get; set; }
     public int CompletedBookings { get; set; }
     public int TotalReviews { get; set; }
     public DateTime? NextAvailableAt { get; set; }

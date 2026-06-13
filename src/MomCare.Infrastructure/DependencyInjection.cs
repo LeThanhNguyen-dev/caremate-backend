@@ -37,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<ICloudinaryService, CloudinaryService>();
         services.AddScoped<IHealthCheckInService, HealthCheckInService>();
         services.AddScoped<IPackageSessionService, PackageSessionService>();
+        services.AddScoped<ICarePlanService, CarePlanService>();
+        services.AddScoped<IAiChatService, AiChatService>();
         services.AddHttpClient<ICccdOcrService, FptAiCccdOcrService>();
         services.AddHttpClient<IGeminiService, GeminiService>();
 

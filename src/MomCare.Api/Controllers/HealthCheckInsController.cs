@@ -33,6 +33,20 @@ public class HealthCheckInsController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting("health-checkin")]
+    [HttpPost("follow-up-preview")]
+    public async Task<IActionResult> FollowUpPreview([FromBody] AnalyzeHealthCheckInRequest request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var userId = GetUserId();
+        var result = await _healthCheckInService.PreviewFollowUpAsync(userId, request, cancellationToken);
+        return Ok(result);
+    }
+
     [HttpGet("latest")]
     public async Task<IActionResult> GetLatest(CancellationToken cancellationToken)
     {

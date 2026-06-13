@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MomCare.Data;
@@ -47,39 +48,7 @@ public class HealthCheckInService : IHealthCheckInService
         var availableServices = await GetAvailableServicesAsync(cancellationToken);
         var inferred = await TryInferContextWithGeminiAsync(request.Note, cancellationToken)
             ?? InferContextFromNote(request.Note);
-        var contextData = CleanContextData(request.ContextData);
-        var symptoms = CleanList(request.Symptoms)
-            .Concat(inferred.Symptoms)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(20)
-            .ToList();
-
-        var checkIn = new HealthCheckIn
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            SleepHours = request.SleepHours,
-            PainLevel = request.PainLevel ?? inferred.PainLevel ?? 0,
-            PainLocation = Clean(request.PainLocation) ?? inferred.PainLocation,
-            PainType = Clean(request.PainType) ?? inferred.PainType,
-            PainDuration = Clean(request.PainDuration),
-            PainTrend = Clean(request.PainTrend) ?? inferred.PainTrend,
-            SymptomsJson = JsonSerializer.Serialize(symptoms, JsonOptions),
-            MedicalHistoryJson = JsonSerializer.Serialize(CleanList(request.MedicalHistory), JsonOptions),
-            ContextDataJson = JsonSerializer.Serialize(contextData, JsonOptions),
-            MotherAge = request.MotherAge,
-            SystolicBloodPressure = request.SystolicBloodPressure,
-            DiastolicBloodPressure = request.DiastolicBloodPressure,
-            TemperatureCelsius = request.TemperatureCelsius,
-            TookMedicationToday = request.TookMedicationToday,
-            MedicationNote = Clean(request.MedicationNote),
-            Mood = request.Mood.Trim(),
-            MilkStatus = request.MilkStatus.Trim(),
-            BabyFeeding = request.BabyFeeding.Trim(),
-            BabySleep = request.BabySleep.Trim(),
-            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
-            CreatedAt = DateTime.UtcNow
-        };
+        var checkIn = BuildCheckIn(userId, request, inferred);
 
         _context.HealthCheckIns.Add(checkIn);
         await _context.SaveChangesAsync(cancellationToken);
@@ -92,7 +61,8 @@ public class HealthCheckInService : IHealthCheckInService
             .ToListAsync(cancellationToken);
 
         var analysisResult = RiskAssessmentEngine.Analyze(checkIn, recentHistory, availableServices);
-        var rawGeminiResponse = await TryEnhanceWithGeminiAsync(checkIn, analysisResult, cancellationToken);
+        var aiTelemetry = await TryEnhanceWithGeminiAsync(checkIn, analysisResult, cancellationToken);
+        ApplyStrictMedicalGuardrails(analysisResult);
 
         var analysis = new AiHealthAnalysis
         {
@@ -111,7 +81,11 @@ public class HealthCheckInService : IHealthCheckInService
             RecommendationsJson = JsonSerializer.Serialize(analysisResult.Recommendations, JsonOptions),
             CarePlanJson = JsonSerializer.Serialize(analysisResult.CarePlan, JsonOptions),
             SuggestedServicesJson = JsonSerializer.Serialize(analysisResult.SuggestedServices, JsonOptions),
-            RawAiResponse = rawGeminiResponse,
+            RawAiResponse = null,
+            AiModel = aiTelemetry.Model,
+            AiLatencyMs = aiTelemetry.LatencyMs,
+            AiFallbackMode = aiTelemetry.FallbackMode,
+            EngineVersion = RiskAssessmentEngine.EngineVersion,
             PpdScreeningScore = analysisResult.PpdScreeningScore,
             PpdScreeningLevel = analysisResult.PpdScreeningLevel,
             PpdScreeningNote = analysisResult.PpdScreeningNote,
@@ -127,6 +101,44 @@ public class HealthCheckInService : IHealthCheckInService
         await _context.SaveChangesAsync(cancellationToken);
 
         return MapAnalysisResponse(checkIn.Id, analysis);
+    }
+
+    public async Task<HealthCheckInFollowUpPreviewResponse> PreviewFollowUpAsync(int userId, AnalyzeHealthCheckInRequest request, CancellationToken cancellationToken)
+    {
+        var availableServices = await GetAvailableServicesAsync(cancellationToken);
+        var checkIn = BuildCheckIn(userId, request, InferContextFromNote(request.Note));
+
+        var recentHistory = await _context.HealthCheckIns
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(6)
+            .ToListAsync(cancellationToken);
+
+        recentHistory.Insert(0, checkIn);
+        var result = RiskAssessmentEngine.Analyze(checkIn, recentHistory, availableServices);
+        ApplyStrictMedicalGuardrails(result);
+
+        return new HealthCheckInFollowUpPreviewResponse
+        {
+            DataCoveragePercent = result.DataCoveragePercent,
+            DataCoverageItems = result.DataCoverageItems,
+            MissingDataItems = result.MissingDataItems,
+            FollowUpQuestions = result.FollowUpQuestions,
+            EngineVersion = RiskAssessmentEngine.EngineVersion,
+            EstimatedRiskPreview = new HealthCheckInRiskPreviewDto
+            {
+                WarningLevel = result.WarningLevel,
+                RiskScore = result.RiskScore,
+                ConfidenceScore = result.ConfidenceScore,
+                Summary = result.Summary,
+                UrgencyAction = result.UrgencyAction,
+                RiskFactors = result.RiskFactors
+                    .OrderByDescending(x => x.Points)
+                    .Take(5)
+                    .ToList()
+            }
+        };
     }
 
     public async Task<LatestHealthCheckInDto?> GetLatestAsync(int userId, CancellationToken cancellationToken)
@@ -179,6 +191,68 @@ public class HealthCheckInService : IHealthCheckInService
             .ToListAsync(cancellationToken);
     }
 
+    private static HealthCheckIn BuildCheckIn(int userId, AnalyzeHealthCheckInRequest request, InferredCheckInContext inferred)
+    {
+        var contextData = CleanContextData(request.ContextData);
+        var symptoms = CleanList(request.Symptoms)
+            .Concat(inferred.Symptoms)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList();
+
+        return new HealthCheckIn
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            SleepHours = request.SleepHours,
+            PainLevel = request.PainLevel ?? inferred.PainLevel ?? 0,
+            PainLocation = Clean(request.PainLocation) ?? inferred.PainLocation,
+            PainType = Clean(request.PainType) ?? inferred.PainType,
+            PainDuration = Clean(request.PainDuration),
+            PainTrend = Clean(request.PainTrend) ?? inferred.PainTrend,
+            SymptomsJson = JsonSerializer.Serialize(symptoms, JsonOptions),
+            MedicalHistoryJson = JsonSerializer.Serialize(CleanList(request.MedicalHistory), JsonOptions),
+            ContextDataJson = JsonSerializer.Serialize(contextData, JsonOptions),
+            MotherAge = request.MotherAge,
+            SystolicBloodPressure = request.SystolicBloodPressure,
+            DiastolicBloodPressure = request.DiastolicBloodPressure,
+            TemperatureCelsius = request.TemperatureCelsius,
+            TookMedicationToday = request.TookMedicationToday,
+            MedicationNote = Clean(request.MedicationNote),
+            Mood = request.Mood.Trim(),
+            MilkStatus = request.MilkStatus.Trim(),
+            BabyFeeding = request.BabyFeeding.Trim(),
+            BabySleep = request.BabySleep.Trim(),
+            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static void ApplyStrictMedicalGuardrails(HealthAnalysisResult result)
+    {
+        if (result.WarningLevel.Equals("Emergency", StringComparison.OrdinalIgnoreCase))
+        {
+            result.UrgencyAction = "Gọi cấp cứu hoặc đến cơ sở y tế gần nhất ngay. Không chờ theo dõi tại nhà khi có dấu hiệu khẩn cấp.";
+            PrependRecommendation(result, "Ưu tiên an toàn: nhờ người thân hỗ trợ di chuyển và mang theo thông tin check-in này khi gặp nhân viên y tế.");
+            return;
+        }
+
+        if (result.WarningLevel.Equals("Red", StringComparison.OrdinalIgnoreCase))
+        {
+            result.UrgencyAction = "Liên hệ bác sĩ hoặc cơ sở y tế trong ngày để được đánh giá trực tiếp, đặc biệt nếu triệu chứng tăng lên.";
+            PrependRecommendation(result, "Không tự dùng thuốc mới hoặc trì hoãn thăm khám nếu có sốt, ra máu nhiều, khó thở, đau ngực hoặc bé bú kém rõ.");
+        }
+    }
+
+    private static void PrependRecommendation(HealthAnalysisResult result, string recommendation)
+    {
+        result.Recommendations = result.Recommendations
+            .Prepend(recommendation)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+    }
+
     private async Task<HealthAnalysisResponse> AnalyzeExistingCheckInAsync(
         int userId,
         HealthCheckIn checkIn,
@@ -198,14 +272,16 @@ public class HealthCheckInService : IHealthCheckInService
         }
 
         var result = RiskAssessmentEngine.Analyze(checkIn, recentHistory, availableServices);
+        ApplyStrictMedicalGuardrails(result);
         return MapAnalysisResponse(checkIn.Id, result, checkIn.Analysis?.Id ?? Guid.Empty);
     }
 
-    private async Task<string?> TryEnhanceWithGeminiAsync(
+    private async Task<AiEnhancementTelemetry> TryEnhanceWithGeminiAsync(
         HealthCheckIn checkIn,
         HealthAnalysisResult result,
         CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
@@ -223,7 +299,12 @@ Chỉ trả JSON hợp lệ, không markdown.
             var enhanced = ParseGeminiResult(response.Text);
             if (enhanced is null)
             {
-                return response.RawResponse;
+                return new AiEnhancementTelemetry
+                {
+                    Model = response.Model,
+                    LatencyMs = stopwatch.ElapsedMilliseconds,
+                    FallbackMode = "parse_failed"
+                };
             }
 
             result.Summary = Limit(enhanced.Summary, 320) ?? result.Summary;
@@ -243,12 +324,21 @@ Chỉ trả JSON hợp lệ, không markdown.
                 result.Recommendations = recommendations;
             }
 
-            return response.RawResponse;
+            return new AiEnhancementTelemetry
+            {
+                Model = response.Model,
+                LatencyMs = stopwatch.ElapsedMilliseconds,
+                FallbackMode = "gemini_enhanced"
+            };
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException or JsonException)
         {
             _logger.LogWarning(ex, "Gemini enhancement failed. Falling back to rule-based health analysis.");
-            return null;
+            return new AiEnhancementTelemetry
+            {
+                LatencyMs = stopwatch.ElapsedMilliseconds,
+                FallbackMode = "rule_engine_fallback"
+            };
         }
     }
 
@@ -327,6 +417,13 @@ Dữ liệu:
         public string? UrgencyAction { get; set; }
         public List<string> Recommendations { get; set; } = [];
         public string? NarrativeSummary { get; set; }
+    }
+
+    private sealed class AiEnhancementTelemetry
+    {
+        public string? Model { get; set; }
+        public long LatencyMs { get; set; }
+        public string FallbackMode { get; set; } = "rule_engine";
     }
 
     private async Task<InferredCheckInContext?> TryInferContextWithGeminiAsync(

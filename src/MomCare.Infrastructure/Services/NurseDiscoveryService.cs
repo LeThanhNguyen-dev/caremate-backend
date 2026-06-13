@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MomCare.Data;
 using MomCare.Dto;
 using MomCare.Enums;
@@ -13,11 +15,19 @@ public class NurseDiscoveryService : INurseDiscoveryService
 {
     private readonly MomCareContext _context;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IGeminiService _geminiService;
+    private readonly ILogger<NurseDiscoveryService> _logger;
 
-    public NurseDiscoveryService(MomCareContext context, ICloudinaryService cloudinaryService)
+    public NurseDiscoveryService(
+        MomCareContext context,
+        ICloudinaryService cloudinaryService,
+        IGeminiService geminiService,
+        ILogger<NurseDiscoveryService> logger)
     {
         _context = context;
         _cloudinaryService = cloudinaryService;
+        _geminiService = geminiService;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<NurseDiscoveryDto>> SearchAsync(
@@ -148,7 +158,7 @@ public class NurseDiscoveryService : INurseDiscoveryService
 
         var busySlotIdSet = busySlotIds.ToHashSet();
 
-        return nurses.Select(np =>
+        var ranked = nurses.Select(np =>
         {
             var nurseService = serviceId.HasValue
                 ? np.NurseServices.FirstOrDefault(ns => ns.ServiceId == serviceId.Value)
@@ -176,6 +186,7 @@ public class NurseDiscoveryService : INurseDiscoveryService
                 completedBookings,
                 totalReviews);
 
+            var matchReasons = BuildMatchReasons(np, distanceKm, nextAvailableAt, districtMatches, specialtyMatches, completedBookings, totalReviews);
             return new NurseDiscoveryDto
             {
                 UserId = np.UserId,
@@ -192,7 +203,9 @@ public class NurseDiscoveryService : INurseDiscoveryService
                 DistanceKm = distanceKm,
                 DistanceSource = distanceKm.HasValue ? "straight_line_from_customer_address" : null,
                 MatchScore = score,
-                MatchReasons = BuildMatchReasons(np, distanceKm, nextAvailableAt, districtMatches, specialtyMatches, completedBookings, totalReviews),
+                MatchReasons = matchReasons,
+                AiMatchSummary = BuildFallbackAiSummary(np.User.FullName, matchReasons, distanceKm),
+                AiSummaryFallback = true,
                 CompletedBookings = completedBookings,
                 TotalReviews = totalReviews,
                 NextAvailableAt = nextAvailableAt,
@@ -203,6 +216,9 @@ public class NurseDiscoveryService : INurseDiscoveryService
         .ThenBy(n => n.DistanceKm ?? double.MaxValue)
         .ThenByDescending(n => n.YearsExperience)
         .ToList();
+
+        await TryEnhanceMatchSummariesAsync(ranked);
+        return ranked;
     }
 
     public async Task<NurseProfileDetailDto?> GetDetailAsync(int userId)
@@ -366,6 +382,87 @@ public class NurseDiscoveryService : INurseDiscoveryService
         }
 
         return reasons;
+    }
+
+    private async Task TryEnhanceMatchSummariesAsync(List<NurseDiscoveryDto> ranked)
+    {
+        var top = ranked.Take(5).ToList();
+        if (top.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
+            {
+                SystemInstruction = """
+Bạn viết giải thích ngắn cho danh sách y tá CareMate. Không đổi thứ tự, không thêm y tá mới.
+Chỉ trả JSON object: {"summaries":[{"userId":1,"summary":"..."}]}.
+Mỗi summary tối đa 140 ký tự, tiếng Việt thân thiện.
+""",
+                Prompt = JsonSerializer.Serialize(top.Select(n => new
+                {
+                    n.UserId,
+                    n.FullName,
+                    n.Specialization,
+                    n.AverageRating,
+                    n.YearsExperience,
+                    n.DistanceKm,
+                    n.MatchReasons
+                })),
+                Temperature = 0.2,
+                MaxOutputTokens = 500
+            }, CancellationToken.None);
+
+            var parsed = ParseMatchSummaries(response.Text);
+            foreach (var nurse in ranked)
+            {
+                if (parsed.TryGetValue(nurse.UserId, out var summary) && !string.IsNullOrWhiteSpace(summary))
+                {
+                    nurse.AiMatchSummary = summary.Length <= 180 ? summary : summary[..180].TrimEnd() + "...";
+                    nurse.AiSummaryFallback = false;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException or JsonException)
+        {
+            _logger.LogWarning(ex, "Gemini nurse match summary failed. Falling back to match reasons.");
+        }
+    }
+
+    private static Dictionary<int, string> ParseMatchSummaries(string text)
+    {
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        if (start < 0 || end <= start)
+        {
+            return [];
+        }
+
+        var payload = JsonSerializer.Deserialize<MatchSummaryPayload>(text[start..(end + 1)], new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        return payload?.Summaries
+            .Where(x => x.UserId > 0 && !string.IsNullOrWhiteSpace(x.Summary))
+            .GroupBy(x => x.UserId)
+            .ToDictionary(x => x.Key, x => x.First().Summary.Trim()) ?? [];
+    }
+
+    private static string BuildFallbackAiSummary(string name, List<string> reasons, double? distanceKm)
+    {
+        var reasonText = reasons.Count > 0 ? string.Join(", ", reasons.Take(2)) : "hồ sơ phù hợp với nhu cầu chăm sóc";
+        var distance = distanceKm.HasValue ? $" Khoảng cách khoảng {distanceKm.Value:0.0}km." : string.Empty;
+        return $"Y tá {name} phù hợp vì {reasonText}.{distance}";
+    }
+
+    private sealed class MatchSummaryPayload
+    {
+        public List<MatchSummaryItem> Summaries { get; set; } = [];
+    }
+
+    private sealed class MatchSummaryItem
+    {
+        public int UserId { get; set; }
+        public string Summary { get; set; } = string.Empty;
     }
 
     private static bool SpecialtyMatchesService(NurseProfile profile, Service? service)

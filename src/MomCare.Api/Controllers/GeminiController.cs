@@ -12,11 +12,13 @@ public class GeminiController : ControllerBase
 {
     private readonly IGeminiService _geminiService;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<GeminiController> _logger;
 
-    public GeminiController(IGeminiService geminiService, IConfiguration configuration)
+    public GeminiController(IGeminiService geminiService, IConfiguration configuration, ILogger<GeminiController> logger)
     {
         _geminiService = geminiService;
         _configuration = configuration;
+        _logger = logger;
     }
 
     [HttpPost("generate")]
@@ -41,8 +43,9 @@ public class GeminiController : ControllerBase
         {
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
+            _logger.LogError(ex, "Gemini request failed.");
             return StatusCode(StatusCodes.Status502BadGateway, new { message = "Gemini request failed." });
         }
     }

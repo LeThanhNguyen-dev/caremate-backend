@@ -59,7 +59,7 @@ public class GeminiService : IGeminiService
             return cachedResponse;
         }
 
-        var model = string.IsNullOrWhiteSpace(_options.Model) ? "gemini-2.0-flash" : _options.Model.Trim();
+        var model = string.IsNullOrWhiteSpace(_options.Model) ? "gemini-2.0-flash-stable" : _options.Model.Trim();
         var endpoint = $"{_options.BaseUrl.TrimEnd('/')}/v1beta/models/{NormalizeModelName(model)}:generateContent";
 
         // Setup custom timeout

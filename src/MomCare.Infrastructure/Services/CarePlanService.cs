@@ -108,7 +108,8 @@ public class CarePlanService : ICarePlanService
         var reasoningResult = await _geminiReasoningService.ReasonAsync(tags, servicesForAi, null, cancellationToken);
         var validatedResult = _planValidatorEngine.Validate(reasoningResult, servicesForAi);
 
-        var recommendedServices = validatedResult.ServiceScores.Select(ss => {
+        var recommendedServices = validatedResult.ServiceScores.Select(ss =>
+        {
             var s = activeServices.FirstOrDefault(x => x.Id.ToString() == ss.ServiceId);
             return new RecommendedCareServiceDto
             {
@@ -139,7 +140,7 @@ public class CarePlanService : ICarePlanService
             PlanItemsJson = "[]",
             RecommendedNursesJson = JsonSerializer.Serialize(nurses, JsonOptions),
             Disclaimer = Disclaimer,
-            AiModel = validatedResult.IsFromAi ? "gemini-2.0-flash" : "rule_engine",
+            AiModel = validatedResult.IsFromAi ? "gemini-2.0-flash-stable" : "rule_engine",
             FallbackMode = !validatedResult.IsFromAi,
             IsAiReasoned = validatedResult.IsFromAi,
             SymptomTagsJson = JsonSerializer.Serialize(tags, JsonOptions),
@@ -272,7 +273,8 @@ public class CarePlanService : ICarePlanService
         var reasoningResult = await _geminiReasoningService.ReasonAsync(tags, servicesForAi, bookingContext, cancellationToken);
         var validatedResult = _planValidatorEngine.Validate(reasoningResult, servicesForAi);
 
-        var items = validatedResult.PlanItems.Select(pi => {
+        var items = validatedResult.PlanItems.Select(pi =>
+        {
             var matchedSession = booking.SessionLogs.FirstOrDefault(s => s.SessionNumber == pi.SessionNumber);
             return new CarePlanTimelineItemDto
             {
@@ -309,7 +311,7 @@ public class CarePlanService : ICarePlanService
             PlanItemsJson = JsonSerializer.Serialize(items, JsonOptions),
             RecommendedNursesJson = JsonSerializer.Serialize(nurses, JsonOptions),
             Disclaimer = Disclaimer,
-            AiModel = validatedResult.IsFromAi ? "gemini-2.0-flash" : "rule_engine",
+            AiModel = validatedResult.IsFromAi ? "gemini-2.0-flash-stable" : "rule_engine",
             FallbackMode = !validatedResult.IsFromAi,
             IsAiReasoned = validatedResult.IsFromAi,
             SymptomTagsJson = JsonSerializer.Serialize(tags, JsonOptions),

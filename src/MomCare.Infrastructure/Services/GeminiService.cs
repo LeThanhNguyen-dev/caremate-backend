@@ -94,7 +94,9 @@ public class GeminiService : IGeminiService
                     (int)response.StatusCode,
                     rawResponse);
 
-                throw new InvalidOperationException("Gemini request failed.");
+                var msg = $"Gemini API returned {(int)response.StatusCode}: {rawResponse}";
+                _logger.LogError("Gemini error: {Msg}", msg);
+                throw new InvalidOperationException("Gemini request failed: " + msg);
             }
 
             var text = ExtractText(rawResponse);

@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
@@ -308,7 +308,11 @@ Chỉ trả JSON hợp lệ, không markdown.
             }
 
             result.Summary = Limit(enhanced.Summary, 320) ?? result.Summary;
-            result.UrgencyAction = Limit(enhanced.UrgencyAction, 180) ?? result.UrgencyAction;
+            if (!result.WarningLevel.Equals("Red", StringComparison.OrdinalIgnoreCase) &&
+                !result.WarningLevel.Equals("Emergency", StringComparison.OrdinalIgnoreCase))
+            {
+                result.UrgencyAction = Limit(enhanced.UrgencyAction, 180) ?? result.UrgencyAction;
+            }
             result.NarrativeSummary = Limit(enhanced.NarrativeSummary, 420) ?? result.NarrativeSummary;
 
             var recommendations = enhanced.Recommendations
@@ -323,6 +327,8 @@ Chỉ trả JSON hợp lệ, không markdown.
             {
                 result.Recommendations = recommendations;
             }
+
+            ApplyStrictMedicalGuardrails(result);
 
             return new AiEnhancementTelemetry
             {

@@ -8,4 +8,5 @@ public interface IAiChatService
     Task<IReadOnlyList<AiChatConversationDto>> GetConversationsAsync(int userId, CancellationToken cancellationToken);
     Task<ServiceResult<AiChatMessageDto>> SendOrCreateMessageAsync(int userId, string content, CancellationToken cancellationToken);
     Task<ServiceResult<AiChatMessageDto>> SendMessageAsync(int userId, Guid conversationId, string content, CancellationToken cancellationToken);
+    Task<ServiceResult<IReadOnlyList<AiChatMessageDto>>> GetMessagesAsync(int userId, Guid conversationId, CancellationToken cancellationToken);
 }

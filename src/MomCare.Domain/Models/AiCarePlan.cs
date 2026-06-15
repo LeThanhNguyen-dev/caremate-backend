@@ -56,6 +56,16 @@ public class AiCarePlan
     [Column("fallback_mode")]
     public bool FallbackMode { get; set; }
 
+    [Column("is_ai_reasoned")]
+    public bool IsAiReasoned { get; set; }
+
+    [Column("symptom_tags_json")]
+    public string SymptomTagsJson { get; set; } = "{}";
+
+    [Column("gemini_prompt_version")]
+    [MaxLength(80)]
+    public string? GeminiPromptVersion { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

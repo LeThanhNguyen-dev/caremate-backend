@@ -11,6 +11,22 @@ public class GeminiGenerateRequest
     public string? SystemInstruction { get; set; }
     public double? Temperature { get; set; }
     public int? MaxOutputTokens { get; set; }
+    public int? TimeoutSeconds { get; set; }
+    public bool BypassCache { get; set; }
+    public string? CallType { get; set; }
+    public string? PromptVersion { get; set; }
+    public List<GeminiContentDto>? Contents { get; set; }
+}
+
+public class GeminiContentDto
+{
+    public string Role { get; set; } = string.Empty;
+    public List<GeminiPartDto> Parts { get; set; } = [];
+}
+
+public class GeminiPartDto
+{
+    public string Text { get; set; } = string.Empty;
 }
 
 public class GeminiGenerateResponse

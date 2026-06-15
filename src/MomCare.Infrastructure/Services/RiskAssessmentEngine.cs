@@ -1,10 +1,39 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using MomCare.Dto;
 using MomCare.Models;
 
 namespace MomCare.Services;
+
+public class RiskAssessmentContext
+{
+    public HealthCheckIn CheckIn { get; }
+    private Dictionary<string, string>? _contextData;
+    private List<string>? _symptoms;
+    private List<string>? _medicalHistory;
+
+    public RiskAssessmentContext(HealthCheckIn checkIn)
+    {
+        CheckIn = checkIn;
+    }
+
+    public Dictionary<string, string> ContextData => _contextData ??= DeserializeStringDictionary(CheckIn.ContextDataJson);
+    public List<string> Symptoms => _symptoms ??= DeserializeStringList(CheckIn.SymptomsJson);
+    public List<string> MedicalHistory => _medicalHistory ??= DeserializeStringList(CheckIn.MedicalHistoryJson);
+
+    private static List<string> DeserializeStringList(string json)
+    {
+        try { return JsonSerializer.Deserialize<List<string>>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? []; }
+        catch { return []; }
+    }
+
+    private static Dictionary<string, string> DeserializeStringDictionary(string json)
+    {
+        try { return JsonSerializer.Deserialize<Dictionary<string, string>>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? []; }
+        catch { return []; }
+    }
+}
 
 public static class RiskAssessmentEngine
 {
@@ -26,6 +55,7 @@ public static class RiskAssessmentEngine
     [
         "sốt cao", "khó thở", "chảy máu nhiều", "đau dữ dội", "vết mổ sưng đỏ", "vết mổ chảy dịch"
     ];
+
     public static HealthAnalysisResult Analyze(
         HealthCheckIn currentCheckIn,
         List<HealthCheckIn> recentHistory,
@@ -35,29 +65,33 @@ public static class RiskAssessmentEngine
             .Where(x => x.Id != currentCheckIn.Id)
             .OrderByDescending(x => x.CreatedAt)
             .ToList();
-        var factors = BuildRiskFactors(currentCheckIn, historyBeforeCurrent);
+
+        var currentCtx = new RiskAssessmentContext(currentCheckIn);
+
+        var factors = BuildRiskFactors(currentCtx, historyBeforeCurrent);
         var previousScore = historyBeforeCurrent.Count > 0
-            ? CalculateWeightedRiskScore(BuildRiskFactors(historyBeforeCurrent[0], historyBeforeCurrent.Skip(1).ToList()), GetPostpartumDay(historyBeforeCurrent[0]))
+            ? CalculateWeightedRiskScore(BuildRiskFactors(new RiskAssessmentContext(historyBeforeCurrent[0]), historyBeforeCurrent.Skip(1).ToList()), GetPostpartumDay(new RiskAssessmentContext(historyBeforeCurrent[0])))
             : 0;
         var riskScore = CalibrateRiskScore(
-            CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCheckIn)),
-            currentCheckIn);
+            CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCtx)),
+            currentCtx);
+
         if (previousScore > 0 && riskScore - previousScore >= 30)
         {
             AddFactorIf(factors, true, "rapid_deterioration", "Điểm rủi ro tăng nhanh so với lần check-in trước", 12, "VitalSigns");
             riskScore = CalibrateRiskScore(
-                CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCheckIn)),
-                currentCheckIn);
+                CalculateWeightedRiskScore(factors, GetPostpartumDay(currentCtx)),
+                currentCtx);
         }
 
-        var warningLevel = DetermineWarningLevel(riskScore, currentCheckIn, recentHistory);
+        var warningLevel = DetermineWarningLevel(riskScore, currentCtx, recentHistory);
         var trendSignals = BuildTrendSignals(recentHistory);
-        var confidence = CalculateConfidence(currentCheckIn, recentHistory);
-        var coverage = CalculateDataCoverage(currentCheckIn);
-        var ppd = ScreenPostpartumDepression(currentCheckIn, recentHistory);
-        var nutrition = BuildNutritionGuidance(currentCheckIn, recentHistory);
-        var recommendations = BuildRecommendations(currentCheckIn, recentHistory, factors, warningLevel);
-        var carePlan = BuildCarePlan(warningLevel, currentCheckIn, recentHistory);
+        var confidence = CalculateConfidence(currentCtx, recentHistory);
+        var coverage = CalculateDataCoverage(currentCtx);
+        var ppd = ScreenPostpartumDepression(currentCtx, recentHistory);
+        var nutrition = BuildNutritionGuidance(currentCtx, recentHistory);
+        var recommendations = BuildRecommendations(currentCtx, recentHistory, factors, warningLevel);
+        var carePlan = BuildCarePlan(warningLevel, currentCtx, recentHistory);
 
         var result = new HealthAnalysisResult
         {
@@ -72,7 +106,7 @@ public static class RiskAssessmentEngine
             TrendSignals = trendSignals,
             Recommendations = recommendations,
             CarePlan = carePlan,
-            SuggestedServices = BuildSuggestedServices(currentCheckIn, recentHistory, availableServices),
+            SuggestedServices = BuildSuggestedServices(currentCtx, recentHistory, availableServices),
             PpdScreeningScore = ppd.Score,
             PpdScreeningLevel = ppd.Level,
             PpdScreeningNote = ppd.Note,
@@ -87,43 +121,44 @@ public static class RiskAssessmentEngine
         return result;
     }
 
-    private static List<RiskFactorDto> BuildRiskFactors(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    private static List<RiskFactorDto> BuildRiskFactors(RiskAssessmentContext currentCtx, List<HealthCheckIn> recentHistory)
     {
         var factors = new List<RiskFactorDto>();
+        var currentCheckIn = currentCtx.CheckIn;
 
         AddFactorIf(factors, HasDangerKeyword(currentCheckIn.Note), "danger_note", "Ghi chú có dấu hiệu nguy hiểm", 60);
-        AddFactorIf(factors, HasEmergencySymptom(currentCheckIn), "emergency_symptom", "Có triệu chứng cần xử lý khẩn cấp", 80);
-        AddFactorIf(factors, HasRedFlagSymptom(currentCheckIn), "red_flag_symptom", "Có dấu hiệu cảnh báo đỏ", 55);
-        AddFactorIf(factors, HasChestPainBreathingCombo(currentCheckIn), "chest_pain_breathing", "Đau ngực kèm khó thở", 90);
-        AddFactorIf(factors, currentCheckIn.MotherAge >= 50 && HasChestPainBreathingCombo(currentCheckIn), "age_chest_breathing", "Trên 50 tuổi kèm đau ngực và khó thở", 30);
+        AddFactorIf(factors, HasEmergencySymptom(currentCtx), "emergency_symptom", "Có triệu chứng cần xử lý khẩn cấp", 80);
+        AddFactorIf(factors, HasRedFlagSymptom(currentCtx), "red_flag_symptom", "Có dấu hiệu cảnh báo đỏ", 55);
+        AddFactorIf(factors, HasChestPainBreathingCombo(currentCtx), "chest_pain_breathing", "Đau ngực kèm khó thở", 90);
+        AddFactorIf(factors, currentCheckIn.MotherAge >= 50 && HasChestPainBreathingCombo(currentCtx), "age_chest_breathing", "Trên 50 tuổi kèm đau ngực và khó thở", 30);
         AddFactorIf(factors, currentCheckIn.TemperatureCelsius >= 38.5, "high_temperature", "Sốt từ 38.5°C trở lên", 40);
         AddFactorIf(factors, currentCheckIn.SystolicBloodPressure >= 160 || currentCheckIn.DiastolicBloodPressure >= 110, "very_high_bp", "Huyết áp rất cao", 60);
         AddFactorIf(factors, currentCheckIn.SystolicBloodPressure >= 140 || currentCheckIn.DiastolicBloodPressure >= 90, "high_bp", "Huyết áp cao", 30);
         AddFactorIf(factors,
-            currentCheckIn.SystolicBloodPressure >= 140 && HasSymptom(currentCheckIn, "đau đầu", "mờ mắt"),
+            currentCheckIn.SystolicBloodPressure >= 140 && HasSymptom(currentCtx, "đau đầu", "mờ mắt"),
             "preeclampsia_signs",
             "Có dấu hiệu nghi ngờ tiền sản giật - cần khám ngay",
             75);
         AddFactorIf(factors,
-            currentCheckIn.TemperatureCelsius >= 38.0 && HasContextValue(currentCheckIn, "incisionStatus", "RedSwollen", "Discharge"),
+            currentCheckIn.TemperatureCelsius >= 38.0 && HasContextValue(currentCtx, "incisionStatus", "RedSwollen", "Discharge"),
             "wound_infection_signs",
             "Sốt kèm vết mổ bất thường - nghi nhiễm trùng",
             70);
         AddFactorIf(factors,
-            GetContextNumber(currentCheckIn, "babyWetDiapers") is double wd
+            GetContextNumber(currentCtx, "babyWetDiapers") is double wd
                 && wd < 4
                 && IsFeedingConcern(currentCheckIn.BabyFeeding)
-                && HasContextValue(currentCheckIn, "babyActivity", "Lethargic"),
+                && HasContextValue(currentCtx, "babyActivity", "Lethargic"),
             "baby_dehydration_signs",
             "Bé có dấu hiệu mất nước - cần theo dõi khẩn",
             65);
-        AddFactorIf(factors, HasMedicalHistory(currentCheckIn, "tiểu đường", "tieu duong", "tim mạch", "tim mach", "huyết áp", "huyet ap"), "medical_history", "Có tiền sử bệnh cần theo dõi", 20);
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "bleedingLevel", "Heavy"), "heavy_bleeding_context", "Sản dịch hoặc ra máu đang ở mức nhiều", 55);
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "incisionStatus", "RedSwollen", "Discharge"), "incision_context", "Vết mổ hoặc vết khâu có dấu hiệu cần theo dõi", 35);
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "swellingLevel", "Severe"), "severe_swelling_context", "Phù nhiều cần theo dõi thêm", 25);
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "urinationIssue", "true"), "urination_issue_context", "Có khó khăn khi tiểu tiện", 18);
-        AddFactorIf(factors, GetContextNumber(currentCheckIn, "babyWetDiapers") is double wetDiapers && wetDiapers > 0 && wetDiapers < 4, "low_wet_diapers_context", "Số tã ướt của bé thấp", 30);
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "babyActivity", "Lethargic"), "baby_lethargy_context", "Bé có dấu hiệu lừ đừ hoặc yếu", 45);
+        AddFactorIf(factors, HasMedicalHistory(currentCtx, "tiểu đường", "tieu duong", "tim mạch", "tim mach", "huyết áp", "huyet ap"), "medical_history", "Có tiền sử bệnh cần theo dõi", 20);
+        AddFactorIf(factors, HasContextValue(currentCtx, "bleedingLevel", "Heavy"), "heavy_bleeding_context", "Sản dịch hoặc ra máu đang ở mức nhiều", 55);
+        AddFactorIf(factors, HasContextValue(currentCtx, "incisionStatus", "RedSwollen", "Discharge"), "incision_context", "Vết mổ hoặc vết khâu có dấu hiệu cần theo dõi", 35);
+        AddFactorIf(factors, HasContextValue(currentCtx, "swellingLevel", "Severe"), "severe_swelling_context", "Phù nhiều cần theo dõi thêm", 25);
+        AddFactorIf(factors, HasContextValue(currentCtx, "urinationIssue", "true"), "urination_issue_context", "Có khó khăn khi tiểu tiện", 18);
+        AddFactorIf(factors, GetContextNumber(currentCtx, "babyWetDiapers") is double wetDiapers && wetDiapers > 0 && wetDiapers < 4, "low_wet_diapers_context", "Số tã ướt của bé thấp", 30);
+        AddFactorIf(factors, HasContextValue(currentCtx, "babyActivity", "Lethargic"), "baby_lethargy_context", "Bé có dấu hiệu lừ đừ hoặc yếu", 45);
         AddFactorIf(factors, IsWorseningPain(currentCheckIn), "pain_worsening", "Đau đang tăng lên", 18);
         AddFactorIf(factors, currentCheckIn.PainLevel >= 9, "severe_pain", "Mức đau rất cao", 35);
         AddFactorIf(factors, currentCheckIn.PainLevel == 8, "high_pain", "Mức đau cao", 28);
@@ -140,18 +175,18 @@ public static class RiskAssessmentEngine
         var lastThree = recentHistory.Take(3).ToList();
         AddFactorIf(factors, lastThree.Count == 3 && lastThree.Count(x => x.SleepHours < 5) >= 3, "repeated_low_sleep", "Mẹ ngủ dưới 5 giờ trong 3 lần check-in gần nhất", 25);
         AddFactorIf(factors, recentHistory.Count(x => IsStressMood(x.Mood)) >= 3, "repeated_stress", "Stress hoặc lo âu lặp lại nhiều lần trong lịch sử gần đây", 22);
-        AddFactorIf(factors, HasActiveRepeatedFeedingConcern(currentCheckIn, recentHistory), "repeated_feeding_concern", "Tình trạng bú của bé bất thường lặp lại trong các lần gần đây", 16);
+        AddFactorIf(factors, HasActiveRepeatedFeedingConcern(currentCtx, recentHistory), "repeated_feeding_concern", "Tình trạng bú của bé bất thường lặp lại trong các lần gần đây", 16);
         AddFactorIf(factors, IsPainIncreasing(recentHistory), "pain_increasing", "Mức đau có xu hướng tăng", 15);
         AddFactorIf(factors, IsDeterioration(recentHistory, x => x.PainLevel, 3), "pain_deterioration", "Mức đau tăng liên tục 3 lần check-in gần đây", 30);
 
-        var postpartumDay = GetPostpartumDay(currentCheckIn);
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "swellingLevel", "Severe") && ContainsAny(currentCheckIn.PainLocation, "chân", "chan", "bắp chân", "bap chan") && postpartumDay is <= 21, "dvt_signs", "Phù chân nặng kèm đau bắp chân trong giai đoạn sớm sau sinh", 70, "VitalSigns");
-        AddFactorIf(factors, ContainsAny(currentCheckIn.PainLocation, "ngực/sữa", "nguc", "sữa", "sua", "vú", "vu") && currentCheckIn.TemperatureCelsius >= 38 && (HasContextValue(currentCheckIn, "incisionStatus", "RedSwollen") || HasSymptom(currentCheckIn, "sưng đỏ", "sung do")), "mastitis_signs", "Đau vùng ngực/sữa kèm sốt và sưng đỏ, nghi viêm vú", 55, "Feeding");
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "bleedingLevel", "Heavy") && HasSymptom(currentCheckIn, "chóng mặt", "chong mat") && postpartumDay is >= 1 and <= 42, "late_pph_signs", "Ra máu nhiều kèm chóng mặt trong 42 ngày sau sinh", 75, "Bleeding");
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "babyActivity", "Lethargic") && IsFeedingConcern(currentCheckIn.BabyFeeding) && postpartumDay is <= 14, "neonatal_jaundice_signs", "Bé lừ đừ và bú ít trong 14 ngày đầu, cần sàng lọc vàng da sơ sinh", 60, "Baby");
-        AddFactorIf(factors, HasContextValue(currentCheckIn, "urinationIssue", "true") && currentCheckIn.TemperatureCelsius >= 38 && ContainsAny(currentCheckIn.PainLocation, "bụng dưới", "bung duoi"), "uti_signs", "Khó tiểu kèm sốt và đau bụng dưới, nghi nhiễm trùng tiết niệu", 45, "VitalSigns");
-        AddFactorIf(factors, (currentCheckIn.SystolicBloodPressure >= 140 || currentCheckIn.DiastolicBloodPressure >= 90) && ContainsAny(currentCheckIn.PainLocation, "bụng trên", "bung tren") && HasSymptom(currentCheckIn, "buồn nôn", "buon non"), "late_hellp_signs", "Huyết áp cao kèm đau bụng trên và buồn nôn, cần loại trừ HELLP muộn", 85, "VitalSigns");
-        AddFactorIf(factors, HasSymptom(currentCheckIn, "chóng mặt", "chong mat", "mệt", "met") && ContainsAny(currentCheckIn.Note, "tim nhanh", "mạch nhanh", "mach nhanh", "hồi hộp", "hoi hop"), "severe_anemia_signs", "Chóng mặt, mệt và hồi hộp có thể gợi ý thiếu máu cần theo dõi", 40, "VitalSigns");
+        var postpartumDay = GetPostpartumDay(currentCtx);
+        AddFactorIf(factors, HasContextValue(currentCtx, "swellingLevel", "Severe") && ContainsAny(currentCheckIn.PainLocation, "chân", "chan", "bắp chân", "bap chan") && postpartumDay is <= 21, "dvt_signs", "Phù chân nặng kèm đau bắp chân trong giai đoạn sớm sau sinh", 70, "VitalSigns");
+        AddFactorIf(factors, ContainsAny(currentCheckIn.PainLocation, "ngực/sữa", "nguc", "sữa", "sua", "vú", "vu") && currentCheckIn.TemperatureCelsius >= 38 && (HasContextValue(currentCtx, "incisionStatus", "RedSwollen") || HasSymptom(currentCtx, "sưng đỏ", "sung do")), "mastitis_signs", "Đau vùng ngực/sữa kèm sốt và sưng đỏ, nghi viêm vú", 55, "Feeding");
+        AddFactorIf(factors, HasContextValue(currentCtx, "bleedingLevel", "Heavy") && HasSymptom(currentCtx, "chóng mặt", "chong mat") && postpartumDay is >= 1 and <= 42, "late_pph_signs", "Ra máu nhiều kèm chóng mặt trong 42 ngày sau sinh", 75, "Bleeding");
+        AddFactorIf(factors, HasContextValue(currentCtx, "babyActivity", "Lethargic") && IsFeedingConcern(currentCheckIn.BabyFeeding) && postpartumDay is <= 14, "neonatal_jaundice_signs", "Bé lừ đừ và bú ít trong 14 ngày đầu, cần sàng lọc vàng da sơ sinh", 60, "Baby");
+        AddFactorIf(factors, HasContextValue(currentCtx, "urinationIssue", "true") && currentCheckIn.TemperatureCelsius >= 38 && ContainsAny(currentCheckIn.PainLocation, "bụng dưới", "bung duoi"), "uti_signs", "Khó tiểu kèm sốt và đau bụng dưới, nghi nhiễm trùng tiết niệu", 45, "VitalSigns");
+        AddFactorIf(factors, (currentCheckIn.SystolicBloodPressure >= 140 || currentCheckIn.DiastolicBloodPressure >= 90) && ContainsAny(currentCheckIn.PainLocation, "bụng trên", "bung tren") && HasSymptom(currentCtx, "buồn nôn", "buon non"), "late_hellp_signs", "Huyết áp cao kèm đau bụng trên và buồn nôn, cần loại trừ HELLP muộn", 85, "VitalSigns");
+        AddFactorIf(factors, HasSymptom(currentCtx, "chóng mặt", "chong mat", "mệt", "met") && ContainsAny(currentCheckIn.Note, "tim nhanh", "mạch nhanh", "mach nhanh", "hồi hộp", "hoi hop"), "severe_anemia_signs", "Chóng mặt, mệt và hồi hộp có thể gợi ý thiếu máu cần theo dõi", 40, "VitalSigns");
         AddFactorIf(factors, currentCheckIn.TemperatureCelsius >= 38 && ContainsAny(currentCheckIn.Note, "tim nhanh", "mạch nhanh", "mach nhanh", "hồi hộp", "hoi hop"), "tachycardia_fever", "Sốt kèm dấu hiệu nhịp tim nhanh cần theo dõi nhiễm trùng nặng", 50, "VitalSigns");
         AddFactorIf(
             factors,
@@ -189,19 +224,27 @@ public static class RiskAssessmentEngine
         }
     }
 
-    private static string DetermineWarningLevel(int riskScore, HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    private static string DetermineWarningLevel(int riskScore, RiskAssessmentContext currentCtx, List<HealthCheckIn> recentHistory)
     {
-        if (HasEmergencyCondition(currentCheckIn))
+        var currentCheckIn = currentCtx.CheckIn;
+        if (HasEmergencyCondition(currentCtx))
         {
             return "Emergency";
         }
 
-        if (HasStrongRedFlag(currentCheckIn))
+        if (HasStrongRedFlag(currentCtx))
         {
             return "Red";
         }
 
-        var thresholds = GetStageThresholds(GetPostpartumDay(currentCheckIn));
+        var thresholds = GetStageThresholds(GetPostpartumDay(currentCtx));
+
+        // Add Orange warning level for moderate risk indicators (cần khám trong 24h nhưng chưa cần cấp cứu)
+        if (riskScore >= (thresholds.Yellow + thresholds.Red) / 2 || HasModerateConcern(currentCtx))
+        {
+            return "Orange";
+        }
+
         if (currentCheckIn.PainLevel >= 8
             || riskScore >= thresholds.Yellow
             || recentHistory.Take(3).Count(x => x.SleepHours < 5) >= 3)
@@ -212,19 +255,19 @@ public static class RiskAssessmentEngine
         return "Green";
     }
 
-    private static int CalibrateRiskScore(int rawScore, HealthCheckIn checkIn)
+    private static int CalibrateRiskScore(int rawScore, RiskAssessmentContext currentCtx)
     {
-        if (HasEmergencyCondition(checkIn))
+        if (HasEmergencyCondition(currentCtx))
         {
             return Math.Clamp(rawScore, 85, 100);
         }
 
-        if (HasStrongRedFlag(checkIn))
+        if (HasStrongRedFlag(currentCtx))
         {
             return Math.Clamp(rawScore, 55, 84);
         }
 
-        if (HasModerateConcern(checkIn))
+        if (HasModerateConcern(currentCtx))
         {
             return Math.Clamp(rawScore, 25, 60);
         }
@@ -307,19 +350,21 @@ public static class RiskAssessmentEngine
         {
             "Emergency" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức đỏ khẩn cấp vì có dấu hiệu cần xử lý ngay. Nên liên hệ cấp cứu hoặc cơ sở y tế gần nhất.{reason}",
             "Red" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức đỏ. Nên liên hệ bác sĩ hoặc cơ sở y tế trong ngày để được hướng dẫn cụ thể.{reason}",
+            "Orange" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức theo dõi đặc biệt (Orange). Mẹ nên liên hệ y tá/bác sĩ tư vấn trong vòng 24 giờ tới.{reason}",
             "Yellow" => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức cần theo dõi. Chưa ghi nhận dấu hiệu khẩn cấp rõ, nhưng mẹ nên quan sát sát trong 24-48 giờ tới.{reason}",
             _ => $"Điểm rủi ro hiện tại là {riskScore}/100, thuộc mức thấp. Tình trạng tương đối ổn, tiếp tục check-in hằng ngày để phát hiện thay đổi sớm.{reason}"
         };
     }
 
     private static List<string> BuildRecommendations(
-        HealthCheckIn currentCheckIn,
+        RiskAssessmentContext currentCtx,
         List<HealthCheckIn> recentHistory,
         List<RiskFactorDto> factors,
         string warningLevel)
     {
         var recommendations = new List<string>();
-        var postpartumDay = GetContextNumber(currentCheckIn, "postpartumDay");
+        var currentCheckIn = currentCtx.CheckIn;
+        var postpartumDay = GetContextNumber(currentCtx, "postpartumDay");
 
         if (postpartumDay is > 0 and <= 7)
         {
@@ -334,7 +379,7 @@ public static class RiskAssessmentEngine
             recommendations.Add("Giai đoạn 2-6 tuần: theo dõi tâm trạng và giấc ngủ để phát hiện baby blues hoặc kiệt sức sớm.");
         }
 
-        if (warningLevel is "Emergency" or "Red")
+        if (warningLevel is "Emergency" or "Red" or "Orange")
         {
             recommendations.Add("Ưu tiên an toàn: liên hệ bác sĩ hoặc cơ sở y tế nếu triệu chứng tiếp tục tăng, bé bỏ bú, sốt cao, khó thở hoặc có chảy máu bất thường.");
         }
@@ -361,7 +406,7 @@ public static class RiskAssessmentEngine
 
         if (IsLowMilk(currentCheckIn.MilkStatus))
         {
-            recommendations.Add("Nếu sữa ít hoặc đau khi cho bú kéo dài, nên cân nhắc tư vấn cho bú để điều chỉnh tư thế và lịch bú phù hợp.");
+            recommendations.Add("If sữa ít hoặc đau khi cho bú kéo dài, nên cân nhắc tư vấn cho bú để điều chỉnh tư thế và lịch bú phù hợp.");
         }
 
         if (recommendations.Count == 0)
@@ -372,11 +417,12 @@ public static class RiskAssessmentEngine
         return recommendations.Distinct(StringComparer.OrdinalIgnoreCase).Take(6).ToList();
     }
 
-    private static List<CarePlanItemDto> BuildCarePlan(string warningLevel, HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    private static List<CarePlanItemDto> BuildCarePlan(string warningLevel, RiskAssessmentContext currentCtx, List<HealthCheckIn> recentHistory)
     {
         var plan = new List<CarePlanItemDto>();
+        var currentCheckIn = currentCtx.CheckIn;
 
-        if (warningLevel is "Emergency" or "Red")
+        if (warningLevel is "Emergency" or "Red" or "Orange")
         {
             plan.Add(new CarePlanItemDto
             {
@@ -417,12 +463,13 @@ public static class RiskAssessmentEngine
     }
 
     private static List<SuggestedServiceDto> BuildSuggestedServices(
-        HealthCheckIn currentCheckIn,
+        RiskAssessmentContext currentCtx,
         List<HealthCheckIn> recentHistory,
         IReadOnlyList<SuggestedServiceDto> availableServices)
     {
         var services = new List<SuggestedServiceDto>();
-        var repeatedFeedingConcern = HasActiveRepeatedFeedingConcern(currentCheckIn, recentHistory);
+        var currentCheckIn = currentCtx.CheckIn;
+        var repeatedFeedingConcern = HasActiveRepeatedFeedingConcern(currentCtx, recentHistory);
         var repeatedStress = recentHistory.Count(x => IsStressMood(x.Mood)) >= 3;
         var repeatedMilkConcern = recentHistory.Count(x => IsLowMilk(x.MilkStatus)) >= 2;
         var painIncreasing = IsPainIncreasing(recentHistory);
@@ -461,6 +508,7 @@ public static class RiskAssessmentEngine
         {
             "Emergency" => "Gọi cấp cứu 115 hoặc đến cơ sở y tế gần nhất ngay.",
             "Red" => "Liên hệ bác sĩ hoặc cơ sở y tế trong ngày hôm nay.",
+            "Orange" => "Liên hệ nhân viên y tế hoặc y tá CareMate trong vòng 24 giờ tới.",
             "Yellow" => "Theo dõi sát trong 24-48 giờ và check-in lại nếu triệu chứng tăng.",
             _ => "Tiếp tục check-in hằng ngày và duy trì chăm sóc cơ bản."
         };
@@ -523,9 +571,9 @@ public static class RiskAssessmentEngine
             || babyFeeding.Equals("RefusesFeeding", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool HasActiveRepeatedFeedingConcern(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    private static bool HasActiveRepeatedFeedingConcern(RiskAssessmentContext currentCtx, List<HealthCheckIn> recentHistory)
     {
-        if (!IsFeedingConcern(currentCheckIn.BabyFeeding))
+        if (!IsFeedingConcern(currentCtx.CheckIn.BabyFeeding))
         {
             return false;
         }
@@ -553,26 +601,27 @@ public static class RiskAssessmentEngine
         return VietnameseTextHelper.ContainsAny(note, DangerousKeywords);
     }
 
-    private static bool HasEmergencySymptom(HealthCheckIn checkIn)
+    private static bool HasEmergencySymptom(RiskAssessmentContext ctx)
     {
-        return HasSymptom(checkIn, "khó thở", "kho tho", "đau ngực", "dau nguc", "ngất", "ngat", "co giật", "co giat")
-            || HasSymptom(checkIn, "chảy máu nhiều", "chay mau nhieu")
-            || (checkIn.TemperatureCelsius >= 39.5);
+        return HasSymptom(ctx, "khó thở", "kho tho", "đau ngực", "dau nguc", "ngất", "ngat", "co giật", "co giat")
+            || HasSymptom(ctx, "chảy máu nhiều", "chay mau nhieu")
+            || (ctx.CheckIn.TemperatureCelsius >= 39.5);
     }
 
-    private static bool HasEmergencyCondition(HealthCheckIn checkIn)
+    private static bool HasEmergencyCondition(RiskAssessmentContext ctx)
     {
-        return HasEmergencySymptom(checkIn)
-            || HasChestPainBreathingCombo(checkIn)
-            || checkIn.SystolicBloodPressure >= 180
-            || checkIn.DiastolicBloodPressure >= 120;
+        return HasEmergencySymptom(ctx)
+            || HasChestPainBreathingCombo(ctx)
+            || ctx.CheckIn.SystolicBloodPressure >= 180
+            || ctx.CheckIn.DiastolicBloodPressure >= 120;
     }
 
-    private static bool HasStrongRedFlag(HealthCheckIn checkIn)
+    private static bool HasStrongRedFlag(RiskAssessmentContext ctx)
     {
-        return HasRedFlagSymptom(checkIn)
-            || HasContextValue(checkIn, "bleedingLevel", "Heavy")
-            || HasContextValue(checkIn, "babyActivity", "Lethargic")
+        var checkIn = ctx.CheckIn;
+        return HasRedFlagSymptom(ctx)
+            || HasContextValue(ctx, "bleedingLevel", "Heavy")
+            || HasContextValue(ctx, "babyActivity", "Lethargic")
             || checkIn.PainLevel >= 9
             || checkIn.BabyFeeding.Equals("RefusesFeeding", StringComparison.OrdinalIgnoreCase)
             || checkIn.SystolicBloodPressure >= 160
@@ -580,27 +629,28 @@ public static class RiskAssessmentEngine
             || checkIn.TemperatureCelsius >= 38.5;
     }
 
-    private static bool HasModerateConcern(HealthCheckIn checkIn)
+    private static bool HasModerateConcern(RiskAssessmentContext ctx)
     {
+        var checkIn = ctx.CheckIn;
         return checkIn.PainLevel >= 6
             || IsLowMilk(checkIn.MilkStatus)
             || IsFeedingConcern(checkIn.BabyFeeding)
             || IsStressMood(checkIn.Mood)
             || checkIn.SleepHours < 5
-            || HasContextValue(checkIn, "incisionStatus", "RedSwollen", "Discharge");
+            || HasContextValue(ctx, "incisionStatus", "RedSwollen", "Discharge");
     }
 
-    private static bool HasRedFlagSymptom(HealthCheckIn checkIn)
+    private static bool HasRedFlagSymptom(RiskAssessmentContext ctx)
     {
-        return HasSymptom(checkIn, "sốt", "sot", "mờ mắt", "mo mat", "chóng mặt", "chong mat", "vết mổ chảy dịch", "vet mo chay dich", "sưng đỏ", "sung do")
-            || HasSymptom(checkIn, "đau đầu dữ dội", "dau dau du doi", "ra máu bất thường", "ra mau bat thuong");
+        return HasSymptom(ctx, "sốt", "sot", "mờ mắt", "mo mat", "chóng mặt", "chong mat", "vết mổ chảy dịch", "vet mo chay dich", "sưng đỏ", "sung do")
+            || HasSymptom(ctx, "đau đầu dữ dội", "dau dau du doi", "ra máu bất thường", "ra mau bat thuong");
     }
 
-    private static bool HasChestPainBreathingCombo(HealthCheckIn checkIn)
+    private static bool HasChestPainBreathingCombo(RiskAssessmentContext ctx)
     {
-        var hasChestPain = ContainsAny(checkIn.PainLocation, "ngực", "nguc")
-            || HasSymptom(checkIn, "đau ngực", "dau nguc");
-        var hasBreathing = HasSymptom(checkIn, "khó thở", "kho tho");
+        var hasChestPain = ContainsAny(ctx.CheckIn.PainLocation, "ngực", "nguc")
+            || HasSymptom(ctx, "đau ngực", "dau nguc");
+        var hasBreathing = HasSymptom(ctx, "khó thở", "kho tho");
         return hasChestPain && hasBreathing;
     }
 
@@ -611,44 +661,30 @@ public static class RiskAssessmentEngine
             || checkIn.PainTrend?.Contains("tang", StringComparison.OrdinalIgnoreCase) == true;
     }
 
-    private static bool HasMedicalHistory(HealthCheckIn checkIn, params string[] keywords)
+    private static bool HasMedicalHistory(RiskAssessmentContext ctx, params string[] keywords)
     {
-        return DeserializeStringList(checkIn.MedicalHistoryJson)
-            .Any(item => VietnameseTextHelper.ContainsAny(item, keywords));
+        return ctx.MedicalHistory.Any(item => VietnameseTextHelper.ContainsAny(item, keywords));
     }
 
-    private static bool HasContextValue(HealthCheckIn checkIn, string key, params string[] expectedValues)
+    private static bool HasContextValue(RiskAssessmentContext ctx, string key, params string[] expectedValues)
     {
-        var context = DeserializeStringDictionary(checkIn.ContextDataJson);
-        return context.TryGetValue(key, out var value)
+        return ctx.ContextData.TryGetValue(key, out var value)
             && expectedValues.Any(expected => value.Equals(expected, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static double? GetContextNumber(HealthCheckIn checkIn, string key)
+    private static double? GetContextNumber(RiskAssessmentContext ctx, string key)
     {
-        var context = DeserializeStringDictionary(checkIn.ContextDataJson);
-        return context.TryGetValue(key, out var value) && double.TryParse(value, out var parsed) ? parsed : null;
+        return ctx.ContextData.TryGetValue(key, out var value) && double.TryParse(value, out var parsed) ? parsed : null;
     }
 
-    private static bool HasSymptom(HealthCheckIn checkIn, params string[] keywords)
+    private static bool HasSymptom(RiskAssessmentContext ctx, params string[] keywords)
     {
-        return DeserializeStringList(checkIn.SymptomsJson)
-            .Any(item => VietnameseTextHelper.ContainsAny(item, keywords));
+        return ctx.Symptoms.Any(item => VietnameseTextHelper.ContainsAny(item, keywords));
     }
 
     private static bool ContainsAny(string? value, params string[] keywords)
     {
         return VietnameseTextHelper.ContainsAny(value, keywords);
-    }
-
-    private static List<string> DeserializeStringList(string json)
-    {
-        return JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
-    }
-
-    private static Dictionary<string, string> DeserializeStringDictionary(string json)
-    {
-        return JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions) ?? [];
     }
 
     private static bool IsDeterioration(List<HealthCheckIn> history, Func<HealthCheckIn, double> selector, int minConsecutive = 3)
@@ -709,7 +745,7 @@ public static class RiskAssessmentEngine
         return "General";
     }
 
-    private static double? GetPostpartumDay(HealthCheckIn checkIn) => GetContextNumber(checkIn, "postpartumDay");
+    private static double? GetPostpartumDay(RiskAssessmentContext ctx) => GetContextNumber(ctx, "postpartumDay");
 
     private static int CountPainLocations(HealthCheckIn checkIn)
     {
@@ -718,8 +754,9 @@ public static class RiskAssessmentEngine
             .Count();
     }
 
-    private static (int Score, string Level, string Note) ScreenPostpartumDepression(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    private static (int Score, string Level, string Note) ScreenPostpartumDepression(RiskAssessmentContext currentCtx, List<HealthCheckIn> recentHistory)
     {
+        var currentCheckIn = currentCtx.CheckIn;
         var recent = recentHistory
             .Where(x => x.Id != currentCheckIn.Id)
             .OrderByDescending(x => x.CreatedAt)
@@ -748,10 +785,11 @@ public static class RiskAssessmentEngine
         };
     }
 
-    private static List<NutritionTipDto> BuildNutritionGuidance(HealthCheckIn currentCheckIn, List<HealthCheckIn> recentHistory)
+    private static List<NutritionTipDto> BuildNutritionGuidance(RiskAssessmentContext currentCtx, List<HealthCheckIn> recentHistory)
     {
         var tips = new List<NutritionTipDto>();
-        var postpartumDay = GetPostpartumDay(currentCheckIn);
+        var currentCheckIn = currentCtx.CheckIn;
+        var postpartumDay = GetPostpartumDay(currentCtx);
 
         if (postpartumDay is null or <= 7)
         {
@@ -793,9 +831,9 @@ public static class RiskAssessmentEngine
             .ToList();
     }
 
-    private static (int Percent, List<string> FilledItems, List<string> MissingItems) CalculateDataCoverage(HealthCheckIn checkIn)
+    private static (int Percent, List<string> FilledItems, List<string> MissingItems) CalculateDataCoverage(RiskAssessmentContext ctx)
     {
-        var context = DeserializeStringDictionary(checkIn.ContextDataJson);
+        var checkIn = ctx.CheckIn;
         var checks = new List<(string Label, bool Filled)>
         {
             ("Giấc ngủ", true),
@@ -803,16 +841,16 @@ public static class RiskAssessmentEngine
             ("Vị trí đau", !string.IsNullOrWhiteSpace(checkIn.PainLocation)),
             ("Kiểu đau", !string.IsNullOrWhiteSpace(checkIn.PainType)),
             ("Diễn tiến đau", !string.IsNullOrWhiteSpace(checkIn.PainTrend)),
-            ("Triệu chứng", DeserializeStringList(checkIn.SymptomsJson).Count > 0),
-            ("Tiền sử", DeserializeStringList(checkIn.MedicalHistoryJson).Count > 0),
-            ("Ngày sau sinh", context.ContainsKey("postpartumDay")),
-            ("Kiểu sinh", context.ContainsKey("deliveryMethod")),
-            ("Sản dịch", context.ContainsKey("bleedingLevel")),
-            ("Vết mổ/khâu", context.ContainsKey("incisionStatus")),
-            ("Phù chân", context.ContainsKey("swellingLevel")),
-            ("Khó tiểu", context.ContainsKey("urinationIssue")),
-            ("Tã ướt của bé", context.ContainsKey("babyWetDiapers")),
-            ("Hoạt động của bé", context.ContainsKey("babyActivity")),
+            ("Triệu chứng", ctx.Symptoms.Count > 0),
+            ("Tiền sử", ctx.MedicalHistory.Count > 0),
+            ("Ngày sau sinh", ctx.ContextData.ContainsKey("postpartumDay")),
+            ("Kiểu sinh", ctx.ContextData.ContainsKey("deliveryMethod")),
+            ("Sản dịch", ctx.ContextData.ContainsKey("bleedingLevel")),
+            ("Vết mổ/khâu", ctx.ContextData.ContainsKey("incisionStatus")),
+            ("Phù chân", ctx.ContextData.ContainsKey("swellingLevel")),
+            ("Khó tiểu", ctx.ContextData.ContainsKey("urinationIssue")),
+            ("Tã ướt của bé", ctx.ContextData.ContainsKey("babyWetDiapers")),
+            ("Hoạt động của bé", ctx.ContextData.ContainsKey("babyActivity")),
             ("Tuổi mẹ", checkIn.MotherAge.HasValue),
             ("Huyết áp", checkIn.SystolicBloodPressure.HasValue && checkIn.DiastolicBloodPressure.HasValue),
             ("Nhiệt độ", checkIn.TemperatureCelsius.HasValue),
@@ -866,25 +904,23 @@ public static class RiskAssessmentEngine
                 : char.ToUpperInvariant(word[0]) + word[1..]));
     }
 
-    private static (int Score, string Label) CalculateConfidence(HealthCheckIn checkIn, List<HealthCheckIn> history)
+    private static (int Score, string Label) CalculateConfidence(RiskAssessmentContext ctx, List<HealthCheckIn> history)
     {
         var points = 0;
         points += Math.Min(25, history.Count * 5);
 
+        var checkIn = ctx.CheckIn;
         if (checkIn.SystolicBloodPressure.HasValue) points += 10;
         if (checkIn.TemperatureCelsius.HasValue) points += 10;
         if (checkIn.MotherAge.HasValue) points += 5;
 
-        var context = DeserializeStringDictionary(checkIn.ContextDataJson);
-        points += Math.Min(20, context.Count * 4);
+        points += Math.Min(20, ctx.ContextData.Count * 4);
 
         if (!string.IsNullOrWhiteSpace(checkIn.Note)) points += 5;
 
-        var symptoms = DeserializeStringList(checkIn.SymptomsJson);
-        points += Math.Min(15, symptoms.Count * 3);
+        points += Math.Min(15, ctx.Symptoms.Count * 3);
 
-        var medicalHistory = DeserializeStringList(checkIn.MedicalHistoryJson);
-        if (medicalHistory.Count > 0) points += 10;
+        if (ctx.MedicalHistory.Count > 0) points += 10;
 
         var score = Math.Min(95, points);
         var label = score switch

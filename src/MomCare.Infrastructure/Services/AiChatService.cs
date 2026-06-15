@@ -87,16 +87,44 @@ public class AiChatService : IAiChatService
             return ServiceResult<AiChatMessageDto>.Fail("Tin nhắn không được để trống.");
         }
 
-        var conversation = new AiChatConversation
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            Status = "active",
-            CreatedAt = DateTime.UtcNow
-        };
+        var conversation = await _context.AiChatConversations
+            .Where(x => x.UserId == userId && x.Status == "active")
+            .OrderByDescending(x => x.LastMessageAt ?? x.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        _context.AiChatConversations.Add(conversation);
+        if (conversation is null)
+        {
+            conversation = new AiChatConversation
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Status = "active",
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AiChatConversations.Add(conversation);
+        }
+
         return await SendMessageCoreAsync(userId, conversation, content, cancellationToken);
+    }
+
+    public async Task<ServiceResult<IReadOnlyList<AiChatMessageDto>>> GetMessagesAsync(int userId, Guid conversationId, CancellationToken cancellationToken)
+    {
+        var conversationExists = await _context.AiChatConversations
+            .AnyAsync(x => x.Id == conversationId && x.UserId == userId, cancellationToken);
+
+        if (!conversationExists)
+        {
+            return ServiceResult<IReadOnlyList<AiChatMessageDto>>.Fail("Không tìm thấy cuộc trò chuyện.");
+        }
+
+        var messages = await _context.AiChatMessages
+            .AsNoTracking()
+            .Where(x => x.ConversationId == conversationId)
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var dtos = messages.Select(Map).ToList();
+        return ServiceResult<IReadOnlyList<AiChatMessageDto>>.Ok(dtos);
     }
 
     private async Task<ServiceResult<AiChatMessageDto>> SendMessageCoreAsync(int userId, AiChatConversation conversation, string content, CancellationToken cancellationToken)
@@ -174,24 +202,57 @@ public class AiChatService : IAiChatService
         {
             var recent = await _context.AiChatMessages
                 .AsNoTracking()
-                .Where(x => x.Conversation.UserId == userId)
+                .Where(x => x.ConversationId == conversationId)
                 .OrderByDescending(x => x.CreatedAt)
                 .Take(8)
                 .OrderBy(x => x.CreatedAt)
-                .Select(x => new { x.Role, x.Content })
                 .ToListAsync(cancellationToken);
+
+            var contents = new List<GeminiContentDto>();
+            foreach (var msg in recent)
+            {
+                var role = msg.Role == "assistant" ? "model" : "user";
+                contents.Add(new GeminiContentDto
+                {
+                    Role = role,
+                    Parts = [new GeminiPartDto { Text = msg.Content }]
+                });
+            }
+
+            contents.Add(new GeminiContentDto
+            {
+                Role = "user",
+                Parts = [new GeminiPartDto { Text = content }]
+            });
 
             var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
             {
                 SystemInstruction = """
-Bạn là CareMate AI, trợ lý chăm sóc sức khỏe mẹ và bé.
-Chỉ cung cấp thông tin tham khảo chung, không chẩn đoán, không kê đơn, không hướng dẫn dùng thuốc cụ thể.
-Nếu phát hiện dấu hiệu nguy hiểm, nhắc người dùng liên hệ bác sĩ hoặc cơ sở y tế ngay.
-Trả lời tiếng Việt thân thiện, tối đa 150 từ.
+Bạn là CareMate AI, trợ lý chăm sóc sức khỏe mẹ và bé sau sinh.
+
+NGUYÊN TẮC:
+1. Chỉ cung cấp thông tin tham khảo chung.
+2. KHÔNG chẩn đoán bệnh, KHÔNG kê đơn thuốc, KHÔNG hướng dẫn liều dùng cụ thể.
+3. Nếu phát hiện dấu hiệu nguy hiểm -> nhắc người dùng liên hệ bác sĩ hoặc cơ sở y tế NGAY.
+4. Trả lời tiếng Việt thân thiện, dùng ngôi "mẹ" khi xưng hô.
+5. Tối đa 150 từ, ưu tiên ngắn gọn dễ hiểu.
+6. Nếu không chắc -> nói rõ "tôi không chắc" và khuyên hỏi y tá/bác sĩ.
+
+LĨNH VỰC HỖ TRỢ:
+- Chăm sóc mẹ sau sinh (sản dịch, vết mổ, cho bú, dinh dưỡng).
+- Chăm sóc bé sơ sinh (tắm bé, bú, giấc ngủ, phân).
+- Tâm lý sau sinh (baby blues, stress).
+- Hướng dẫn sử dụng dịch vụ CareMate.
+
+KHÔNG HỖ TRỢ:
+- Câu hỏi ngoài lĩnh vực mẹ và bé.
+- Tư vấn thuốc hoặc liều dùng cụ thể.
 """,
-                Prompt = $"Lịch sử gần đây: {System.Text.Json.JsonSerializer.Serialize(recent)}\nTin nhắn mới: {content}",
+                Contents = contents,
+                Prompt = content,
                 Temperature = 0.2,
-                MaxOutputTokens = 350
+                MaxOutputTokens = 350,
+                TimeoutSeconds = 8
             }, cancellationToken);
 
             var text = string.IsNullOrWhiteSpace(response.Text)

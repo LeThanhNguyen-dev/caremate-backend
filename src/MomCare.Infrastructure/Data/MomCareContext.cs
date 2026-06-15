@@ -47,6 +47,7 @@ public class MomCareContext : IdentityDbContext<
     public DbSet<HealthCheckIn> HealthCheckIns => Set<HealthCheckIn>();
     public DbSet<AiHealthAnalysis> AiHealthAnalyses => Set<AiHealthAnalysis>();
     public DbSet<AiCarePlan> AiCarePlans => Set<AiCarePlan>();
+    public DbSet<GeminiCallLog> GeminiCallLogs => Set<GeminiCallLog>();
 
     // Communication
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -355,6 +356,12 @@ public class MomCareContext : IdentityDbContext<
             entity.HasIndex(x => new { x.UserId, x.Status, x.CreatedAt });
             entity.HasIndex(x => x.BookingId);
             entity.HasIndex(x => x.HealthCheckInId);
+        });
+
+        modelBuilder.Entity<GeminiCallLog>(entity =>
+        {
+            entity.HasIndex(x => new { x.CallType, x.CreatedAt });
+            entity.HasIndex(x => new { x.Success, x.CreatedAt });
         });
 
         modelBuilder.Entity<ChatMessage>(entity =>

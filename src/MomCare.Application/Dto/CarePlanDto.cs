@@ -4,7 +4,20 @@ public class CarePlanRecommendRequest
 {
     public Guid? HealthCheckInId { get; set; }
     public AnalyzeHealthCheckInRequest? CheckIn { get; set; }
-    public GeoPointDto? UserLocation { get; set; }
+    public UserLocationDto? UserLocation { get; set; }
+}
+
+/// <summary>
+/// Represents optional customer location data used to rank nearby nurses.
+/// </summary>
+public class UserLocationDto
+{
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public double? Lat { get => Latitude; set => Latitude = value; }
+    public double? Lng { get => Longitude; set => Longitude = value; }
+    public string? District { get; set; }
+    public string? City { get; set; }
 }
 
 public class GeoPointDto
@@ -27,7 +40,20 @@ public class CarePlanResponse
     public string Disclaimer { get; set; } = string.Empty;
     public string? AiModel { get; set; }
     public bool FallbackMode { get; set; }
+    public bool IsAiReasoned { get; set; }
+    public List<UrgentAction>? UrgentActions { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Describes an action the customer can take when the safety layer marks a care plan as urgent.
+/// </summary>
+public class UrgentAction
+{
+    public int Priority { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
 }
 
 public class RecommendedCareServiceDto

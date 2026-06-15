@@ -18,17 +18,29 @@ public class CarePlanService : ICarePlanService
     private readonly IGeminiService _geminiService;
     private readonly INurseDiscoveryService _nurseDiscoveryService;
     private readonly ILogger<CarePlanService> _logger;
+    private readonly SymptomTagEngine _symptomTagEngine;
+    private readonly GeminiReasoningService _geminiReasoningService;
+    private readonly PlanValidatorEngine _planValidatorEngine;
+    private readonly UrgentResponseBuilder _urgentResponseBuilder;
 
     public CarePlanService(
         MomCareContext context,
         IGeminiService geminiService,
         INurseDiscoveryService nurseDiscoveryService,
-        ILogger<CarePlanService> logger)
+        ILogger<CarePlanService> logger,
+        SymptomTagEngine symptomTagEngine,
+        GeminiReasoningService geminiReasoningService,
+        PlanValidatorEngine planValidatorEngine,
+        UrgentResponseBuilder urgentResponseBuilder)
     {
         _context = context;
         _geminiService = geminiService;
         _nurseDiscoveryService = nurseDiscoveryService;
         _logger = logger;
+        _symptomTagEngine = symptomTagEngine;
+        _geminiReasoningService = geminiReasoningService;
+        _planValidatorEngine = planValidatorEngine;
+        _urgentResponseBuilder = urgentResponseBuilder;
     }
 
     public async Task<ServiceResult<CarePlanResponse>> RecommendAsync(int userId, CarePlanRecommendRequest request, CancellationToken cancellationToken)
@@ -42,21 +54,76 @@ public class CarePlanService : ICarePlanService
         var activeBooking = await FindActiveBookingAsync(userId, cancellationToken);
         if (activeBooking is not null)
         {
-            return await GenerateForBookingInternalAsync(userId, false, activeBooking.Id, checkIn, request.UserLocation, cancellationToken);
+            return await GenerateForBookingInternalAsync(userId, false, activeBooking.Id, checkIn, MapLocation(request.UserLocation), cancellationToken);
         }
 
         await SupersedeOpenPlansAsync(userId, null, cancellationToken);
         var safety = SafetyGuardrailEngine.Evaluate(checkIn);
-        var services = safety.SafetyLevel == "urgent"
-            ? []
-            : await RecommendServicesAsync(checkIn, cancellationToken);
-        var firstServiceId = services.FirstOrDefault()?.ServiceId;
+        if (safety.SafetyLevel == "urgent")
+        {
+            var urgent = _urgentResponseBuilder.Build(safety);
+            var urgentPlan = new AiCarePlan
+            {
+                Id = urgent.CarePlanId,
+                UserId = userId,
+                HealthCheckInId = checkIn.Id,
+                Status = "urgent",
+                PlanType = "recommend_package",
+                SafetyLevel = "urgent",
+                SafetyNotice = safety.Notice,
+                Summary = urgent.Summary,
+                RecommendedServicesJson = "[]",
+                PlanItemsJson = "[]",
+                RecommendedNursesJson = "[]",
+                Disclaimer = Disclaimer,
+                AiModel = "guardrail",
+                FallbackMode = true,
+                IsAiReasoned = false,
+                SymptomTagsJson = "{}",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.AiCarePlans.Add(urgentPlan);
+            await _context.SaveChangesAsync(cancellationToken);
+            return ServiceResult<CarePlanResponse>.Ok(Map(urgentPlan));
+        }
+
+        // Run AI reasoning pipeline
+        var tags = _symptomTagEngine.Extract(checkIn);
+        var activeServices = await _context.Services
+            .AsNoTracking()
+            .Where(x => x.Status == "active")
+            .ToListAsync(cancellationToken);
+
+        var servicesForAi = activeServices.Select(x => new ServiceSummaryForAi
+        {
+            Id = x.Id.ToString(),
+            Name = x.Name,
+            ShortDescription = x.Description ?? "",
+            Tags = string.IsNullOrWhiteSpace(x.Category) ? [] : [x.Category],
+            Price = x.BasePrice,
+            IsPackage = x.ServiceKind == "package"
+        }).ToList();
+
+        var reasoningResult = await _geminiReasoningService.ReasonAsync(tags, servicesForAi, null, cancellationToken);
+        var validatedResult = _planValidatorEngine.Validate(reasoningResult, servicesForAi);
+
+        var recommendedServices = validatedResult.ServiceScores.Select(ss => {
+            var s = activeServices.FirstOrDefault(x => x.Id.ToString() == ss.ServiceId);
+            return new RecommendedCareServiceDto
+            {
+                ServiceId = s?.Id ?? int.Parse(ss.ServiceId),
+                Name = s?.Name ?? "Dịch vụ đề xuất",
+                Reason = ss.Reason,
+                SessionCount = s?.PackageDays,
+                EstimatedPrice = s?.BasePrice ?? 0
+            };
+        }).ToList();
+
+        var firstServiceId = recommendedServices.FirstOrDefault()?.ServiceId;
         var nurses = firstServiceId.HasValue
-            ? await GetRecommendedNursesAsync(firstServiceId, request.UserLocation, cancellationToken)
+            ? await GetRecommendedNursesAsync(firstServiceId, MapLocation(request.UserLocation), cancellationToken)
             : [];
-        var ai = safety.SafetyLevel == "urgent"
-            ? AiText.Fallback(BuildUrgentSummary(safety))
-            : await TryWriteCarePlanSummaryAsync(checkIn, services, [], cancellationToken);
 
         var plan = new AiCarePlan
         {
@@ -67,13 +134,16 @@ public class CarePlanService : ICarePlanService
             PlanType = "recommend_package",
             SafetyLevel = safety.SafetyLevel,
             SafetyNotice = safety.Notice,
-            Summary = ai.Summary,
-            RecommendedServicesJson = JsonSerializer.Serialize(services, JsonOptions),
+            Summary = string.IsNullOrWhiteSpace(validatedResult.Reasoning) ? "Gợi ý chăm sóc từ CareMate AI." : validatedResult.Reasoning,
+            RecommendedServicesJson = JsonSerializer.Serialize(recommendedServices, JsonOptions),
             PlanItemsJson = "[]",
             RecommendedNursesJson = JsonSerializer.Serialize(nurses, JsonOptions),
             Disclaimer = Disclaimer,
-            AiModel = ai.Model,
-            FallbackMode = ai.FallbackMode,
+            AiModel = validatedResult.IsFromAi ? "gemini-2.0-flash" : "rule_engine",
+            FallbackMode = !validatedResult.IsFromAi,
+            IsAiReasoned = validatedResult.IsFromAi,
+            SymptomTagsJson = JsonSerializer.Serialize(tags, JsonOptions),
+            GeminiPromptVersion = GeminiReasoningService.PromptVersion,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -140,13 +210,87 @@ public class CarePlanService : ICarePlanService
         var safety = checkIn is null
             ? new SafetyEvaluationDto { SafetyLevel = "normal" }
             : SafetyGuardrailEngine.Evaluate(checkIn);
-        var items = safety.SafetyLevel == "urgent"
-            ? []
-            : BuildPlanItems(booking);
+
+        if (safety.SafetyLevel == "urgent")
+        {
+            var urgent = _urgentResponseBuilder.Build(safety);
+            var urgentPlan = new AiCarePlan
+            {
+                Id = urgent.CarePlanId,
+                UserId = booking.CustomerId,
+                BookingId = booking.Id,
+                HealthCheckInId = checkIn?.Id,
+                Status = "urgent",
+                PlanType = "by_booking",
+                SafetyLevel = "urgent",
+                SafetyNotice = safety.Notice,
+                Summary = urgent.Summary,
+                RecommendedServicesJson = "[]",
+                PlanItemsJson = "[]",
+                RecommendedNursesJson = "[]",
+                Disclaimer = Disclaimer,
+                AiModel = "guardrail",
+                FallbackMode = true,
+                IsAiReasoned = false,
+                SymptomTagsJson = "{}",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _context.AiCarePlans.Add(urgentPlan);
+            await _context.SaveChangesAsync(cancellationToken);
+            return ServiceResult<CarePlanResponse>.Ok(Map(urgentPlan));
+        }
+
+        // Non-urgent, run AI pipeline
+        var tags = _symptomTagEngine.Extract(checkIn);
+        var activeServices = await _context.Services
+            .AsNoTracking()
+            .Where(x => x.Status == "active")
+            .ToListAsync(cancellationToken);
+
+        var servicesForAi = activeServices.Select(x => new ServiceSummaryForAi
+        {
+            Id = x.Id.ToString(),
+            Name = x.Name,
+            ShortDescription = x.Description ?? "",
+            Tags = string.IsNullOrWhiteSpace(x.Category) ? [] : [x.Category],
+            Price = x.BasePrice,
+            IsPackage = x.ServiceKind == "package"
+        }).ToList();
+
+        var bookingContext = new BookingContextForAi
+        {
+            ServiceName = booking.Service.Name,
+            RemainingSessionCount = booking.SessionLogs.Count(s => s.Status == "pending" || s.Status == "checked_in"),
+            NextSessionDate = booking.SessionLogs
+                .Where(s => s.Status == "pending" || s.Status == "checked_in")
+                .OrderBy(s => s.SessionNumber)
+                .Select(s => (DateTime?)s.SessionDate)
+                .FirstOrDefault()
+        };
+
+        var reasoningResult = await _geminiReasoningService.ReasonAsync(tags, servicesForAi, bookingContext, cancellationToken);
+        var validatedResult = _planValidatorEngine.Validate(reasoningResult, servicesForAi);
+
+        var items = validatedResult.PlanItems.Select(pi => {
+            var matchedSession = booking.SessionLogs.FirstOrDefault(s => s.SessionNumber == pi.SessionNumber);
+            return new CarePlanTimelineItemDto
+            {
+                SessionNumber = pi.SessionNumber,
+                ScheduledDate = matchedSession?.SessionDate ?? DateTime.UtcNow.AddDays(pi.SessionNumber),
+                Focus = pi.Focus,
+                Activities = pi.Activities,
+                Notes = pi.Note,
+                DurationMinutes = pi.EstimatedDurationMinutes
+            };
+        }).ToList();
+
+        if (!validatedResult.IsFromAi || items.Count == 0)
+        {
+            items = BuildPlanItems(booking);
+        }
+
         var nurses = await GetRecommendedNursesAsync(booking.ServiceId, location, cancellationToken);
-        var ai = safety.SafetyLevel == "urgent"
-            ? AiText.Fallback(BuildUrgentSummary(safety))
-            : await TryWriteCarePlanSummaryAsync(checkIn, [], items, cancellationToken);
 
         var plan = new AiCarePlan
         {
@@ -158,13 +302,18 @@ public class CarePlanService : ICarePlanService
             PlanType = "by_booking",
             SafetyLevel = safety.SafetyLevel,
             SafetyNotice = safety.Notice,
-            Summary = ai.Summary,
+            Summary = string.IsNullOrWhiteSpace(validatedResult.Reasoning)
+                ? $"CareMate đã tạo lộ trình gồm {items.Count} buổi còn lại theo lịch chăm sóc của bạn."
+                : validatedResult.Reasoning,
             RecommendedServicesJson = "[]",
             PlanItemsJson = JsonSerializer.Serialize(items, JsonOptions),
             RecommendedNursesJson = JsonSerializer.Serialize(nurses, JsonOptions),
             Disclaimer = Disclaimer,
-            AiModel = ai.Model,
-            FallbackMode = ai.FallbackMode,
+            AiModel = validatedResult.IsFromAi ? "gemini-2.0-flash" : "rule_engine",
+            FallbackMode = !validatedResult.IsFromAi,
+            IsAiReasoned = validatedResult.IsFromAi,
+            SymptomTagsJson = JsonSerializer.Serialize(tags, JsonOptions),
+            GeminiPromptVersion = GeminiReasoningService.PromptVersion,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -242,32 +391,6 @@ public class CarePlanService : ICarePlanService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private async Task<List<RecommendedCareServiceDto>> RecommendServicesAsync(HealthCheckIn checkIn, CancellationToken cancellationToken)
-    {
-        var services = await _context.Services
-            .AsNoTracking()
-            .Where(x => x.Status == "active")
-            .OrderByDescending(x => x.ServiceKind == "package")
-            .ThenBy(x => x.BasePrice)
-            .Take(6)
-            .ToListAsync(cancellationToken);
-
-        var context = ReadDictionary(checkIn.ContextDataJson);
-        var postpartum = context.TryGetValue("postpartumDay", out var day) ? day : null;
-        var reasonSuffix = string.IsNullOrWhiteSpace(postpartum) ? "dựa trên check-in mới nhất" : $"cho giai đoạn ngày {postpartum} sau sinh";
-
-        return services.Select(service => new RecommendedCareServiceDto
-        {
-            ServiceId = service.Id,
-            Name = service.Name,
-            Reason = service.ServiceKind == "package"
-                ? $"Gói này phù hợp để theo dõi liên tục {reasonSuffix}."
-                : $"Dịch vụ này phù hợp để hỗ trợ một nhu cầu chăm sóc cụ thể {reasonSuffix}.",
-            SessionCount = service.PackageDays,
-            EstimatedPrice = service.BasePrice
-        }).ToList();
-    }
-
     private static List<CarePlanTimelineItemDto> BuildPlanItems(Booking booking)
     {
         if (booking.Service.ServiceKind != "package" || booking.SessionLogs.Count == 0)
@@ -339,73 +462,13 @@ public class CarePlanService : ICarePlanService
         return nurses.Take(5).ToList();
     }
 
-    private async Task<AiText> TryWriteCarePlanSummaryAsync(
-        HealthCheckIn? checkIn,
-        IReadOnlyList<RecommendedCareServiceDto> services,
-        IReadOnlyList<CarePlanTimelineItemDto> items,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var promptData = new
-            {
-                checkIn = checkIn is null ? null : new
-                {
-                    checkIn.SleepHours,
-                    checkIn.PainLevel,
-                    checkIn.PainLocation,
-                    checkIn.Mood,
-                    checkIn.MilkStatus,
-                    checkIn.BabyFeeding,
-                    checkIn.BabySleep,
-                    checkIn.Note
-                },
-                recommendedServices = services,
-                planItems = items
-            };
-
-            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
-            {
-                SystemInstruction = "Bạn là CareMate AI. Viết tiếng Việt thân thiện, không chẩn đoán, không kê đơn, không nhắc điểm rủi ro. Tối đa 120 từ.",
-                Prompt = $"Tóm tắt lộ trình chăm sóc mẹ và bé theo JSON sau:\n{JsonSerializer.Serialize(promptData, JsonOptions)}",
-                Temperature = 0.2,
-                MaxOutputTokens = 300
-            }, cancellationToken);
-
-            var text = response.Text.Trim();
-            return string.IsNullOrWhiteSpace(text)
-                ? AiText.Fallback(BuildFallbackSummary(services, items))
-                : new AiText(Limit(text, 700), response.Model, false);
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException or JsonException)
-        {
-            _logger.LogWarning(ex, "Gemini care plan summary failed. Falling back to deterministic care plan text.");
-            return AiText.Fallback(BuildFallbackSummary(services, items));
-        }
-    }
-
-    private static string BuildFallbackSummary(IReadOnlyList<RecommendedCareServiceDto> services, IReadOnlyList<CarePlanTimelineItemDto> items)
-    {
-        if (items.Count > 0)
-        {
-            return $"CareMate đã tạo lộ trình gồm {items.Count} buổi còn lại theo lịch chăm sóc của bạn. Hãy theo dõi tình trạng mẹ và bé trước mỗi buổi để y tá hỗ trợ sát nhu cầu hơn.";
-        }
-
-        if (services.Count > 0)
-        {
-            return "CareMate đề xuất một số gói/dịch vụ phù hợp với thông tin check-in hiện tại. Bạn có thể xem chi tiết dịch vụ và chọn y tá phù hợp gần khu vực của mình.";
-        }
-
-        return "CareMate đã ghi nhận check-in của bạn. Hãy tiếp tục theo dõi tình trạng mẹ và bé, và liên hệ nhân viên y tế nếu có dấu hiệu bất thường.";
-    }
-
     private static string BuildUrgentSummary(SafetyEvaluationDto safety) =>
         safety.Notice ?? "Có dấu hiệu cần được nhân viên y tế đánh giá trực tiếp. Không nên tự xử lý tại nhà.";
 
     private async Task SupersedeOpenPlansAsync(int userId, int? bookingId, CancellationToken cancellationToken)
     {
         var openPlans = await _context.AiCarePlans
-            .Where(x => x.UserId == userId && x.Status != "completed" && x.Status != "superseded" && (bookingId == null || x.BookingId == bookingId || x.BookingId == null))
+            .Where(x => x.UserId == userId && x.Status != "completed" && x.Status != "superseded" && (bookingId == null ? x.BookingId == null : x.BookingId == bookingId))
             .ToListAsync(cancellationToken);
 
         foreach (var plan in openPlans)
@@ -413,6 +476,19 @@ public class CarePlanService : ICarePlanService
             plan.Status = "superseded";
             plan.UpdatedAt = DateTime.UtcNow;
         }
+    }
+
+    private static GeoPointDto? MapLocation(UserLocationDto? userLocation)
+    {
+        if (userLocation?.Lat == null || userLocation?.Lng == null)
+        {
+            return null;
+        }
+        return new GeoPointDto
+        {
+            Lat = userLocation.Lat.Value,
+            Lng = userLocation.Lng.Value
+        };
     }
 
     private static bool CanAccessBooking(int actorUserId, bool isAdmin, Booking booking) =>
@@ -432,6 +508,14 @@ public class CarePlanService : ICarePlanService
         Disclaimer = plan.Disclaimer,
         AiModel = plan.AiModel,
         FallbackMode = plan.FallbackMode,
+        IsAiReasoned = plan.IsAiReasoned,
+        UrgentActions = plan.SafetyLevel == "urgent"
+            ? [
+                new() { Priority = 1, Type = "call", Label = "Gọi hotline CareMate", Value = "1900-xxxx" },
+                new() { Priority = 2, Type = "navigate", Label = "Tìm cơ sở y tế gần nhất", Value = "/find-clinic" },
+                new() { Priority = 3, Type = "chat", Label = "Nhắn tin y tá trực", Value = "/chat/urgent" }
+              ]
+            : null,
         CreatedAt = plan.CreatedAt
     };
 
@@ -441,18 +525,8 @@ public class CarePlanService : ICarePlanService
         catch { return new T(); }
     }
 
-    private static Dictionary<string, string> ReadDictionary(string json) => Deserialize<Dictionary<string, string>>(json);
-
     private static List<string> CleanList(IEnumerable<string>? values) =>
         values?.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(20).ToList() ?? [];
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static string Limit(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength].TrimEnd() + "...";
-
-    private sealed record AiText(string Summary, string? Model, bool FallbackMode)
-    {
-        public static AiText Fallback(string summary) => new(summary, null, true);
-    }
 }

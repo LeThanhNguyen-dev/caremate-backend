@@ -50,6 +50,13 @@ public class AiChatController : ControllerBase
         return result.Success ? Ok(result.Data) : BadRequest(new { message = result.Error });
     }
 
+    [HttpGet("conversations/{conversationId:guid}/messages")]
+    public async Task<IActionResult> GetMessages(Guid conversationId, CancellationToken cancellationToken)
+    {
+        var result = await _aiChatService.GetMessagesAsync(GetUserId(), conversationId, cancellationToken);
+        return result.Success ? Ok(result.Data) : BadRequest(new { message = result.Error });
+    }
+
     private int GetUserId()
     {
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier)

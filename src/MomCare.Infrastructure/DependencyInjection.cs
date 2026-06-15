@@ -17,6 +17,12 @@ public static class DependencyInjection
         services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
         services.Configure<FptAiOptions>(configuration.GetSection(FptAiOptions.SectionName));
         services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));
+        services.AddMemoryCache();
+
+        var urgentConfig = configuration.GetSection("SafetyGuardrails:UrgentKeywords").Get<string[]>();
+        var watchConfig = configuration.GetSection("SafetyGuardrails:WatchKeywords").Get<string[]>();
+        SafetyGuardrailEngine.Initialize(urgentConfig, watchConfig);
+
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -39,8 +45,15 @@ public static class DependencyInjection
         services.AddScoped<IPackageSessionService, PackageSessionService>();
         services.AddScoped<ICarePlanService, CarePlanService>();
         services.AddScoped<IAiChatService, AiChatService>();
+        services.AddScoped<SymptomTagEngine>();
+        services.AddScoped<GeminiPromptBuilder>();
+        services.AddScoped<GeminiCallLogService>();
+        services.AddScoped<GeminiReasoningService>();
+        services.AddScoped<PlanValidatorEngine>();
+        services.AddScoped<UrgentResponseBuilder>();
         services.AddHttpClient<ICccdOcrService, FptAiCccdOcrService>();
-        services.AddHttpClient<IGeminiService, GeminiService>();
+        services.AddHttpClient<IGeminiService, GeminiService>()
+            .AddStandardResilienceHandler();
 
         services.AddDbContext<MomCareContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));

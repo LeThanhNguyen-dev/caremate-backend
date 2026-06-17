@@ -16,7 +16,7 @@ public static class DependencyInjection
     {
         services.Configure<PayOSOptions>(configuration.GetSection(PayOSOptions.SectionName));
         services.Configure<FptAiOptions>(configuration.GetSection(FptAiOptions.SectionName));
-        services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));
+        services.Configure<GroqOptions>(configuration.GetSection(GroqOptions.SectionName));
         services.AddMemoryCache();
 
         var urgentConfig = configuration.GetSection("SafetyGuardrails:UrgentKeywords").Get<string[]>();
@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<INurseService, NurseService>();
         services.AddScoped<IAdminService, AdminService>();
+        services.AddScoped<IAdminAiInsightService, AdminAiInsightService>();
         services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
         services.AddScoped<INurseDiscoveryService, NurseDiscoveryService>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
@@ -46,13 +47,14 @@ public static class DependencyInjection
         services.AddScoped<ICarePlanService, CarePlanService>();
         services.AddScoped<IAiChatService, AiChatService>();
         services.AddScoped<SymptomTagEngine>();
+        services.AddScoped<ServiceMatcher>();
         services.AddScoped<GeminiPromptBuilder>();
         services.AddScoped<GeminiCallLogService>();
         services.AddScoped<GeminiReasoningService>();
         services.AddScoped<PlanValidatorEngine>();
         services.AddScoped<UrgentResponseBuilder>();
         services.AddHttpClient<ICccdOcrService, FptAiCccdOcrService>();
-        services.AddHttpClient<IGeminiService, GeminiService>()
+        services.AddHttpClient<ILlmService, GroqService>()
             .AddStandardResilienceHandler();
 
         services.AddDbContext<MomCareContext>(options =>

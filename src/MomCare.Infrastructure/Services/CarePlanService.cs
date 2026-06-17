@@ -15,29 +15,32 @@ public class CarePlanService : ICarePlanService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly MomCareContext _context;
-    private readonly IGeminiService _geminiService;
+    private readonly ILlmService _llmService;
     private readonly INurseDiscoveryService _nurseDiscoveryService;
     private readonly ILogger<CarePlanService> _logger;
     private readonly SymptomTagEngine _symptomTagEngine;
+    private readonly ServiceMatcher _serviceMatcher;
     private readonly GeminiReasoningService _geminiReasoningService;
     private readonly PlanValidatorEngine _planValidatorEngine;
     private readonly UrgentResponseBuilder _urgentResponseBuilder;
 
     public CarePlanService(
         MomCareContext context,
-        IGeminiService geminiService,
+        ILlmService llmService,
         INurseDiscoveryService nurseDiscoveryService,
         ILogger<CarePlanService> logger,
         SymptomTagEngine symptomTagEngine,
+        ServiceMatcher serviceMatcher,
         GeminiReasoningService geminiReasoningService,
         PlanValidatorEngine planValidatorEngine,
         UrgentResponseBuilder urgentResponseBuilder)
     {
         _context = context;
-        _geminiService = geminiService;
+        _llmService = llmService;
         _nurseDiscoveryService = nurseDiscoveryService;
         _logger = logger;
         _symptomTagEngine = symptomTagEngine;
+        _serviceMatcher = serviceMatcher;
         _geminiReasoningService = geminiReasoningService;
         _planValidatorEngine = planValidatorEngine;
         _urgentResponseBuilder = urgentResponseBuilder;
@@ -88,7 +91,7 @@ public class CarePlanService : ICarePlanService
             return ServiceResult<CarePlanResponse>.Ok(Map(urgentPlan));
         }
 
-        // Run AI reasoning pipeline
+        // Run AI reasoning pipeline with rule-based matching as primary
         var tags = _symptomTagEngine.Extract(checkIn);
         var activeServices = await _context.Services
             .AsNoTracking()
@@ -105,17 +108,35 @@ public class CarePlanService : ICarePlanService
             IsPackage = x.ServiceKind == "package"
         }).ToList();
 
+        // Rule-based matching first
+        var ruleMatches = _serviceMatcher.Match(tags, servicesForAi);
+
+        // AI reasoning as enhancement
         var reasoningResult = await _geminiReasoningService.ReasonAsync(tags, servicesForAi, null, cancellationToken);
         var validatedResult = _planValidatorEngine.Validate(reasoningResult, servicesForAi);
 
-        var recommendedServices = validatedResult.ServiceScores.Select(ss =>
+        // Merge: prefer rule-based service IDs but use AI reasons when available
+        var aiScores = validatedResult.ServiceScores.ToDictionary(x => x.ServiceId, x => x);
+        var mergedServiceIds = ruleMatches
+            .Select(m => m.ServiceId)
+            .Concat(validatedResult.ServiceScores.Select(x => x.ServiceId))
+            .Distinct()
+            .Take(6)
+            .ToList();
+
+        var recommendedServices = mergedServiceIds.Select(id =>
         {
-            var s = activeServices.FirstOrDefault(x => x.Id.ToString() == ss.ServiceId);
+            var s = activeServices.FirstOrDefault(x => x.Id.ToString() == id);
+            var ruleMatch = ruleMatches.FirstOrDefault(m => m.ServiceId == id);
+            var aiScore = aiScores.GetValueOrDefault(id);
             return new RecommendedCareServiceDto
             {
-                ServiceId = s?.Id ?? int.Parse(ss.ServiceId),
+                ServiceId = s?.Id ?? int.Parse(id),
                 Name = s?.Name ?? "Dịch vụ đề xuất",
-                Reason = ss.Reason,
+                Reason = aiScore?.Reason
+                    ?? (ruleMatch.MatchedNeeds.Count > 0
+                        ? $"Phù hợp với nhu cầu: {string.Join(", ", ruleMatch.MatchedNeeds)}"
+                        : "Phù hợp với giai đoạn hậu sản của bạn."),
                 SessionCount = s?.PackageDays,
                 EstimatedPrice = s?.BasePrice ?? 0
             };
@@ -126,6 +147,12 @@ public class CarePlanService : ICarePlanService
             ? await GetRecommendedNursesAsync(firstServiceId, MapLocation(request.UserLocation), cancellationToken)
             : [];
 
+        var hasAiContent = validatedResult.IsFromAi && (validatedResult.ServiceScores.Count > 0 || !string.IsNullOrWhiteSpace(validatedResult.Reasoning));
+        var summary = recommendedServices.Count > 0
+            ? $"CareMate đề xuất {recommendedServices.Count} dịch vụ phù hợp với tình trạng của mẹ. "
+                + (string.IsNullOrWhiteSpace(validatedResult.Reasoning) ? "" : validatedResult.Reasoning)
+            : "Gợi ý chăm sóc từ CareMate AI.";
+
         var plan = new AiCarePlan
         {
             Id = Guid.NewGuid(),
@@ -135,14 +162,14 @@ public class CarePlanService : ICarePlanService
             PlanType = "recommend_package",
             SafetyLevel = safety.SafetyLevel,
             SafetyNotice = safety.Notice,
-            Summary = string.IsNullOrWhiteSpace(validatedResult.Reasoning) ? "Gợi ý chăm sóc từ CareMate AI." : validatedResult.Reasoning,
+            Summary = summary.Trim(),
             RecommendedServicesJson = JsonSerializer.Serialize(recommendedServices, JsonOptions),
             PlanItemsJson = "[]",
             RecommendedNursesJson = JsonSerializer.Serialize(nurses, JsonOptions),
             Disclaimer = Disclaimer,
-            AiModel = validatedResult.IsFromAi ? "gemini-2.0-flash-stable" : "rule_engine",
-            FallbackMode = !validatedResult.IsFromAi,
-            IsAiReasoned = validatedResult.IsFromAi,
+            AiModel = hasAiContent ? "gemini-2.0-flash" : "rule_engine",
+            FallbackMode = !hasAiContent,
+            IsAiReasoned = hasAiContent,
             SymptomTagsJson = JsonSerializer.Serialize(tags, JsonOptions),
             GeminiPromptVersion = GeminiReasoningService.PromptVersion,
             CreatedAt = DateTime.UtcNow,

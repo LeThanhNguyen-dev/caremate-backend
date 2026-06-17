@@ -31,16 +31,16 @@ public class HealthCheckInService : IHealthCheckInService
     ];
 
     private readonly MomCareContext _context;
-    private readonly IGeminiService _geminiService;
+    private readonly ILlmService _llmService;
     private readonly ILogger<HealthCheckInService> _logger;
 
     public HealthCheckInService(
         MomCareContext context,
-        IGeminiService geminiService,
+        ILlmService llmService,
         ILogger<HealthCheckInService> logger)
     {
         _context = context;
-        _geminiService = geminiService;
+        _llmService = llmService;
         _logger = logger;
     }
     public async Task<HealthAnalysisResponse> AnalyzeAsync(int userId, AnalyzeHealthCheckInRequest request, CancellationToken cancellationToken)
@@ -284,7 +284,7 @@ public class HealthCheckInService : IHealthCheckInService
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
+            var response = await _llmService.GenerateAsync(new GeminiGenerateRequest
             {
                 SystemInstruction = """
 Bạn là trợ lý CareMate cho mẹ sau sinh. Giữ nguyên mức cảnh báo và điểm rủi ro từ rule engine.
@@ -443,7 +443,7 @@ Dữ liệu:
 
         try
         {
-            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
+            var response = await _llmService.GenerateAsync(new GeminiGenerateRequest
             {
                 SystemInstruction = """
 Bạn là bộ trích xuất dữ liệu check-in sau sinh cho CareMate.

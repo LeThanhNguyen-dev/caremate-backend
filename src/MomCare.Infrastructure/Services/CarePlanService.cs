@@ -105,7 +105,10 @@ public class CarePlanService : ICarePlanService
             ShortDescription = x.Description ?? "",
             Tags = string.IsNullOrWhiteSpace(x.Category) ? [] : [x.Category],
             Price = x.BasePrice,
-            IsPackage = x.ServiceKind == "package"
+            IsPackage = x.ServiceKind == "package",
+            IncludedServiceKeys = string.IsNullOrWhiteSpace(x.IncludedServiceKeys)
+                ? []
+                : x.IncludedServiceKeys.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList()
         }).ToList();
 
         // Rule-based matching first

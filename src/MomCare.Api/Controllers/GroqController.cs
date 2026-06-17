@@ -7,16 +7,16 @@ namespace MomCare.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/gemini")]
-public class GeminiController : ControllerBase
+[Route("api/groq")]
+public class GroqController : ControllerBase
 {
-    private readonly IGeminiService _geminiService;
+    private readonly ILlmService _llmService;
     private readonly IConfiguration _configuration;
-    private readonly ILogger<GeminiController> _logger;
+    private readonly ILogger<GroqController> _logger;
 
-    public GeminiController(IGeminiService geminiService, IConfiguration configuration, ILogger<GeminiController> logger)
+    public GroqController(ILlmService llmService, IConfiguration configuration, ILogger<GroqController> logger)
     {
-        _geminiService = geminiService;
+        _llmService = llmService;
         _configuration = configuration;
         _logger = logger;
     }
@@ -24,7 +24,7 @@ public class GeminiController : ControllerBase
     [HttpPost("generate")]
     public async Task<IActionResult> Generate([FromBody] GeminiGenerateRequest request, CancellationToken cancellationToken)
     {
-        if (!_configuration.GetValue<bool>("Features:EnableGeminiTestEndpoint"))
+        if (!_configuration.GetValue<bool>("Features:EnableGroqTestEndpoint"))
         {
             return NotFound();
         }
@@ -36,7 +36,7 @@ public class GeminiController : ControllerBase
 
         try
         {
-            var result = await _geminiService.GenerateAsync(request, cancellationToken);
+            var result = await _llmService.GenerateAsync(request, cancellationToken);
             return Ok(result);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("API key", StringComparison.OrdinalIgnoreCase))
@@ -45,8 +45,14 @@ public class GeminiController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogError(ex, "Gemini request failed.");
-            return StatusCode(StatusCodes.Status502BadGateway, new { message = "Gemini request failed." });
+            _logger.LogError(ex, "Groq request failed.");
+            var message = HttpContext.RequestServices
+                .GetRequiredService<IWebHostEnvironment>()
+                .IsDevelopment()
+                ? ex.Message
+                : "Groq request failed.";
+
+            return StatusCode(StatusCodes.Status502BadGateway, new { message });
         }
     }
 }

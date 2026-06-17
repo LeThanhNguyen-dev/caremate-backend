@@ -22,12 +22,18 @@ var envCandidates = new[]
 };
 
 var envPath = envCandidates.FirstOrDefault(File.Exists);
+Dictionary<string, string?>? envOverrides = null;
 if (envPath is not null)
 {
     Env.Load(envPath);
+    envOverrides = LoadEnvOverrides(envPath);
 }
 
 var builder = WebApplication.CreateBuilder(args);
+if (envOverrides is not null)
+{
+    builder.Configuration.AddInMemoryCollection(envOverrides);
+}
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.AddServerHeader = false;
@@ -274,4 +280,32 @@ static string GetRateLimitKey(HttpContext context)
         ?? "unknown";
 
     return $"ip:{clientIp}";
+}
+
+static Dictionary<string, string?> LoadEnvOverrides(string envPath)
+{
+    var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var rawLine in File.ReadAllLines(envPath))
+    {
+        var line = rawLine.Trim();
+        if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+        {
+            continue;
+        }
+
+        var separatorIndex = line.IndexOf('=');
+        if (separatorIndex <= 0)
+        {
+            continue;
+        }
+
+        var key = line[..separatorIndex].Trim();
+        var value = line[(separatorIndex + 1)..].Trim().Trim('"');
+
+        values[key] = value;
+        Environment.SetEnvironmentVariable(key, value);
+    }
+
+    return values;
 }

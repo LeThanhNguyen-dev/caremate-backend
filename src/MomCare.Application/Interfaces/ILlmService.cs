@@ -2,7 +2,7 @@ using MomCare.Dto;
 
 namespace MomCare.Interfaces;
 
-public interface IGeminiService
+public interface ILlmService
 {
     Task<GeminiGenerateResponse> GenerateAsync(GeminiGenerateRequest request, CancellationToken cancellationToken);
 }

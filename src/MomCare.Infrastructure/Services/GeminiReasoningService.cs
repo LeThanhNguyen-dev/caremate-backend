@@ -14,18 +14,18 @@ public class GeminiReasoningService
 {
     public const string PromptVersion = "reasoning_v1";
 
-    private readonly IGeminiService _geminiService;
+    private readonly ILlmService _llmService;
     private readonly GeminiPromptBuilder _promptBuilder;
     private readonly GeminiCallLogService _callLogService;
     private readonly ILogger<GeminiReasoningService> _logger;
 
     public GeminiReasoningService(
-        IGeminiService geminiService,
+        ILlmService llmService,
         GeminiPromptBuilder promptBuilder,
         GeminiCallLogService callLogService,
         ILogger<GeminiReasoningService> logger)
     {
-        _geminiService = geminiService;
+        _llmService = llmService;
         _promptBuilder = promptBuilder;
         _callLogService = callLogService;
         _logger = logger;
@@ -52,7 +52,7 @@ public class GeminiReasoningService
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(8));
 
-            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
+            var response = await _llmService.GenerateAsync(new GeminiGenerateRequest
             {
                 SystemInstruction = "Bạn chỉ trả về JSON hợp lệ, không markdown, không giải thích ngoài JSON.",
                 Prompt = prompt,

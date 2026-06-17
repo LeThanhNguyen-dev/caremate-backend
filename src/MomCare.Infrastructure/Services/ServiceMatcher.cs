@@ -1,5 +1,4 @@
 using MomCare.Dto;
-using MomCare.Models;
 
 namespace MomCare.Services;
 
@@ -51,32 +50,105 @@ public class ServiceMatcher
         ["dau_nguc_nhieu"] = ["cham-me-sau-sinh"],
     };
 
+    private static readonly Dictionary<string, string[]> NeedToIncludedKeyMap = new()
+    {
+        ["ho_tro_cho_bu"] = ["breastfeeding-support"],
+        ["cham_soc_vet_mo"] = ["mother-health-monitoring", "postpartum-massage"],
+        ["theo_doi_sot"] = ["mother-health-monitoring", "baby-health-monitoring"],
+        ["theo_doi_huyet_ap"] = ["mother-health-monitoring"],
+        ["giam_dau"] = ["postpartum-massage", "mother-health-monitoring"],
+        ["ho_tro_giao_suc"] = ["postpartum-massage", "mother-health-monitoring", "nutrition-consultation"],
+        ["tu_van_tam_ly"] = ["mental-wellness"],
+        ["ho_tro_giac_ngu_be"] = ["baby-health-monitoring", "night-care"],
+        ["ho_tro_tieu_hoa"] = ["nutrition-consultation", "mother-health-monitoring"],
+    };
+
+    private static readonly Dictionary<string, string[]> NameKeywordToNeeds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["thong tac tia sua"] = ["ho_tro_cho_bu"],
+        ["thong tia sua"] = ["ho_tro_cho_bu"],
+        ["cho bu"] = ["ho_tro_cho_bu"],
+        ["tam be"] = ["cham-be-so-sinh"],
+        ["massage"] = ["phuc-hoi-suc-khoe", "giam_dau"],
+        ["tam ly"] = ["tu_van_tam_ly"],
+        ["suc khoe me"] = ["cham-me-sau-sinh"],
+        ["suc khoe be"] = ["cham-be-so-sinh"],
+        ["dinh duong"] = ["ho_tro_tieu_hoa"],
+        ["dem"] = ["ho_tro_giac_ngu_be"],
+        ["nha"] = ["ho-tro-gia-dinh"],
+        ["khan"] = ["cham-me-sau-sinh"],
+    };
+
     public List<(string ServiceId, int Score, List<string> MatchedNeeds)> Match(
         SymptomTagResult tags,
         List<ServiceSummaryForAi> services)
     {
         var matchedNeedsByService = new Dictionary<string, HashSet<string>>();
+        var isMilkPainIssue = tags.Tags.Any(t => t.StartsWith("sua_") || t.Contains("sua"))
+            && tags.PrimaryNeeds.Contains("ho_tro_cho_bu");
 
         foreach (var need in tags.PrimaryNeeds)
         {
-            if (!NeedToCategoryMap.TryGetValue(need, out var categories)) continue;
-            foreach (var service in services.Where(s => categories.Any(c => s.Tags.Contains(c, StringComparer.OrdinalIgnoreCase))))
+            if (NeedToCategoryMap.TryGetValue(need, out var categories))
             {
-                matchedNeedsByService.TryAdd(service.Id, []);
-                matchedNeedsByService[service.Id].Add(need);
+                foreach (var service in services.Where(s =>
+                    s.Tags.Any(t => categories.Contains(t, StringComparer.OrdinalIgnoreCase))))
+                {
+                    matchedNeedsByService.TryAdd(service.Id, []);
+                    matchedNeedsByService[service.Id].Add(need);
+                }
+            }
+
+            if (NeedToIncludedKeyMap.TryGetValue(need, out var includedKeys))
+            {
+                foreach (var service in services.Where(s =>
+                    s.IsPackage && s.IncludedServiceKeys.Any(k => includedKeys.Contains(k, StringComparer.OrdinalIgnoreCase))))
+                {
+                    matchedNeedsByService.TryAdd(service.Id, []);
+                    matchedNeedsByService[service.Id].Add(need);
+                }
             }
         }
 
         foreach (var tag in tags.Tags)
         {
-            if (!TagToCategoryMap.TryGetValue(tag, out var categories)) continue;
-            foreach (var service in services.Where(s => categories.Any(c => s.Tags.Contains(c, StringComparer.OrdinalIgnoreCase))))
+            if (TagToCategoryMap.TryGetValue(tag, out var categories))
             {
-                matchedNeedsByService.TryAdd(service.Id, []);
+                foreach (var service in services.Where(s =>
+                    s.Tags.Any(t => categories.Contains(t, StringComparer.OrdinalIgnoreCase))))
+                {
+                    matchedNeedsByService.TryAdd(service.Id, []);
+                }
             }
         }
 
-        return services.Select(s =>
+        if (isMilkPainIssue)
+        {
+            foreach (var service in services.Where(s =>
+                s.IncludedServiceKeys.Contains("breastfeeding-support", StringComparer.OrdinalIgnoreCase)))
+            {
+                matchedNeedsByService.TryAdd(service.Id, []);
+                matchedNeedsByService[service.Id].Add("ho_tro_cho_bu");
+            }
+        }
+
+        foreach (var service in services)
+        {
+            if (matchedNeedsByService.ContainsKey(service.Id)) continue;
+
+            var normalizedName = RemoveDiacritics(service.Name).ToLowerInvariant();
+            foreach (var kv in NameKeywordToNeeds)
+            {
+                if (normalizedName.Contains(kv.Key))
+                {
+                    matchedNeedsByService.TryAdd(service.Id, []);
+                    foreach (var n in kv.Value) matchedNeedsByService[service.Id].Add(n);
+                    break;
+                }
+            }
+        }
+
+        var scored = services.Select(s =>
         {
             var matchedNeeds = matchedNeedsByService.GetValueOrDefault(s.Id, []);
             var needsScore = matchedNeeds.Count * 25;
@@ -89,6 +161,16 @@ public class ServiceMatcher
                 {
                     tagBonus += 10;
                 }
+            }
+
+            if (s.IsPackage && s.IncludedServiceKeys.Count > 0)
+            {
+                var needs = tags.PrimaryNeeds;
+                var keyNeeds = NeedToIncludedKeyMap
+                    .Where(kv => needs.Contains(kv.Key) && kv.Value.Any(k => s.IncludedServiceKeys.Contains(k, StringComparer.OrdinalIgnoreCase)))
+                    .Select(kv => kv.Key)
+                    .Count();
+                tagBonus += keyNeeds * 15;
             }
 
             var stageScore = tags.PostpartumStage switch
@@ -107,7 +189,43 @@ public class ServiceMatcher
         .Where(x => x.Score >= 40 || x.MatchedNeeds.Count > 0)
         .OrderByDescending(x => x.Score)
         .ThenBy(x => services.First(s => s.Id == x.ServiceId).Price)
-        .Take(6)
+
+        // Deduplicate: prefer single services over packages when similar, keep both at different scores
         .ToList();
+
+        var topSingle = scored.Where(x => !services.First(s => s.Id == x.ServiceId).IsPackage).ToList();
+        var topPackage = scored.Where(x => services.First(s => s.Id == x.ServiceId).IsPackage).ToList();
+        var topNurses = topSingle.Concat(topPackage).DistinctBy(x => x.ServiceId).Take(6).ToList();
+
+        if (topNurses.Count < 6)
+        {
+            var taken = new HashSet<string>(topNurses.Select(x => x.ServiceId));
+            var fillers = services
+                .Where(s => !taken.Contains(s.Id) && !s.IsPackage)
+                .OrderBy(s => s.Tags.Contains("cham-me-sau-sinh") || s.Tags.Contains("cham-be-so-sinh") ? 0 : 1)
+                .ThenBy(s => s.Price)
+                .Take(6 - topNurses.Count)
+                .Select(s =>
+                {
+                    var needs = matchedNeedsByService.GetValueOrDefault(s.Id, []);
+                    return (ServiceId: s.Id, Score: 30, MatchedNeeds: needs.ToList());
+                });
+            topNurses.AddRange(fillers);
+        }
+
+        return topNurses;
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+        var formD = text.Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder();
+        foreach (var ch in formD)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                builder.Append(ch);
+        }
+        return builder.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 }

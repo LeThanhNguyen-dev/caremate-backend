@@ -13,6 +13,7 @@ public class ServiceSummaryForAi
     public List<string> Tags { get; set; } = [];
     public decimal Price { get; set; }
     public bool IsPackage { get; set; }
+    public List<string> IncludedServiceKeys { get; set; } = [];
 }
 
 /// <summary>

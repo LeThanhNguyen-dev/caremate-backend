@@ -12,15 +12,16 @@ public class AiChatService : IAiChatService
     private const string Disclaimer = "Thông tin mang tính tham khảo, không thay thế tư vấn y tế.";
     private const int DailyLimit = 30;
     private const int MinuteLimit = 5;
+    private const string OutOfScopeReply = "Mình chỉ hỗ trợ câu hỏi y tế tham khảo và hướng dẫn liên quan đến CareMate. Nếu mẹ muốn, mẹ có thể hỏi về triệu chứng, chăm sóc sức khỏe, hoặc cách sử dụng dịch vụ CareMate.";
 
     private readonly MomCareContext _context;
-    private readonly IGeminiService _geminiService;
+    private readonly ILlmService _llmService;
     private readonly ILogger<AiChatService> _logger;
 
-    public AiChatService(MomCareContext context, IGeminiService geminiService, ILogger<AiChatService> logger)
+    public AiChatService(MomCareContext context, ILlmService llmService, ILogger<AiChatService> logger)
     {
         _context = context;
-        _geminiService = geminiService;
+        _llmService = llmService;
         _logger = logger;
     }
 
@@ -123,8 +124,7 @@ public class AiChatService : IAiChatService
             .OrderBy(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var dtos = messages.Select(Map).ToList();
-        return ServiceResult<IReadOnlyList<AiChatMessageDto>>.Ok(dtos);
+        return ServiceResult<IReadOnlyList<AiChatMessageDto>>.Ok(messages.Select(Map).ToList());
     }
 
     private async Task<ServiceResult<AiChatMessageDto>> SendMessageCoreAsync(int userId, AiChatConversation conversation, string content, CancellationToken cancellationToken)
@@ -135,22 +135,22 @@ public class AiChatService : IAiChatService
             return ServiceResult<AiChatMessageDto>.Fail(limitError);
         }
 
-        var now = DateTime.UtcNow;
         var trimmed = content.Trim();
-        var userMessage = new AiChatMessage
+        var now = DateTime.UtcNow;
+
+        _context.AiChatMessages.Add(new AiChatMessage
         {
             Id = Guid.NewGuid(),
             ConversationId = conversation.Id,
             Role = "user",
             Content = trimmed,
             CreatedAt = now
-        };
-        _context.AiChatMessages.Add(userMessage);
+        });
 
         var safety = SafetyGuardrailEngine.EvaluateText(trimmed);
         var assistant = safety.SafetyLevel == "urgent"
             ? BuildSafetyResponse(conversation.Id, safety)
-            : await BuildGeminiResponseAsync(conversation.Id, userId, trimmed, cancellationToken);
+            : await BuildLlmResponseAsync(conversation.Id, trimmed, cancellationToken);
 
         _context.AiChatMessages.Add(assistant);
         conversation.MessageCount += 2;
@@ -189,14 +189,14 @@ public class AiChatService : IAiChatService
         Id = Guid.NewGuid(),
         ConversationId = conversationId,
         Role = "assistant",
-        Content = safety.Notice ?? "Dấu hiệu bạn mô tả cần được đánh giá trực tiếp bởi nhân viên y tế. Hãy liên hệ bác sĩ hoặc cơ sở y tế gần nhất.",
+        Content = safety.Notice ?? "Dấu hiệu mẹ mô tả cần được đánh giá trực tiếp bởi nhân viên y tế. Hãy liên hệ bác sĩ hoặc cơ sở y tế gần nhất.",
         SafetyFlag = true,
         SafetyTriggeredBy = safety.Triggers.FirstOrDefault() ?? "rule_based",
         FallbackMode = true,
         CreatedAt = DateTime.UtcNow
     };
 
-    private async Task<AiChatMessage> BuildGeminiResponseAsync(Guid conversationId, int userId, string content, CancellationToken cancellationToken)
+    private async Task<AiChatMessage> BuildLlmResponseAsync(Guid conversationId, string content, CancellationToken cancellationToken)
     {
         try
         {
@@ -211,10 +211,9 @@ public class AiChatService : IAiChatService
             var contents = new List<GeminiContentDto>();
             foreach (var msg in recent)
             {
-                var role = msg.Role == "assistant" ? "model" : "user";
                 contents.Add(new GeminiContentDto
                 {
-                    Role = role,
+                    Role = msg.Role == "assistant" ? "model" : "user",
                     Parts = [new GeminiPartDto { Text = msg.Content }]
                 });
             }
@@ -225,39 +224,21 @@ public class AiChatService : IAiChatService
                 Parts = [new GeminiPartDto { Text = content }]
             });
 
-            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
+            var response = await _llmService.GenerateAsync(new GeminiGenerateRequest
             {
-                SystemInstruction = """
-Bạn là CareMate AI, trợ lý chăm sóc sức khỏe mẹ và bé sau sinh.
-
-NGUYÊN TẮC:
-1. Chỉ cung cấp thông tin tham khảo chung.
-2. KHÔNG chẩn đoán bệnh, KHÔNG kê đơn thuốc, KHÔNG hướng dẫn liều dùng cụ thể.
-3. Nếu phát hiện dấu hiệu nguy hiểm -> nhắc người dùng liên hệ bác sĩ hoặc cơ sở y tế NGAY.
-4. Trả lời tiếng Việt thân thiện, dùng ngôi "mẹ" khi xưng hô.
-5. Tối đa 150 từ, ưu tiên ngắn gọn dễ hiểu.
-6. Nếu không chắc -> nói rõ "tôi không chắc" và khuyên hỏi y tá/bác sĩ.
-
-LĨNH VỰC HỖ TRỢ:
-- Chăm sóc mẹ sau sinh (sản dịch, vết mổ, cho bú, dinh dưỡng).
-- Chăm sóc bé sơ sinh (tắm bé, bú, giấc ngủ, phân).
-- Tâm lý sau sinh (baby blues, stress).
-- Hướng dẫn sử dụng dịch vụ CareMate.
-
-KHÔNG HỖ TRỢ:
-- Câu hỏi ngoài lĩnh vực mẹ và bé.
-- Tư vấn thuốc hoặc liều dùng cụ thể.
-""",
+                SystemInstruction = BuildCareMateSystemInstruction(),
                 Contents = contents,
                 Prompt = content,
                 Temperature = 0.2,
-                MaxOutputTokens = 350,
-                TimeoutSeconds = 8
+                MaxOutputTokens = 320,
+                TimeoutSeconds = 20
             }, cancellationToken);
 
-            var text = string.IsNullOrWhiteSpace(response.Text)
-                ? "CareMate AI chưa thể trả lời lúc này. Bạn có thể hỏi lại ngắn gọn hơn hoặc liên hệ y tá nếu cần hỗ trợ trực tiếp."
-                : response.Text.Trim();
+            var text = NormalizeAssistantText(response.Text);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                text = "CareMate AI chưa thể trả lời lúc này. Mẹ có thể hỏi lại ngắn gọn hơn hoặc liên hệ y tá nếu cần hỗ trợ trực tiếp.";
+            }
 
             return new AiChatMessage
             {
@@ -270,7 +251,7 @@ KHÔNG HỖ TRỢ:
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException)
         {
-            _logger.LogWarning(ex, "Gemini AI chat failed.");
+            _logger.LogWarning(ex, "CareMate AI chat failed.");
             return new AiChatMessage
             {
                 Id = Guid.NewGuid(),
@@ -283,8 +264,97 @@ KHÔNG HỖ TRỢ:
         }
     }
 
+    private static string BuildCareMateSystemInstruction() =>
+        """
+Bạn là CareMate AI trong dự án CareMate.
+
+Mục tiêu:
+- Trả lời các câu hỏi y tế tham khảo và các câu hỏi liên quan đến CareMate.
+- Có thể hỗ trợ:
+1. các câu hỏi y tế tham khảo nói chung,
+2. chăm sóc mẹ sau sinh,
+3. chăm sóc bé sơ sinh,
+4. tâm lý sau sinh,
+5. hướng dẫn sử dụng dịch vụ hoặc tính năng CareMate.
+
+Quy tắc bắt buộc:
+1. Chỉ trả lời bằng tiếng Việt có dấu, tự nhiên, dễ đọc.
+2. Xưng hô là "mẹ".
+3. Ưu tiên trả lời bằng 1 đoạn văn ngắn 2 đến 4 câu, mạch lạc, ấm áp, dễ hiểu.
+4. Chỉ dùng gạch đầu dòng khi thật sự cần liệt kê vài ý rõ ràng.
+5. Không tạo bullet rỗng, không tạo dòng chỉ có dấu "-", không xuống dòng thừa.
+6. Không kết thúc bằng câu dang dở. Nếu cần ngắn lại, hãy dừng ở một câu hoàn chỉnh.
+7. Không chẩn đoán bệnh.
+8. Không kê thuốc, không hướng dẫn liều dùng, không đưa phác đồ điều trị.
+9. Nếu câu hỏi không liên quan đến y tế, sức khỏe, triệu chứng, chăm sóc, hoặc CareMate, không trả lời nội dung câu hỏi.
+10. Với câu hỏi ngoài phạm vi, chỉ trả lời đúng câu này:
+"Mình chỉ hỗ trợ câu hỏi y tế tham khảo và hướng dẫn liên quan đến CareMate. Nếu mẹ muốn, mẹ có thể hỏi về triệu chứng, chăm sóc sức khỏe, hoặc cách sử dụng dịch vụ CareMate."
+11. Nếu có dấu hiệu nguy hiểm, khuyên mẹ liên hệ bác sĩ hoặc cơ sở y tế ngay.
+12. Không để lộ suy luận nội bộ. Không viết các câu như "We need to respond", "Reasoning", "Phân tích".
+13. Chỉ xuất ra câu trả lời cuối cùng cho người dùng.
+""";
+
+    private static string NormalizeAssistantText(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return string.Empty;
+        }
+
+        var text = content.Trim();
+        var leakageMarkers = new[]
+        {
+            "We need to respond",
+            "Reasoning:",
+            "The user says:",
+            "According to rules",
+            "They want",
+            "We should respond",
+            "Thus produce"
+        };
+
+        if (leakageMarkers.Any(marker => text.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+        {
+            var paragraphs = text
+                .Split(["\r\n\r\n", "\n\n"], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Reverse();
+
+            foreach (var paragraph in paragraphs)
+            {
+                if (!leakageMarkers.Any(marker => paragraph.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+                {
+                    text = paragraph.Trim();
+                    break;
+                }
+            }
+        }
+
+        text = text.Replace("\r", string.Empty, StringComparison.Ordinal);
+        text = text.Replace("\n-\n", "\n", StringComparison.Ordinal);
+        text = text.Replace("\n- \n", "\n", StringComparison.Ordinal);
+        text = text.Replace(":\n- ", ": ", StringComparison.Ordinal);
+        text = text.Replace(":\n", ": ", StringComparison.Ordinal);
+
+        while (text.Contains("\n\n\n", StringComparison.Ordinal))
+        {
+            text = text.Replace("\n\n\n", "\n\n", StringComparison.Ordinal);
+        }
+
+        if (text.EndsWith("-", StringComparison.Ordinal))
+        {
+            text = text[..^1].TrimEnd();
+        }
+
+        return text.Trim();
+    }
+
     private static string AppendDisclaimer(string content)
     {
+        if (string.Equals(content.Trim(), OutOfScopeReply, StringComparison.Ordinal))
+        {
+            return content.Trim();
+        }
+
         return content.Contains("tham khảo", StringComparison.OrdinalIgnoreCase)
             ? content
             : $"{content}\n\n{Disclaimer}";

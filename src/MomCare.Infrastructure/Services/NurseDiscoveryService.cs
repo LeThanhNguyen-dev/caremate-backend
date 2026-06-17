@@ -15,18 +15,18 @@ public class NurseDiscoveryService : INurseDiscoveryService
 {
     private readonly MomCareContext _context;
     private readonly ICloudinaryService _cloudinaryService;
-    private readonly IGeminiService _geminiService;
+    private readonly ILlmService _llmService;
     private readonly ILogger<NurseDiscoveryService> _logger;
 
     public NurseDiscoveryService(
         MomCareContext context,
         ICloudinaryService cloudinaryService,
-        IGeminiService geminiService,
+        ILlmService llmService,
         ILogger<NurseDiscoveryService> logger)
     {
         _context = context;
         _cloudinaryService = cloudinaryService;
-        _geminiService = geminiService;
+        _llmService = llmService;
         _logger = logger;
     }
 
@@ -394,7 +394,7 @@ public class NurseDiscoveryService : INurseDiscoveryService
 
         try
         {
-            var response = await _geminiService.GenerateAsync(new GeminiGenerateRequest
+            var response = await _llmService.GenerateAsync(new GeminiGenerateRequest
             {
                 SystemInstruction = """
 Bạn viết giải thích ngắn cho danh sách y tá CareMate. Không đổi thứ tự, không thêm y tá mới.

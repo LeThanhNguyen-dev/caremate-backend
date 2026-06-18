@@ -111,6 +111,7 @@ public class AuthService : IAuthService
         var roleResult = await _userManager.AddToRoleAsync(user, AppRoles.Customer);
         if (!roleResult.Succeeded)
         {
+            await _userManager.DeleteAsync(user);
             return null;
         }
 
@@ -164,6 +165,7 @@ public class AuthService : IAuthService
         var roleResult = await _userManager.AddToRoleAsync(user, AppRoles.NurseUnconfirmed);
         if (!roleResult.Succeeded)
         {
+            await _userManager.DeleteAsync(user);
             return null;
         }
 
@@ -178,7 +180,15 @@ public class AuthService : IAuthService
         };
 
         _context.NurseProfiles.Add(nurseProfile);
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch
+        {
+            await _userManager.DeleteAsync(user);
+            return null;
+        }
 
         return await BuildTokenResponseAsync(user);
     }
@@ -349,6 +359,8 @@ public class AuthService : IAuthService
 
         var user = await _userManager.FindByLoginAsync(provider, providerUserId);
 
+        var userCreated = false;
+
         if (user == null)
         {
             user = await _userManager.FindByEmailAsync(email);
@@ -381,10 +393,13 @@ public class AuthService : IAuthService
                     return null;
                 }
 
+                userCreated = true;
+
                 await EnsureRoleExistsAsync(AppRoles.Customer, "Customer");
                 var addRoleResult = await _userManager.AddToRoleAsync(user, AppRoles.Customer);
                 if (!addRoleResult.Succeeded)
                 {
+                    await _userManager.DeleteAsync(user);
                     return null;
                 }
             }
@@ -395,6 +410,10 @@ public class AuthService : IAuthService
                 var loginResult = await _userManager.AddLoginAsync(user, new UserLoginInfo(provider, providerUserId, provider));
                 if (!loginResult.Succeeded)
                 {
+                    if (userCreated)
+                    {
+                        await _userManager.DeleteAsync(user);
+                    }
                     return null;
                 }
             }

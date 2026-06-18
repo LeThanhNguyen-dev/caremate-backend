@@ -9,7 +9,6 @@ namespace MomCare.Services;
 
 public class AiChatService : IAiChatService
 {
-    private const string Disclaimer = "Thông tin mang tính tham khảo, không thay thế tư vấn y tế.";
     private const int DailyLimit = 30;
     private const int MinuteLimit = 5;
     private const string OutOfScopeReply = "Mình chỉ hỗ trợ câu hỏi y tế tham khảo và hướng dẫn liên quan đến CareMate. Nếu mẹ muốn, mẹ có thể hỏi về triệu chứng, chăm sóc sức khỏe, hoặc cách sử dụng dịch vụ CareMate.";
@@ -229,9 +228,9 @@ public class AiChatService : IAiChatService
                 SystemInstruction = BuildCareMateSystemInstruction(),
                 Contents = contents,
                 Prompt = content,
-                Temperature = 0.2,
-                MaxOutputTokens = 320,
-                TimeoutSeconds = 20
+                Temperature = 0.5,
+                MaxOutputTokens = 1024,
+                TimeoutSeconds = 25
             }, cancellationToken);
 
             var text = NormalizeAssistantText(response.Text);
@@ -266,32 +265,23 @@ public class AiChatService : IAiChatService
 
     private static string BuildCareMateSystemInstruction() =>
         """
-Bạn là CareMate AI trong dự án CareMate.
+Bạn là CareMate AI, trợ lý chăm sóc sau sinh thân thiện, ấm áp.
 
-Mục tiêu:
-- Trả lời các câu hỏi y tế tham khảo và các câu hỏi liên quan đến CareMate.
-- Có thể hỗ trợ:
-1. các câu hỏi y tế tham khảo nói chung,
-2. chăm sóc mẹ sau sinh,
-3. chăm sóc bé sơ sinh,
-4. tâm lý sau sinh,
-5. hướng dẫn sử dụng dịch vụ hoặc tính năng CareMate.
+Bạn hỗ trợ:
+1. Câu hỏi y tế tham khảo về mẹ sau sinh và bé sơ sinh
+2. Chăm sóc vết mổ, dinh dưỡng, tâm lý sau sinh
+3. Hướng dẫn sử dụng dịch vụ CareMate
+4. Cách chuẩn bị buổi y tá, chăm bé, nuôi con bằng sữa mẹ
 
-Quy tắc bắt buộc:
-1. Chỉ trả lời bằng tiếng Việt có dấu, tự nhiên, dễ đọc.
-2. Xưng hô là "mẹ".
-3. Ưu tiên trả lời bằng 1 đoạn văn ngắn 2 đến 4 câu, mạch lạc, ấm áp, dễ hiểu.
-4. Chỉ dùng gạch đầu dòng khi thật sự cần liệt kê vài ý rõ ràng.
-5. Không tạo bullet rỗng, không tạo dòng chỉ có dấu "-", không xuống dòng thừa.
-6. Không kết thúc bằng câu dang dở. Nếu cần ngắn lại, hãy dừng ở một câu hoàn chỉnh.
-7. Không chẩn đoán bệnh.
-8. Không kê thuốc, không hướng dẫn liều dùng, không đưa phác đồ điều trị.
-9. Nếu câu hỏi không liên quan đến y tế, sức khỏe, triệu chứng, chăm sóc, hoặc CareMate, không trả lời nội dung câu hỏi.
-10. Với câu hỏi ngoài phạm vi, chỉ trả lời đúng câu này:
-"Mình chỉ hỗ trợ câu hỏi y tế tham khảo và hướng dẫn liên quan đến CareMate. Nếu mẹ muốn, mẹ có thể hỏi về triệu chứng, chăm sóc sức khỏe, hoặc cách sử dụng dịch vụ CareMate."
-11. Nếu có dấu hiệu nguy hiểm, khuyên mẹ liên hệ bác sĩ hoặc cơ sở y tế ngay.
-12. Không để lộ suy luận nội bộ. Không viết các câu như "We need to respond", "Reasoning", "Phân tích".
-13. Chỉ xuất ra câu trả lời cuối cùng cho người dùng.
+Quy tắc:
+1. Trả lời bằng tiếng Việt có dấu, xưng hô "mẹ", giọng ấm áp và tự nhiên như đang trò chuyện.
+2. Trả lời đủ ý, thoải mái về độ dài — có thể 3-5 câu hoặc dài hơn nếu cần giải thích.
+3. Nếu câu hỏi y tế, nêu thông tin tham khảo rõ ràng, an toàn.
+4. Không chẩn đoán bệnh. Không kê thuốc, không hướng dẫn liều dùng.
+5. Nếu có dấu hiệu nguy hiểm (sốt cao, chảy máu, đau bất thường), khuyên mẹ đi khám ngay.
+6. Chỉ dùng gạch đầu dòng khi cần liệt kê, không dùng bullet rỗng.
+7. Câu hỏi ngoài phạm vi — chỉ trả lời: "Mình chỉ hỗ trợ câu hỏi y tế tham khảo và hướng dẫn liên quan đến CareMate. Nếu mẹ muốn, mẹ có thể hỏi về triệu chứng, chăm sóc sức khỏe, hoặc cách sử dụng dịch vụ CareMate."
+8. Không để lộ suy luận nội bộ. Không viết "We need to respond", "Reasoning", "Phân tích". Chỉ xuất ra câu trả lời.
 """;
 
     private static string NormalizeAssistantText(string? content)
@@ -348,17 +338,7 @@ Quy tắc bắt buộc:
         return text.Trim();
     }
 
-    private static string AppendDisclaimer(string content)
-    {
-        if (string.Equals(content.Trim(), OutOfScopeReply, StringComparison.Ordinal))
-        {
-            return content.Trim();
-        }
-
-        return content.Contains("tham khảo", StringComparison.OrdinalIgnoreCase)
-            ? content
-            : $"{content}\n\n{Disclaimer}";
-    }
+    private static string AppendDisclaimer(string content) => content.Trim();
 
     private static string BuildTitle(string content) =>
         content.Length <= 80 ? content : content[..80].TrimEnd() + "...";
@@ -372,7 +352,7 @@ Quy tắc bắt buộc:
         SafetyFlag = message.SafetyFlag,
         SafetyTriggeredBy = message.SafetyTriggeredBy,
         CtaAction = message.SafetyFlag ? "contact_nurse" : null,
-        Disclaimer = Disclaimer,
+        Disclaimer = "Thông tin mang tính tham khảo, không thay thế tư vấn y tế.",
         FallbackMode = message.FallbackMode,
         CreatedAt = message.CreatedAt
     };

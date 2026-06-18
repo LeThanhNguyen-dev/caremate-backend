@@ -180,6 +180,7 @@ public class AdminService : IAdminService
         var roleResult = await _userManager.AddToRoleAsync(user, roleCode);
         if (!roleResult.Succeeded)
         {
+            await _userManager.DeleteAsync(user);
             return null;
         }
 
@@ -193,7 +194,15 @@ public class AdminService : IAdminService
                 IsVerified = "unverified",
                 VerificationSubmissionStatus = "draft"
             });
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch
+            {
+                await _userManager.DeleteAsync(user);
+                return null;
+            }
         }
 
         return (await GetUsersAsync()).FirstOrDefault(x => x.UserId == user.Id);

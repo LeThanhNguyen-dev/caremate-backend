@@ -69,15 +69,14 @@ public class NurseDiscoveryService : INurseDiscoveryService
             var start = startTime.Value;
             var end = endTime.Value;
 
-            // Availability check: Nurse must have an unbooked slot covering the range
             query = query.Where(np =>
                 _context.AvailabilitySlots.Any(a =>
                     a.NurseProfileId == np.Id &&
                     a.StartTime <= start &&
                     a.EndTime >= end &&
-                    !_context.Bookings.Any(b => 
-                        b.AvailabilitySlotId == a.Id && 
-                        b.Status != BookingStatuses.Cancelled && 
+                    !_context.Bookings.Any(b =>
+                        b.AvailabilitySlotId == a.Id &&
+                        b.Status != BookingStatuses.Cancelled &&
                         b.Status != BookingStatuses.Rejected)) &&
                 !_context.Bookings.Any(b =>
                     b.NurseId == np.UserId &&
@@ -96,36 +95,6 @@ public class NurseDiscoveryService : INurseDiscoveryService
             .Where(a => nurseUserIds.Contains(a.UserId) && a.Type == "nurse_base")
             .ToListAsync();
         var normalizedDistrict = NormalizeDistrict(district);
-
-        if (!string.IsNullOrWhiteSpace(normalizedDistrict))
-        {
-            nurses = nurses
-                .Where(np => NormalizeDistrict(addresses.FirstOrDefault(a => a.UserId == np.UserId)?.District) == normalizedDistrict)
-                .ToList();
-            nurseProfileIds = nurses.Select(np => np.Id).ToList();
-            nurseUserIds = nurses.Select(np => np.UserId).ToList();
-        }
-
-        if (latitude.HasValue && longitude.HasValue)
-        {
-            nurses = nurses
-                .Where(np =>
-                {
-                    var address = addresses.FirstOrDefault(a => a.UserId == np.UserId);
-                    if (address?.Latitude.HasValue != true || address.Longitude.HasValue != true)
-                    {
-                        return false;
-                    }
-
-                    var nurseLatitude = address.Latitude.GetValueOrDefault();
-                    var nurseLongitude = address.Longitude.GetValueOrDefault();
-                    var distanceKm = CalculateDistanceKm(latitude.Value, longitude.Value, nurseLatitude, nurseLongitude);
-                    return distanceKm <= Math.Max(np.ServiceRadiusKm, 1);
-                })
-                .ToList();
-            nurseProfileIds = nurses.Select(np => np.Id).ToList();
-            nurseUserIds = nurses.Select(np => np.UserId).ToList();
-        }
 
         var slots = await _context.AvailabilitySlots
             .Where(a => nurseProfileIds.Contains(a.NurseProfileId) && a.EndTime >= now)
@@ -164,18 +133,25 @@ public class NurseDiscoveryService : INurseDiscoveryService
                 ? np.NurseServices.FirstOrDefault(ns => ns.ServiceId == serviceId.Value)
                 : np.NurseServices.OrderBy(ns => ns.Price).FirstOrDefault();
             var address = addresses.FirstOrDefault(a => a.UserId == np.UserId);
-            var distanceKm = latitude.HasValue && longitude.HasValue && address?.Latitude.HasValue == true && address.Longitude.HasValue
-                ? Math.Round(CalculateDistanceKm(latitude.Value, longitude.Value, address.Latitude.Value, address.Longitude.Value), 1)
-                : (double?)null;
+
+            var distanceKm = (double?)null;
+            if (latitude.HasValue && longitude.HasValue && address?.Latitude.HasValue == true && address.Longitude.HasValue)
+            {
+                distanceKm = Math.Round(CalculateDistanceKm(latitude.Value, longitude.Value, address.Latitude.Value, address.Longitude.Value), 1);
+            }
+
+            var districtMatches = !string.IsNullOrWhiteSpace(normalizedDistrict) &&
+                address?.District != null &&
+                NormalizeDistrict(address.District) == normalizedDistrict;
+
             var nextAvailableAt = slots
                 .Where(s => s.NurseProfileId == np.Id && !busySlotIdSet.Contains(s.Id))
                 .Select(s => (DateTime?)s.StartTime)
                 .FirstOrDefault();
-            var districtMatches = !string.IsNullOrWhiteSpace(normalizedDistrict) &&
-                NormalizeDistrict(address?.District) == normalizedDistrict;
             var completedBookings = completedBookingCounts.GetValueOrDefault(np.UserId);
             var totalReviews = reviewCounts.GetValueOrDefault(np.UserId);
             var specialtyMatches = SpecialtyMatchesService(np, selectedService);
+
             var score = CalculateMatchScore(
                 np,
                 nurseService?.Price,
@@ -184,9 +160,10 @@ public class NurseDiscoveryService : INurseDiscoveryService
                 districtMatches,
                 specialtyMatches,
                 completedBookings,
-                totalReviews);
+                totalReviews,
+                latitude.HasValue);
 
-            var matchReasons = BuildMatchReasons(np, distanceKm, nextAvailableAt, districtMatches, specialtyMatches, completedBookings, totalReviews);
+            var matchReasons = BuildMatchReasons(np, distanceKm, districtMatches, specialtyMatches, completedBookings, totalReviews, nextAvailableAt);
             return new NurseDiscoveryDto
             {
                 UserId = np.UserId,
@@ -201,7 +178,7 @@ public class NurseDiscoveryService : INurseDiscoveryService
                 ServicePrice = nurseService?.Price,
                 ServiceUnit = nurseService?.Unit,
                 DistanceKm = distanceKm,
-                DistanceSource = distanceKm.HasValue ? "straight_line_from_customer_address" : null,
+                DistanceSource = distanceKm.HasValue ? "straight_line_v2" : (districtMatches ? "same_district" : null),
                 MatchScore = score,
                 MatchReasons = matchReasons,
                 AiMatchSummary = BuildFallbackAiSummary(np.User.FullName, matchReasons, distanceKm),
@@ -312,73 +289,95 @@ public class NurseDiscoveryService : INurseDiscoveryService
         bool districtMatches,
         bool specialtyMatches,
         int completedBookings,
-        int totalReviews)
+        int totalReviews,
+        bool hasCustomerLocation)
     {
-        var distanceScore = distanceKm.HasValue
-            ? Math.Clamp(25 - (distanceKm.Value / Math.Max(profile.ServiceRadiusKm, 1) * 25), 0, 25)
-            : districtMatches ? 20 : 12;
-        var ratingScore = Math.Clamp((double)profile.AverageRating / 5 * 20, 0, 20);
-        var experienceScore = Math.Clamp(profile.YearsExperience / 10d * 15, 0, 15);
-        var priceScore = price.HasValue
-            ? Math.Clamp(10 - ((double)Math.Max(price.Value - 350_000m, 0m) / 1_200_000d * 10), 0, 10)
-            : 5;
-        var availabilityScore = nextAvailableAt.HasValue
-            ? Math.Clamp(10 - Math.Max((nextAvailableAt.Value - DateTime.UtcNow).TotalDays, 0), 2, 10)
-            : 0;
-        var specialtyScore = specialtyMatches ? 15 : 6;
-        var reliabilityScore = Math.Clamp(completedBookings / 40d * 3, 0, 3) +
-                               Math.Clamp(totalReviews / 20d * 2, 0, 2);
+        var distanceScore = 0;
 
-        return (int)Math.Round(distanceScore + ratingScore + experienceScore + priceScore + availabilityScore + specialtyScore + reliabilityScore);
+        if (distanceKm.HasValue)
+        {
+            distanceScore = distanceKm.Value switch
+            {
+                <= 1 => 30,
+                <= 3 => 28,
+                <= 5 => 25,
+                <= 10 => 21,
+                <= 20 => 16,
+                <= 30 => 10,
+                _ => Math.Max(5 - (int)((distanceKm.Value - 30) / 10), 0)
+            };
+        }
+        else if (districtMatches)
+        {
+            distanceScore = 24;
+        }
+        else if (hasCustomerLocation)
+        {
+            distanceScore = 10;
+        }
+        else
+        {
+            distanceScore = 18;
+        }
+
+        var ratingScore = Math.Clamp((double)profile.AverageRating / 5 * 25, 0, 25);
+        var experienceScore = Math.Clamp(profile.YearsExperience / 15d * 15, 0, 15);
+        var specialtyScore = specialtyMatches ? 15 : 8;
+        var reliabilityScore = 3 + Math.Clamp(completedBookings / 50d * 7, 0, 7);
+        var priceScore = price.HasValue
+            ? Math.Clamp(5 - ((double)Math.Max(price.Value - 400_000m, 0m) / 1_000_000d * 5), 0, 5)
+            : 3;
+
+        return (int)Math.Round(distanceScore + ratingScore + experienceScore + specialtyScore + reliabilityScore + priceScore);
     }
 
     private static List<string> BuildMatchReasons(
         NurseProfile profile,
         double? distanceKm,
-        DateTime? nextAvailableAt,
         bool districtMatches,
         bool specialtyMatches,
         int completedBookings,
-        int totalReviews)
+        int totalReviews,
+        DateTime? nextAvailableAt)
     {
         var reasons = new List<string>();
 
         if (specialtyMatches)
         {
-            reasons.Add("Chuyên môn khớp dịch vụ");
+            reasons.Add("Chuyên môn phù hợp với dịch vụ này");
         }
 
         if (distanceKm.HasValue)
         {
-            reasons.Add($"Cách bạn {distanceKm.Value:0.0}km đường thẳng");
+            reasons.Add($"Cách bạn {distanceKm.Value:0.0}km");
         }
         else if (districtMatches)
         {
-            reasons.Add("Cùng khu vực bạn chọn");
+            reasons.Add("Cùng quận/huyện với bạn");
         }
 
-        if (profile.AverageRating >= 4.5m)
+        if (profile.AverageRating >= 4.0m)
         {
-            reasons.Add($"{profile.AverageRating:0.0} sao từ khách hàng");
+            reasons.Add($"Đánh giá {profile.AverageRating:0.0}/5 sao");
         }
 
-        if (profile.YearsExperience >= 3)
+        if (profile.YearsExperience >= 2)
         {
             reasons.Add($"{profile.YearsExperience} năm kinh nghiệm");
         }
 
         if (completedBookings >= 10)
         {
-            reasons.Add($"{completedBookings} booking hoàn thành");
+            reasons.Add($"{completedBookings} ca đã thực hiện");
         }
-        else if (totalReviews >= 5)
+        else if (completedBookings >= 3)
         {
-            reasons.Add($"{totalReviews} đánh giá xác thực");
+            reasons.Add($"Đã thực hiện {completedBookings} ca");
         }
 
         if (nextAvailableAt.HasValue)
         {
-            reasons.Add(nextAvailableAt.Value.Date == DateTime.UtcNow.Date ? "Có lịch rảnh hôm nay" : "Có lịch rảnh gần nhất");
+            reasons.Add(nextAvailableAt.Value.Date == DateTime.UtcNow.Date ? "Có lịch trống hôm nay" : "Có lịch trống trong tuần");
         }
 
         return reasons;

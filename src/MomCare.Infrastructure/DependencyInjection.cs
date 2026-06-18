@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using MomCare.Data;
 using MomCare.Infrastructure.Configurations;
 using MomCare.Interfaces;
@@ -55,7 +56,15 @@ public static class DependencyInjection
         services.AddScoped<UrgentResponseBuilder>();
         services.AddHttpClient<ICccdOcrService, FptAiCccdOcrService>();
         services.AddHttpClient<ILlmService, GroqService>()
-            .AddStandardResilienceHandler();
+            .AddStandardResilienceHandler()
+            .Configure(o =>
+            {
+                o.Retry.MaxRetryAttempts = 3;
+                o.Retry.Delay = TimeSpan.FromSeconds(2);
+                o.Retry.MaxDelay = TimeSpan.FromSeconds(15);
+                o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(15);
+                o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(35);
+            });
 
         services.AddDbContext<MomCareContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));

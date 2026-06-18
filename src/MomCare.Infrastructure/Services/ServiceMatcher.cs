@@ -200,10 +200,11 @@ public class ServiceMatcher
         if (topNurses.Count < 6)
         {
             var taken = new HashSet<string>(topNurses.Select(x => x.ServiceId));
+            var seed = tags.Tags.Aggregate(0, (acc, t) => acc + t.GetHashCode(StringComparison.Ordinal));
+            var rng = new Random(seed);
             var fillers = services
                 .Where(s => !taken.Contains(s.Id) && !s.IsPackage)
-                .OrderBy(s => s.Tags.Contains("cham-me-sau-sinh") || s.Tags.Contains("cham-be-so-sinh") ? 0 : 1)
-                .ThenBy(s => s.Price)
+                .OrderBy(_ => rng.Next())
                 .Take(6 - topNurses.Count)
                 .Select(s =>
                 {

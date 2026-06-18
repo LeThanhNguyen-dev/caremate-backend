@@ -50,7 +50,7 @@ public class GeminiReasoningService
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            timeout.CancelAfter(TimeSpan.FromSeconds(25));
 
             var response = await _llmService.GenerateAsync(new GeminiGenerateRequest
             {
@@ -65,7 +65,7 @@ public class GeminiReasoningService
             var parsed = JsonSerializer.Deserialize<GeminiReasoningOutput>(text, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             if (parsed is null)
             {
-                errorMessage = "Gemini returned empty reasoning JSON.";
+                errorMessage = "AI returned empty reasoning JSON.";
                 return Fallback();
             }
 
@@ -83,7 +83,7 @@ public class GeminiReasoningService
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or TaskCanceledException or JsonException)
         {
             errorMessage = ex.Message;
-            _logger.LogWarning(ex, "Gemini care plan reasoning failed. Falling back to deterministic plan.");
+            _logger.LogWarning(ex, "AI care plan reasoning failed. Falling back to deterministic plan.");
             return Fallback();
         }
         finally

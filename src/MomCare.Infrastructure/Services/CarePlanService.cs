@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -15,32 +17,26 @@ public class CarePlanService : ICarePlanService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly MomCareContext _context;
-    private readonly ILlmService _llmService;
     private readonly INurseDiscoveryService _nurseDiscoveryService;
     private readonly ILogger<CarePlanService> _logger;
     private readonly SymptomTagEngine _symptomTagEngine;
-    private readonly ServiceMatcher _serviceMatcher;
     private readonly GeminiReasoningService _geminiReasoningService;
     private readonly PlanValidatorEngine _planValidatorEngine;
     private readonly UrgentResponseBuilder _urgentResponseBuilder;
 
     public CarePlanService(
         MomCareContext context,
-        ILlmService llmService,
         INurseDiscoveryService nurseDiscoveryService,
         ILogger<CarePlanService> logger,
         SymptomTagEngine symptomTagEngine,
-        ServiceMatcher serviceMatcher,
         GeminiReasoningService geminiReasoningService,
         PlanValidatorEngine planValidatorEngine,
         UrgentResponseBuilder urgentResponseBuilder)
     {
         _context = context;
-        _llmService = llmService;
         _nurseDiscoveryService = nurseDiscoveryService;
         _logger = logger;
         _symptomTagEngine = symptomTagEngine;
-        _serviceMatcher = serviceMatcher;
         _geminiReasoningService = geminiReasoningService;
         _planValidatorEngine = planValidatorEngine;
         _urgentResponseBuilder = urgentResponseBuilder;
@@ -91,7 +87,6 @@ public class CarePlanService : ICarePlanService
             return ServiceResult<CarePlanResponse>.Ok(Map(urgentPlan));
         }
 
-        // Run AI reasoning pipeline with rule-based matching as primary
         var tags = _symptomTagEngine.Extract(checkIn);
         var activeServices = await _context.Services
             .AsNoTracking()
@@ -110,36 +105,49 @@ public class CarePlanService : ICarePlanService
                 ? []
                 : x.IncludedServiceKeys.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList()
         }).ToList();
-
-        // Rule-based matching first
-        var ruleMatches = _serviceMatcher.Match(tags, servicesForAi);
-
-        // AI reasoning as enhancement
         var reasoningResult = await _geminiReasoningService.ReasonAsync(tags, servicesForAi, null, cancellationToken);
-        var validatedResult = _planValidatorEngine.Validate(reasoningResult, servicesForAi);
+        var validatedResult = _planValidatorEngine.Validate(reasoningResult, servicesForAi, allowServiceFallback: false, tags: tags);
+        var effectiveReasoning = validatedResult.Reasoning;
+        var effectiveIsFromAi = validatedResult.IsFromAi;
+        var filteredServiceScores = FilterRecommendServiceScores(validatedResult.ServiceScores, activeServices, tags);
 
-        // Merge: prefer rule-based service IDs but use AI reasons when available
-        var aiScores = validatedResult.ServiceScores.ToDictionary(x => x.ServiceId, x => x);
-        var mergedServiceIds = ruleMatches
-            .Select(m => m.ServiceId)
-            .Concat(validatedResult.ServiceScores.Select(x => x.ServiceId))
-            .Distinct()
-            .Take(6)
-            .ToList();
-
-        var recommendedServices = mergedServiceIds.Select(id =>
+        if (filteredServiceScores.Count == 0 && reasoningResult.IsFromAi)
         {
-            var s = activeServices.FirstOrDefault(x => x.Id.ToString() == id);
-            var ruleMatch = ruleMatches.FirstOrDefault(m => m.ServiceId == id);
-            var aiScore = aiScores.GetValueOrDefault(id);
+            filteredServiceScores = SalvageRecommendServiceScores(reasoningResult.ServiceScores, activeServices, tags);
+            if (filteredServiceScores.Count > 0)
+            {
+                effectiveIsFromAi = true;
+                effectiveReasoning = string.IsNullOrWhiteSpace(reasoningResult.Reasoning)
+                    ? BuildRecommendationSummary(tags, filteredServiceScores.Count)
+                    : reasoningResult.Reasoning;
+                _logger.LogInformation(
+                    "Care plan AI recommendation required salvage filtering for user {UserId}. Recovered {Count} services.",
+                    userId,
+                    filteredServiceScores.Count);
+            }
+        }
+
+        var fallbackMode = !effectiveIsFromAi || filteredServiceScores.Count == 0;
+        if (fallbackMode)
+        {
+            _logger.LogWarning("Care plan AI failed for user {UserId}. Falling back to rule-based recommendation.", userId);
+            filteredServiceScores = PadToFourServices([], activeServices, tags);
+            effectiveReasoning = string.Empty;
+        }
+
+        var fillers = filteredServiceScores.Count < 4
+            ? PadToFourServices(filteredServiceScores, activeServices, tags)
+            : [];
+        var combined = filteredServiceScores.Concat(fillers).ToList();
+
+        var recommendedServices = combined.Select(score =>
+        {
+            var s = activeServices.FirstOrDefault(x => x.Id.ToString() == score.ServiceId);
             return new RecommendedCareServiceDto
             {
-                ServiceId = s?.Id ?? int.Parse(id),
+                ServiceId = s?.Id ?? int.Parse(score.ServiceId),
                 Name = s?.Name ?? "Dịch vụ đề xuất",
-                Reason = aiScore?.Reason
-                    ?? (ruleMatch.MatchedNeeds.Count > 0
-                        ? $"Phù hợp với nhu cầu: {string.Join(", ", ruleMatch.MatchedNeeds)}"
-                        : "Phù hợp với giai đoạn hậu sản của bạn."),
+                Reason = s?.Description?.Trim() ?? string.Empty,
                 SessionCount = s?.PackageDays,
                 EstimatedPrice = s?.BasePrice ?? 0
             };
@@ -149,12 +157,9 @@ public class CarePlanService : ICarePlanService
         var nurses = firstServiceId.HasValue
             ? await GetRecommendedNursesAsync(firstServiceId, MapLocation(request.UserLocation), cancellationToken)
             : [];
-
-        var hasAiContent = validatedResult.IsFromAi && (validatedResult.ServiceScores.Count > 0 || !string.IsNullOrWhiteSpace(validatedResult.Reasoning));
-        var summary = recommendedServices.Count > 0
-            ? $"CareMate đề xuất {recommendedServices.Count} dịch vụ phù hợp với tình trạng của mẹ. "
-                + (string.IsNullOrWhiteSpace(validatedResult.Reasoning) ? "" : validatedResult.Reasoning)
-            : "Gợi ý chăm sóc từ CareMate AI.";
+        var summary = !string.IsNullOrWhiteSpace(effectiveReasoning)
+            ? HumanizeAiText(effectiveReasoning)
+            : $"CareMate gợi ý {recommendedServices.Count} dịch vụ phù hợp cho giai đoạn này.";
 
         var plan = new AiCarePlan
         {
@@ -170,9 +175,9 @@ public class CarePlanService : ICarePlanService
             PlanItemsJson = "[]",
             RecommendedNursesJson = JsonSerializer.Serialize(nurses, JsonOptions),
             Disclaimer = Disclaimer,
-            AiModel = hasAiContent ? "gemini-2.0-flash" : "rule_engine",
-            FallbackMode = !hasAiContent,
-            IsAiReasoned = hasAiContent,
+            AiModel = fallbackMode ? "rule_engine" : "groq",
+            FallbackMode = fallbackMode,
+            IsAiReasoned = !fallbackMode,
             SymptomTagsJson = JsonSerializer.Serialize(tags, JsonOptions),
             GeminiPromptVersion = GeminiReasoningService.PromptVersion,
             CreatedAt = DateTime.UtcNow,
@@ -182,6 +187,239 @@ public class CarePlanService : ICarePlanService
         _context.AiCarePlans.Add(plan);
         await _context.SaveChangesAsync(cancellationToken);
         return ServiceResult<CarePlanResponse>.Ok(Map(plan));
+    }
+
+    private static List<ServiceScore> FilterRecommendServiceScores(
+        List<ServiceScore> serviceScores,
+        List<Service> activeServices,
+        SymptomTagResult tags)
+    {
+        var servicesById = activeServices.ToDictionary(x => x.Id.ToString(), StringComparer.OrdinalIgnoreCase);
+        var hasAlternativeToMotherMonitoring = serviceScores.Any(score =>
+            servicesById.TryGetValue(score.ServiceId, out var service) &&
+            !IsGenericMotherMonitoringService(service));
+
+        return serviceScores
+            .Where(score =>
+            {
+                if (!servicesById.TryGetValue(score.ServiceId, out var service))
+                {
+                    return true;
+                }
+
+                if (!tags.HasBabyConcern && IsBabyFocusedService(service))
+                {
+                    return false;
+                }
+
+                if (ShouldAvoidGenericMotherMonitoring(tags) &&
+                    hasAlternativeToMotherMonitoring &&
+                    IsGenericMotherMonitoringService(service))
+                {
+                    return false;
+                }
+
+                return true;
+            })
+            .Take(4)
+            .ToList();
+    }
+
+    private static List<ServiceScore> SalvageRecommendServiceScores(
+        List<ServiceScore> serviceScores,
+        List<Service> activeServices,
+        SymptomTagResult tags)
+    {
+        var servicesById = activeServices.ToDictionary(x => x.Id.ToString(), StringComparer.OrdinalIgnoreCase);
+
+        var normalizedScores = serviceScores
+            .Where(score => servicesById.ContainsKey(score.ServiceId))
+            .Select(score => new ServiceScore
+            {
+                ServiceId = score.ServiceId,
+                Score = NormalizeRecommendationScore(score.Score),
+                Reason = IsUsableAiReason(score.Reason) ? score.Reason.Trim() : string.Empty,
+                MatchedNeeds = score.MatchedNeeds
+            })
+            .Where(score => score.Score >= 0.40d)
+            .OrderByDescending(score => score.Score)
+            .ToList();
+
+        return FilterRecommendServiceScores(normalizedScores, activeServices, tags);
+    }
+
+    private static bool ShouldAvoidGenericMotherMonitoring(SymptomTagResult tags) =>
+        tags.PrimaryConcern is "wound_care" or "breastfeeding_support" &&
+        (tags.HasBreastfeedingConcern || tags.PrimaryNeeds.Contains("cham_soc_vet_mo", StringComparer.OrdinalIgnoreCase));
+
+    private static bool IsBabyFocusedService(Service service)
+    {
+        var includedKeys = (service.IncludedServiceKeys ?? string.Empty)
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        return service.Category.Equals("cham-be-so-sinh", StringComparison.OrdinalIgnoreCase)
+            || includedKeys.Any(key => key is "baby-health-monitoring" or "night-care");
+    }
+
+    private static bool IsGenericMotherMonitoringService(Service service)
+    {
+        var includedKeys = (service.IncludedServiceKeys ?? string.Empty)
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        return service.Name.Contains("Theo dõi sức khỏe mẹ", StringComparison.OrdinalIgnoreCase)
+            || service.Name.Contains("Theo doi suc khoe me", StringComparison.OrdinalIgnoreCase)
+            || includedKeys.Contains("mother-health-monitoring", StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string HumanizeAiText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return text;
+        }
+
+        var result = text
+            .Replace('_', ' ')
+            .Replace("  ", " ", StringComparison.Ordinal)
+            .Trim();
+
+        if (result.Length > 0 && !char.IsUpper(result[0]))
+        {
+            result = char.ToUpper(result[0]) + result[1..];
+        }
+
+        if (!result.EndsWith('.') && !result.EndsWith('!') && !result.EndsWith('?'))
+        {
+            result += '.';
+        }
+
+        return result;
+    }
+
+    private static double NormalizeRecommendationScore(double score)
+    {
+        if (score > 1d && score <= 100d)
+        {
+            score /= 100d;
+        }
+
+        return Math.Clamp(score, 0d, 1d);
+    }
+
+    private static bool IsUsableAiReason(string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return false;
+        }
+
+        var normalized = HumanizeAiText(reason).Trim();
+        if (normalized.Length < 24)
+        {
+            return false;
+        }
+
+        return !normalized.StartsWith("Phu hop voi tinh trang cua ban", StringComparison.OrdinalIgnoreCase)
+            && !normalized.StartsWith("Dich vu nay co the ho tro ban", StringComparison.OrdinalIgnoreCase)
+            && !normalized.StartsWith("Goi y cham soc phu hop", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildRecommendationSummary(SymptomTagResult tags, int serviceCount)
+    {
+        var primaryConcern = tags.PrimaryConcern switch
+        {
+            "wound_care" => "van de vet mo",
+            "breastfeeding_support" => "viec cho bu va tac sua",
+            "fever_monitoring" => "dau hieu sot can theo doi",
+            "blood_pressure_monitoring" => "huyet ap sau sinh",
+            "mood_sleep_support" => "giac ngu va the trang cua me",
+            _ => "tinh trang hau san hien tai"
+        };
+
+        return $"Uu tien xu ly {primaryConcern}, sau do mo rong sang cac nhu cau lien quan khac bang {serviceCount} dich vu phu hop.";
+    }
+
+    private static List<ServiceScore> PadToFourServices(
+        List<ServiceScore> existing,
+        List<Service> activeServices,
+        SymptomTagResult tags)
+    {
+        var taken = existing.Select(x => x.ServiceId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var needCount = 4 - existing.Count;
+        if (needCount <= 0) return [];
+
+        var symptomSummary = BuildFallbackSymptomSummary(tags);
+
+        var primaryNeedsLower = tags.PrimaryNeeds
+            .Select(n => n.ToLowerInvariant().Replace("_", " "))
+            .ToList();
+
+        var symptomTags = tags.Tags
+            .Where(t => !t.StartsWith("sinh_") && !t.StartsWith("ngay_hau_san_"))
+            .Select(t => t.ToLowerInvariant().Replace("_", " "))
+            .ToList();
+
+        var matchTerms = symptomTags.Concat(primaryNeedsLower).Distinct().ToList();
+
+        var candidates = activeServices
+            .Where(s => !taken.Contains(s.Id.ToString()))
+            .Select(s =>
+            {
+                var cat = NormalizeText((s.Category ?? ""));
+                var name = NormalizeText((s.Name ?? ""));
+                var desc = NormalizeText((s.Description ?? ""));
+                var keys = NormalizeText((s.IncludedServiceKeys ?? ""));
+                var searchSpace = $"{cat} {name} {desc} {keys}";
+
+                var matchCount = matchTerms.Count(term => searchSpace.Contains(term, StringComparison.OrdinalIgnoreCase));
+
+                var keyBonus = 0;
+                if (primaryNeedsLower.Contains("cham soc vet mo") && keys.Contains("wound"))
+                    keyBonus = 3;
+                else if (primaryNeedsLower.Contains("ho tro cho bu") && (keys.Contains("breastfeeding") || keys.Contains("lactation")))
+                    keyBonus = 3;
+                else if (primaryNeedsLower.Contains("tu van tam ly") && (keys.Contains("mental") || keys.Contains("psychology")))
+                    keyBonus = 3;
+                else if (primaryNeedsLower.Contains("theo doi huyet ap") && keys.Contains("blood.pressure"))
+                    keyBonus = 3;
+                else if (primaryNeedsLower.Contains("theo doi sot") && (keys.Contains("fever") || keys.Contains("temperature")))
+                    keyBonus = 3;
+                matchCount += keyBonus;
+
+                return (Service: s, MatchCount: matchCount);
+            })
+            .Where(x => x.MatchCount > 0)
+            .OrderByDescending(x => x.MatchCount)
+            .ThenBy(x => x.Service.BasePrice)
+            .Take(needCount)
+            .ToList();
+
+        return candidates.Select(c => new ServiceScore
+        {
+            ServiceId = c.Service.Id.ToString(),
+            Score = 0.50d,
+            Reason = $"CareMate goi y {c.Service.Name} de ho tro {symptomSummary}."
+        }).ToList();
+    }
+
+    private static string BuildFallbackSymptomSummary(SymptomTagResult tags)
+    {
+        var parts = new List<string>();
+
+        if (tags.Tags.Any(t => t.Contains("vet_mo")))
+            parts.Add("cham soc vet mo");
+        if (tags.Tags.Any(t => t.Contains("sot")))
+            parts.Add("theo doi than nhiet");
+        if (tags.HasBreastfeedingConcern || tags.Tags.Any(t => t.Contains("sua")))
+            parts.Add("ho tro cho bu va xu ly tac sua");
+        if (tags.Tags.Any(t => t.Contains("tam_trang_tieu_cuc") || t.Contains("mat_ngu")))
+            parts.Add("cai thien tam trang va giac ngu");
+        if (tags.Tags.Any(t => t.Contains("huyet_ap")))
+            parts.Add("theo doi huyet ap");
+        if (tags.Tags.Any(t => t.Contains("chay_mau") || t.Contains("ra_mau")))
+            parts.Add("xu ly ra mau sau sinh");
+
+        return parts.Count > 0 ? string.Join(", ", parts) : "hoi phuc sau sinh";
     }
 
     public async Task<ServiceResult<CarePlanResponse>> GenerateForBookingAsync(int actorUserId, bool isAdmin, int bookingId, CancellationToken cancellationToken)
@@ -341,7 +579,7 @@ public class CarePlanService : ICarePlanService
             PlanItemsJson = JsonSerializer.Serialize(items, JsonOptions),
             RecommendedNursesJson = JsonSerializer.Serialize(nurses, JsonOptions),
             Disclaimer = Disclaimer,
-            AiModel = validatedResult.IsFromAi ? "gemini-2.0-flash-stable" : "rule_engine",
+            AiModel = validatedResult.IsFromAi ? "groq" : "rule_engine",
             FallbackMode = !validatedResult.IsFromAi,
             IsAiReasoned = validatedResult.IsFromAi,
             SymptomTagsJson = JsonSerializer.Serialize(tags, JsonOptions),
@@ -353,6 +591,22 @@ public class CarePlanService : ICarePlanService
         _context.AiCarePlans.Add(plan);
         await _context.SaveChangesAsync(cancellationToken);
         return ServiceResult<CarePlanResponse>.Ok(Map(plan));
+    }
+
+    private static string NormalizeText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace("-", " ")
+            .Replace("_", " ");
+        var formD = normalized.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
+        foreach (var ch in formD)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+                builder.Append(ch);
+        }
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private async Task<HealthCheckIn?> ResolveCheckInAsync(int userId, CarePlanRecommendRequest request, CancellationToken cancellationToken)
@@ -562,3 +816,4 @@ public class CarePlanService : ICarePlanService
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
+

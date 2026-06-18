@@ -32,7 +32,7 @@ public class BookingContextForAi
 public class ServiceScore
 {
     public string ServiceId { get; set; } = string.Empty;
-    public int Score { get; set; }
+    public double Score { get; set; }
     public string Reason { get; set; } = string.Empty;
     public List<string> MatchedNeeds { get; set; } = [];
 }
@@ -70,9 +70,9 @@ public class GeminiReasoningOutput
     [JsonPropertyName("serviceScores")]
     public List<ServiceScore> ServiceScores { get; set; } = [];
 
-    [JsonPropertyName("planItems")]
-    public List<PlanItemSuggestion> PlanItems { get; set; } = [];
-
     [JsonPropertyName("reasoning")]
     public string Reasoning { get; set; } = string.Empty;
+
+    [JsonPropertyName("planItems")]
+    public List<PlanItemSuggestion> PlanItems { get; set; } = [];
 }

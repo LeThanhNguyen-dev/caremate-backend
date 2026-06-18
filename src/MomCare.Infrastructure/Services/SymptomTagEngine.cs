@@ -58,14 +58,144 @@ public class SymptomTagEngine
         AddMoodTags(checkIn, result);
         AddBabyFeedingTags(checkIn, result);
         AddBabySleepTags(checkIn, result);
+        AddBabyContextTags(context, checkIn, result);
         AddWoundTags(context, result);
         AddVitalSignsTags(checkIn, result);
         AddSymptomsTags(checkIn, result);
         AddNoteTags(checkIn, result);
         AddSleepTags(checkIn, result);
+        PopulatePrimaryConcern(checkIn, context, result);
+        PopulateRelevantContextTokens(checkIn, context, result);
 
+        result.RawCheckinSummary = BuildRawSummary(checkIn, context);
         result.OverallRiskScore = Math.Clamp(result.OverallRiskScore, 0, 100);
         return result;
+    }
+
+    private static void PopulatePrimaryConcern(
+        HealthCheckIn checkIn,
+        IReadOnlyDictionary<string, string> context,
+        SymptomTagResult result)
+    {
+        var note = NormalizeSearchText(checkIn.Note);
+        var woundMentionedInNote = ContainsAny(note, "vet mo", "vet thuong", "ri dich", "chay mau vet mo", "vet khau", "dau vet mo");
+        var hasWoundConcern =
+            ContainsAny(ToSnakeCase(checkIn.PainLocation), "vet_mo/khau", "vet_mo", "vet_khau") ||
+            result.Tags.Any(tag => tag.Contains("vet_mo", StringComparison.OrdinalIgnoreCase)) ||
+            result.PrimaryNeeds.Contains("cham_soc_vet_mo", StringComparer.OrdinalIgnoreCase);
+
+        var feverScore = GetFeverPriority(checkIn, note);
+        if (hasWoundConcern && feverScore > 0)
+        {
+            result.PrimaryConcern = feverScore >= 2 || !woundMentionedInNote
+                ? "fever_monitoring"
+                : "wound_care";
+            return;
+        }
+
+        var candidates = new List<ConcernCandidate>();
+
+        if (hasWoundConcern)
+        {
+            candidates.Add(new ConcernCandidate("wound_care", 2, woundMentionedInNote ? 2 : 1));
+        }
+
+        if (feverScore > 0)
+        {
+            candidates.Add(new ConcernCandidate("fever_monitoring", 3, feverScore));
+        }
+
+        var bleedingNote = ContainsAny(note, "mau", "chay mau", "ra mau");
+        var bleedingLevel = NormalizeSearchText(GetContext(context, "bleedingLevel"));
+        if (bleedingNote || ContainsAny(bleedingLevel, "heavy", "nhieu", "bat thuong"))
+        {
+            candidates.Add(new ConcernCandidate("bleeding_monitoring", 3, bleedingNote ? 3 : 2));
+        }
+
+        if (result.PrimaryNeeds.Contains("theo_doi_huyet_ap", StringComparer.OrdinalIgnoreCase))
+        {
+            var bpMentioned = ContainsAny(note, "huyet ap", "chong mat", "hoa mat");
+            candidates.Add(new ConcernCandidate("blood_pressure_monitoring", 3, bpMentioned ? 2 : 1));
+        }
+
+        if (result.PrimaryNeeds.Contains("ho_tro_cho_bu", StringComparer.OrdinalIgnoreCase))
+        {
+            var breastfeedingMentioned = ContainsAny(note, "sua", "cho bu", "tac tia sua", "dau num vu");
+            candidates.Add(new ConcernCandidate("breastfeeding_support", 4, breastfeedingMentioned ? 2 : 1));
+        }
+
+        if (result.PrimaryNeeds.Contains("tu_van_tam_ly", StringComparer.OrdinalIgnoreCase) ||
+            result.PrimaryNeeds.Contains("ho_tro_giao_suc", StringComparer.OrdinalIgnoreCase))
+        {
+            var moodMentioned = ContainsAny(note, "lo au", "cang thang", "buon", "met", "khong muon an", "kho ngu");
+            candidates.Add(new ConcernCandidate("mood_sleep_support", 5, moodMentioned ? 2 : 1));
+        }
+
+        result.PrimaryConcern = candidates
+            .OrderBy(candidate => candidate.Tier)
+            .ThenByDescending(candidate => candidate.Priority)
+            .Select(candidate => candidate.Key)
+            .FirstOrDefault() ?? "general_postpartum_support";
+    }
+
+    private static int GetFeverPriority(HealthCheckIn checkIn, string normalizedNote)
+    {
+        var noteMentioned = ContainsAny(normalizedNote, "sot", "nong", "fever");
+        if (checkIn.TemperatureCelsius is >= 38.5)
+        {
+            return noteMentioned ? 3 : 2;
+        }
+
+        if (checkIn.TemperatureCelsius is > 37.5 || noteMentioned)
+        {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    private static void PopulateRelevantContextTokens(
+        HealthCheckIn checkIn,
+        IReadOnlyDictionary<string, string> context,
+        SymptomTagResult result)
+    {
+        var tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "sau sinh",
+            "hau san"
+        };
+
+        var note = NormalizeSearchText(checkIn.Note);
+        var mood = NormalizeSearchText(checkIn.Mood);
+        var milk = NormalizeSearchText(checkIn.MilkStatus);
+        var painLocation = NormalizeSearchText(checkIn.PainLocation);
+        var bleedingLevel = NormalizeSearchText(GetContext(context, "bleedingLevel"));
+        var incision = NormalizeSearchText(GetContext(context, "incisionStatus"));
+
+        AddTokensIf(tokens, ContainsAny(note, "vet mo", "vet thuong", "ri dich", "chay mau vet mo", "bang", "sung", "do") ||
+            ContainsAny(painLocation, "vet mo", "vet khau") ||
+            ContainsAny(incision, "painful", "red", "swollen", "discharge", "sung", "do", "chay dich"),
+            "vet mo", "vet thuong", "dau", "chay mau", "ri dich", "bang", "sung", "do");
+
+        AddTokensIf(tokens, checkIn.TemperatureCelsius is > 37.5 || ContainsAny(note, "sot", "nong", "fever"),
+            "sot", "nhiet do");
+
+        AddTokensIf(tokens, result.PrimaryNeeds.Contains("theo_doi_huyet_ap", StringComparer.OrdinalIgnoreCase) ||
+            ContainsAny(note, "huyet ap", "chong mat", "hoa mat"),
+            "huyet ap");
+
+        AddTokensIf(tokens, ContainsAny(milk, "it", "painful", "khong co", "chua co") ||
+            ContainsAny(note, "sua", "cho bu", "tac tia sua", "dau num vu"),
+            "sua", "cho bu", "tac tia sua", "dau num vu");
+
+        AddTokensIf(tokens, ContainsAny(mood, "lo", "cang thang", "buon", "met", "stress", "anxious") ||
+            ContainsAny(note, "lo au", "cang thang", "buon", "met", "khong muon an", "kho ngu"),
+            "lo au", "cang thang", "buon", "met", "kho ngu", "khong muon an");
+
+        AddTokensIf(tokens, ContainsAny(bleedingLevel, "heavy", "nhieu", "bat thuong") || ContainsAny(note, "chay mau", "ra mau"),
+            "chay mau");
+
+        result.RelevantContextTokens = tokens.ToList();
     }
 
     private static void AddPainTags(HealthCheckIn checkIn, SymptomTagResult result)
@@ -92,6 +222,7 @@ public class SymptomTagEngine
         {
             AddTag(result, "sua_it");
             AddNeed(result, "ho_tro_cho_bu");
+            result.HasBreastfeedingConcern = true;
             return;
         }
 
@@ -120,6 +251,7 @@ public class SymptomTagEngine
         }
 
         AddTag(result, "be_bu_kem");
+        result.HasBabyConcern = true;
         result.OverallRiskScore += 15;
     }
 
@@ -134,22 +266,60 @@ public class SymptomTagEngine
 
         AddTag(result, "be_ngu_kem");
         AddNeed(result, "ho_tro_giac_ngu_be");
+        result.HasBabyConcern = true;
         result.OverallRiskScore += 10;
+    }
+
+    private static void AddBabyContextTags(
+        IReadOnlyDictionary<string, string> context,
+        HealthCheckIn checkIn,
+        SymptomTagResult result)
+    {
+        var babyActivity = NormalizeSearchText(GetContext(context, "babyActivity"));
+        if (babyActivity is "sleepy" or "lethargic" or "irritable")
+        {
+            AddTag(result, "be_hoat_dong_bat_thuong");
+            result.HasBabyConcern = true;
+            result.OverallRiskScore += 10;
+        }
+
+        var babyWetDiapers = ParseInt(GetContext(context, "babyWetDiapers"));
+        if (babyWetDiapers.HasValue && babyWetDiapers.Value > 0 && babyWetDiapers.Value < 6)
+        {
+            AddTag(result, "be_ta_uot_it");
+            result.HasBabyConcern = true;
+            result.OverallRiskScore += 10;
+        }
+
+        var normalizedNote = NormalizeSearchText(checkIn.Note);
+        if (ContainsAny(normalizedNote,
+                "be bu it",
+                "be bo bu",
+                "be tu choi bu",
+                "be ngu it",
+                "be ngu nhieu bat thuong",
+                "be lu du",
+                "be quay khoc",
+                "be sot",
+                "be kho chiu"))
+        {
+            result.HasBabyConcern = true;
+        }
     }
 
     private static void AddVitalSignsTags(HealthCheckIn checkIn, SymptomTagResult result)
     {
-        if (checkIn.TemperatureCelsius is > 37.5)
-        {
-            AddTag(result, "sot_nhe");
-            AddNeed(result, "theo_doi_sot");
-            result.OverallRiskScore += 20;
-        }
-        else if (checkIn.TemperatureCelsius is >= 39)
+        if (checkIn.TemperatureCelsius is >= 39)
         {
             AddTag(result, "sot_cao");
             AddNeed(result, "theo_doi_sot");
             result.OverallRiskScore += 30;
+        }
+        else if (checkIn.TemperatureCelsius is > 37.5)
+        {
+            AddTag(result, "sot_nhe");
+            AddNeed(result, "theo_doi_sot");
+            result.OverallRiskScore += 20;
         }
 
         if (checkIn.SystolicBloodPressure is >= 140 || checkIn.DiastolicBloodPressure is >= 90)
@@ -326,4 +496,64 @@ public class SymptomTagEngine
 
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
+
+    private static bool ContainsAny(string? text, params string[] needles)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        return needles.Any(needle => text.Contains(needle, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void AddTokensIf(HashSet<string> tokens, bool condition, params string[] values)
+    {
+        if (!condition)
+        {
+            return;
+        }
+
+        foreach (var value in values)
+        {
+            tokens.Add(value);
+        }
+    }
+
+    private static string BuildRawSummary(HealthCheckIn checkIn, IReadOnlyDictionary<string, string> context)
+    {
+        var lines = new List<string>();
+
+        if (context.TryGetValue("deliveryMethod", out var delivery))
+            lines.Add($"Kieu sinh: {delivery}");
+        if (int.TryParse(GetContext(context, "postpartumDay"), out var day))
+            lines.Add($"Ngay hau san thu: {day}");
+        if (checkIn.PainLevel > 0)
+            lines.Add($"Muc do dau: {checkIn.PainLevel}/10, vi tri: {checkIn.PainLocation ?? "Khong ro"}");
+        if (checkIn.TemperatureCelsius.HasValue)
+            lines.Add($"Nhiet do: {checkIn.TemperatureCelsius:N1}°C");
+        if (checkIn.SystolicBloodPressure.HasValue)
+            lines.Add($"Huyet ap: {checkIn.SystolicBloodPressure}/{checkIn.DiastolicBloodPressure} mmHg");
+        if (checkIn.SleepHours > 0)
+            lines.Add($"Ngu: {checkIn.SleepHours}h/ngay");
+        lines.Add($"Tam trang: {checkIn.Mood}");
+        lines.Add($"Tinh trang sua: {checkIn.MilkStatus}");
+        lines.Add($"Be bu: {checkIn.BabyFeeding}");
+        lines.Add($"Be ngu: {checkIn.BabySleep}");
+
+        if (context.TryGetValue("incisionStatus", out var incision))
+            lines.Add($"Tinh trang vet mo: {incision}");
+        if (context.TryGetValue("bleedingLevel", out var bleeding))
+            lines.Add($"Muc do ra mau: {bleeding}");
+        if (context.TryGetValue("babyActivity", out var activity))
+            lines.Add($"Be hoat dong: {activity}");
+        if (context.TryGetValue("babyWetDiapers", out var diapers))
+            lines.Add($"Be tat uot: {diapers} lan/ngay");
+        if (!string.IsNullOrWhiteSpace(checkIn.Note))
+            lines.Add($"Ghi chu: {checkIn.Note}");
+
+        return string.Join("\n", lines);
+    }
+
+    private sealed record ConcernCandidate(string Key, int Tier, int Priority);
 }

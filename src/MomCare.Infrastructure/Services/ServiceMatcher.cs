@@ -67,6 +67,7 @@ public class ServiceMatcher
     {
         ["thong tac tia sua"] = ["ho_tro_cho_bu"],
         ["thong tia sua"] = ["ho_tro_cho_bu"],
+        ["tac tia sua"] = ["ho_tro_cho_bu"],
         ["cho bu"] = ["ho_tro_cho_bu"],
         ["tam be"] = ["cham-be-so-sinh"],
         ["massage"] = ["phuc-hoi-suc-khoe", "giam_dau"],
@@ -77,6 +78,7 @@ public class ServiceMatcher
         ["phuc hoi me"] = ["cham-me-sau-sinh"],
         ["suc khoe be"] = ["cham-be-so-sinh"],
         ["phat trien be"] = ["cham-be-so-sinh"],
+        ["phat trien"] = ["cham-be-so-sinh"],
         ["dinh duong"] = ["ho_tro_tieu_hoa"],
         ["dem"] = ["ho_tro_giac_ngu_be"],
         ["nha"] = ["ho-tro-gia-dinh"],

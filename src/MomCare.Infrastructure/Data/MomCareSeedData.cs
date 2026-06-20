@@ -38,27 +38,27 @@ public static class MomCareSeedData
         await EnsureAddressAsync(context, nurseA.Id, "Chợ Hàn Đà Nẵng, 116 Bạch Đằng, Hải Châu 1, Hải Châu, Đà Nẵng", "Hải Châu 1", "Hải Châu", true, "nurse_base", 16.068244159000074, 108.22487182000003);
         await EnsureAddressAsync(context, nurseB.Id, "Hồ Nghinh, Phước Mỹ, Sơn Trà, Đà Nẵng", "Phước Mỹ", "Sơn Trà", true, "nurse_base", 16.06676487624661, 108.24317303171603);
 
-        var babyBath = await EnsureServiceAsync(context, "Tắm bé", "Hỗ trợ tắm bé, vệ sinh cơ bản và hướng dẫn gia đình chăm bé an toàn.", "cham-be-so-sinh", 320_000m, 45, "active", "single");
-        var motherHealth = await EnsureServiceAsync(context, "Theo dõi sức khỏe mẹ", "Theo dõi hồi phục, dấu hiệu bất thường và nhu cầu nghỉ ngơi của mẹ sau sinh.", "cham-me-sau-sinh", 500_000m, 60, "active", "single");
-        var babyHealth = await EnsureServiceAsync(context, "Theo dõi sức khỏe bé", "Theo dõi nhịp sinh hoạt, thân nhiệt, bú ngủ và các dấu hiệu cần lưu ý của bé.", "cham-be-so-sinh", 450_000m, 60, "active", "single");
-        var lactation = await EnsureServiceAsync(context, "Hỗ trợ cho bú", "Tư vấn tư thế bú, lịch bú và hỗ trợ các vấn đề thường gặp khi cho bé bú.", "tu-van-tai-nha", 600_000m, 90, "active", "single");
-        var massage = await EnsureServiceAsync(context, "Massage sau sinh", "Liệu trình massage hỗ trợ mẹ thư giãn và phục hồi sau sinh.", "phuc-hoi-suc-khoe", 700_000m, 90, "active", "single");
-        var nutrition = await EnsureServiceAsync(context, "Tư vấn dinh dưỡng", "Gợi ý chế độ ăn phù hợp cho mẹ sau sinh và trong giai đoạn cho con bú.", "tu-van-tai-nha", 550_000m, 60, "active", "single");
-        var nightCare = await EnsureServiceAsync(context, "Chăm bé ban đêm", "Điều dưỡng hỗ trợ chăm bé vào ban đêm để mẹ có thêm thời gian nghỉ ngơi.", "cham-be-so-sinh", 900_000m, 480, "active", "single");
-        var houseSupport = await EnsureServiceAsync(context, "Hỗ trợ việc nhà", "Hỗ trợ các việc nhẹ trong không gian chăm sóc mẹ và bé để gia đình giảm tải.", "ho-tro-gia-dinh", 400_000m, 120, "active", "single");
-        var mentalWellness = await EnsureServiceAsync(context, "Hỗ trợ tâm lý", "Lắng nghe, đồng hành và hỗ trợ mẹ giảm căng thẳng trong giai đoạn đầu sau sinh.", "ho-tro-tinh-than", 500_000m, 60, "active", "single");
-        var emergencyConsultation = await EnsureServiceAsync(context, "Tư vấn khẩn", "Tư vấn nhanh khi gia đình cần định hướng xử lý tình huống chăm sóc mẹ và bé.", "tu-van-tai-nha", 300_000m, 30, "active", "single");
-        var miniConsultation = await EnsureServiceAsync(context, "Gói Mini Tư Vấn Nhanh", "Buổi tư vấn ngắn 15 phút để gia đình hỏi nhanh về các lưu ý cơ bản khi chăm mẹ và bé tại nhà.", "tu-van-tai-nha", 29_000m, 15, "active", "single");
+        var babyBath = await EnsureServiceAsync(context, "Tắm bé", "Hỗ trợ tắm bé đúng cách với nước ấm, vệ sinh rốn, mắt, tai và hướng dẫn gia đình kỹ thuật tắm an toàn tại nhà.", "cham-be-so-sinh", 350_000m, 45, "active", "single");
+        var motherHealth = await EnsureServiceAsync(context, "Theo dõi phục hồi mẹ", "Theo dõi dấu hiệu hồi phục sau sinh: vết mổ, sản dịch, co hồi tử cung và hỗ trợ mẹ nhận biết dấu hiệu bất thường.", "cham-me-sau-sinh", 500_000m, 60, "active", "single");
+        var babyHealth = await EnsureServiceAsync(context, "Theo dõi phát triển bé", "Theo dõi cân nặng, chiều cao, phản xạ và các mốc phát triển của trẻ sơ sinh trong những tuần đầu sau sinh.", "cham-be-so-sinh", 450_000m, 60, "active", "single");
+        var lactation = await EnsureServiceAsync(context, "Hỗ trợ cho bú", "Tư vấn tư thế bú đúng, xử lý tắc tia sữa và các vấn đề thường gặp khi cho con bú bằng sữa mẹ.", "tu-van-tai-nha", 600_000m, 90, "active", "single");
+        var massage = await EnsureServiceAsync(context, "Massage phục hồi", "Liệu trình massage chuyên sâu giúp mẹ giảm đau nhức, kích thích lưu thông máu và phục hồi cơ thể sau sinh.", "phuc-hoi-suc-khoe", 700_000m, 90, "active", "single");
+        var nutrition = await EnsureServiceAsync(context, "Tư vấn dinh dưỡng", "Xây dựng thực đơn cân bằng cho mẹ sau sinh, giàu dưỡng chất phục hồi và hỗ trợ nguồn sữa chất lượng.", "tu-van-tai-nha", 550_000m, 60, "active", "single");
+        var nightCare = await EnsureServiceAsync(context, "Chăm bé ban đêm", "Điều dưỡng ở lại chăm sóc bé suốt đêm — cho bú, thay bỉm, vỗ ợ — để mẹ có một giấc ngủ liên hoàn phục hồi sức khỏe.", "cham-be-so-sinh", 1_200_000m, 480, "active", "single");
+        var houseSupport = await EnsureServiceAsync(context, "Hỗ trợ việc nhà", "Giúp gia đình các công việc nhẹ nhàng như dọn dẹp, nấu ăn, giặt giũ trong không gian chăm sóc mẹ và bé.", "ho-tro-gia-dinh", 400_000m, 120, "active", "single");
+        var mentalWellness = await EnsureServiceAsync(context, "Tham vấn tinh thần", "Trò chuyện, lắng nghe và đồng hành cùng mẹ trong giai đoạn nhạy cảm sau sinh, giúp giảm lo âu và căng thẳng.", "ho-tro-tinh-than", 500_000m, 60, "active", "single");
+        var emergencyConsultation = await EnsureServiceAsync(context, "Tư vấn khẩn", "Tư vấn trực tuyến hoặc tận nhà khi gia đình gặp tình huống cần hỗ trợ y tế khẩn cấp liên quan đến mẹ và bé.", "tu-van-tai-nha", 350_000m, 30, "active", "single");
+        var miniConsultation = await EnsureServiceAsync(context, "Tư vấn nhanh", "Buổi tư vấn ngắn 15-20 phút qua điện thoại hoặc video để gia đình hỏi nhanh cách xử trí các vấn đề thường gặp sau sinh.", "tu-van-tai-nha", 200_000m, 15, "active", "single");
 
-        var pkgDemoBaBuoi = await EnsureServiceAsync(context, "Gói Demo Chăm Sóc 3 Buổi", "Gói demo 3 buổi giá nhẹ để gia đình trải nghiệm quy trình đặt lịch, check-in, check-out và theo dõi tiến độ từng buổi.", "goi-dich-vu", 79_000m, 45, "active", "package", 3, "mother-health-monitoring,baby-health-monitoring", GeneratePackageScheduleJson(3, "mother-health-monitoring,baby-health-monitoring"));
-        var pkgThongTuyenSua = await EnsureServiceAsync(context, "Gói Chăm Sóc Thông Tuyến Sữa", "Gói 3 buổi hỗ trợ thông tuyến sữa, tư vấn tư thế cho bú và xử lý tắc sữa.", "goi-dich-vu", 2_400_000m, 60, "active", "package", 3, "breastfeeding-support", GeneratePackageScheduleJson(3, "breastfeeding-support"));
-        var pkgGiamNhucMoi = await EnsureServiceAsync(context, "Gói Chăm Sóc Bầu Giảm Nhức Mỏi", "Gói 6 buổi massage giảm nhức mỏi và theo dõi sức khỏe mẹ sau sinh.", "goi-dich-vu", 2_500_000m, 60, "active", "package", 6, "postpartum-massage,mother-health-monitoring", GeneratePackageScheduleJson(6, "postpartum-massage,mother-health-monitoring"));
-        var pkgTreSoSinh = await EnsureServiceAsync(context, "Gói Chăm Sóc Trẻ Sơ Sinh", "Gói 7 buổi chăm sóc toàn diện cho trẻ sơ sinh: tắm bé, theo dõi sức khỏe bé.", "goi-dich-vu", 8_300_000m, 90, "active", "package", 7, "baby-bathing,baby-health-monitoring", GeneratePackageScheduleJson(7, "baby-bathing,baby-health-monitoring"));
-        var pkgMassageTamBe = await EnsureServiceAsync(context, "Gói Massage & Tắm Bé", "Gói 10 buổi kết hợp massage sau sinh cho mẹ và tắm bé.", "goi-dich-vu", 3_200_000m, 90, "active", "package", 10, "postpartum-massage,baby-bathing", GeneratePackageScheduleJson(10, "postpartum-massage,baby-bathing"));
-        var pkgPhucHoi = await EnsureServiceAsync(context, "Gói Chăm Sóc Phục Hồi", "Gói 12 buổi phục hồi sức khỏe mẹ sau sinh: massage, dinh dưỡng và theo dõi sức khỏe.", "goi-dich-vu", 8_900_000m, 90, "active", "package", 12, "postpartum-massage,nutrition-consultation,mother-health-monitoring", GeneratePackageScheduleJson(12, "postpartum-massage,nutrition-consultation,mother-health-monitoring"));
-        var pkgVipSauSinh = await EnsureServiceAsync(context, "Gói Chăm Sóc VIP Sau Sinh", "Gói 15 buổi chăm sóc cao cấp: massage, tắm bé, theo dõi mẹ & bé, tư vấn dinh dưỡng và hỗ trợ tâm lý.", "goi-dich-vu", 16_700_000m, 120, "active", "package", 15, "postpartum-massage,baby-bathing,mother-health-monitoring,baby-health-monitoring,nutrition-consultation,mental-wellness", GeneratePackageScheduleJson(15, "postpartum-massage,baby-bathing,mother-health-monitoring,baby-health-monitoring,nutrition-consultation,mental-wellness"));
-        var pkgChuyenSau = await EnsureServiceAsync(context, "Gói Chăm Sóc Chuyên Sâu", "Gói 18 buổi chăm sóc chuyên sâu toàn diện cho mẹ và bé sau sinh.", "goi-dich-vu", 15_800_000m, 120, "active", "package", 18, "postpartum-massage,baby-bathing,mother-health-monitoring,baby-health-monitoring,nutrition-consultation,breastfeeding-support", GeneratePackageScheduleJson(18, "postpartum-massage,baby-bathing,mother-health-monitoring,baby-health-monitoring,nutrition-consultation,breastfeeding-support"));
-        var pkgChuyenSauBung = await EnsureServiceAsync(context, "Gói Chăm Sóc Chuyên Sâu Bụng & Chăm Sóc Da", "Gói 20 buổi chuyên sâu phục hồi vùng bụng và chăm sóc da cho mẹ sau sinh.", "goi-dich-vu", 17_800_000m, 90, "active", "package", 20, "postpartum-massage,mother-health-monitoring", GeneratePackageScheduleJson(20, "postpartum-massage,mother-health-monitoring"));
+        var pkgDemoBaBuoi = await EnsureServiceAsync(context, "Gói Dùng Thử Chăm Sóc Tại Nhà", "Gói 3 buổi trải nghiệm dịch vụ chăm sóc tại nhà — giúp gia đình làm quen với quy trình và đánh giá chất lượng điều dưỡng.", "goi-dich-vu", 790_000m, 60, "active", "package", 3, "mother-health-monitoring,baby-health-monitoring", GeneratePackageScheduleJson(3, "mother-health-monitoring,baby-health-monitoring"));
+        var pkgThongTuyenSua = await EnsureServiceAsync(context, "Gói Hỗ Trợ Tuyến Sữa", "Gói 3 buổi chuyên sâu xử lý tắc tia sữa, hướng dẫn kỹ thuật cho bú và duy trì nguồn sữa ổn định cho mẹ.", "goi-dich-vu", 1_800_000m, 90, "active", "package", 3, "breastfeeding-support", GeneratePackageScheduleJson(3, "breastfeeding-support"));
+        var pkgGiamNhucMoi = await EnsureServiceAsync(context, "Gói Massage Giảm Nhức Mỏi", "Gói 6 buổi massage chuyên sâu giúp mẹ giảm đau nhức, phục hồi cơ xương khớp và thư giãn toàn thân sau sinh.", "goi-dich-vu", 3_600_000m, 60, "active", "package", 6, "postpartum-massage,mother-health-monitoring", GeneratePackageScheduleJson(6, "postpartum-massage,mother-health-monitoring"));
+        var pkgTreSoSinh = await EnsureServiceAsync(context, "Gói Chăm Sóc Sơ Sinh", "Gói 7 buổi chăm sóc toàn diện cho trẻ sơ sinh: tắm bé, vệ sinh rốn, theo dõi phát triển cân nặng và các chỉ số đầu đời.", "goi-dich-vu", 4_500_000m, 90, "active", "package", 7, "baby-bathing,baby-health-monitoring", GeneratePackageScheduleJson(7, "baby-bathing,baby-health-monitoring"));
+        var pkgMassageTamBe = await EnsureServiceAsync(context, "Gói Massage & Tắm Bé", "Gói 10 buổi kết hợp massage phục hồi cho mẹ và tắm bé — chăm sóc cả hai trong cùng một lịch hẹn.", "goi-dich-vu", 3_200_000m, 90, "active", "package", 10, "postpartum-massage,baby-bathing", GeneratePackageScheduleJson(10, "postpartum-massage,baby-bathing"));
+        var pkgPhucHoi = await EnsureServiceAsync(context, "Gói Phục Hồi Sau Sinh", "Gói 12 buổi phục hồi thể chất và tinh thần: massage, tư vấn dinh dưỡng và theo dõi sức khỏe toàn diện.", "goi-dich-vu", 7_200_000m, 90, "active", "package", 12, "postpartum-massage,nutrition-consultation,mother-health-monitoring", GeneratePackageScheduleJson(12, "postpartum-massage,nutrition-consultation,mother-health-monitoring"));
+        var pkgVipSauSinh = await EnsureServiceAsync(context, "Gói VIP Chăm Sóc Sau Sinh", "Gói 15 buổi cao cấp toàn diện: massage, tắm bé, theo dõi sức khỏe mẹ & bé, dinh dưỡng và tham vấn tinh thần.", "goi-dich-vu", 14_500_000m, 120, "active", "package", 15, "postpartum-massage,baby-bathing,mother-health-monitoring,baby-health-monitoring,nutrition-consultation,mental-wellness", GeneratePackageScheduleJson(15, "postpartum-massage,baby-bathing,mother-health-monitoring,baby-health-monitoring,nutrition-consultation,mental-wellness"));
+        var pkgChuyenSau = await EnsureServiceAsync(context, "Gói Chăm Sóc Toàn Diện", "Gói 18 buổi phục hồi chuyên sâu: massage, tắm bé, theo dõi sức khỏe, dinh dưỡng và hỗ trợ cho bú — trọn gói cho mẹ và bé.", "goi-dich-vu", 14_000_000m, 120, "active", "package", 18, "postpartum-massage,baby-bathing,mother-health-monitoring,baby-health-monitoring,nutrition-consultation,breastfeeding-support", GeneratePackageScheduleJson(18, "postpartum-massage,baby-bathing,mother-health-monitoring,baby-health-monitoring,nutrition-consultation,breastfeeding-support"));
+        var pkgChuyenSauBung = await EnsureServiceAsync(context, "Gói Phục Hồi Vóc Dáng", "Gói 20 buổi massage định hình, phục hồi vùng bụng sau sinh và hỗ trợ mẹ lấy lại vóc dáng với lộ trình khoa học.", "goi-dich-vu", 14_000_000m, 90, "active", "package", 20, "postpartum-massage,mother-health-monitoring", GeneratePackageScheduleJson(20, "postpartum-massage,mother-health-monitoring"));
         await DeactivateLegacyServicesAsync(context);
 
         await context.SaveChangesAsync();
@@ -110,27 +110,27 @@ public static class MomCareSeedData
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, motherHealth.Id, 550_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, babyHealth.Id, 500_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, lactation.Id, 650_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileA.Id, massage.Id, 700_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, massage.Id, 750_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileA.Id, nutrition.Id, 580_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileA.Id, emergencyConsultation.Id, 320_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileA.Id, miniConsultation.Id, 29_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgDemoBaBuoi.Id, 79_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgThongTuyenSua.Id, 2_500_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgGiamNhucMoi.Id, 2_700_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgPhucHoi.Id, 9_200_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgChuyenSau.Id, 16_000_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, emergencyConsultation.Id, 380_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, miniConsultation.Id, 220_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgDemoBaBuoi.Id, 850_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgThongTuyenSua.Id, 1_950_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgGiamNhucMoi.Id, 3_900_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgPhucHoi.Id, 7_800_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileA.Id, pkgChuyenSau.Id, 15_000_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, babyHealth.Id, 470_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileB.Id, nightCare.Id, 250_000m, "hourly", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, nightCare.Id, 150_000m, "hourly", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, massage.Id, 750_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileB.Id, babyBath.Id, 350_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, babyBath.Id, 380_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, mentalWellness.Id, 520_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, houseSupport.Id, 420_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileB.Id, miniConsultation.Id, 29_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgDemoBaBuoi.Id, 89_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, miniConsultation.Id, 220_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgDemoBaBuoi.Id, 890_000m, "fixed", "enabled");
         await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgMassageTamBe.Id, 3_400_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgTreSoSinh.Id, 8_500_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgVipSauSinh.Id, 17_000_000m, "fixed", "enabled");
-        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgChuyenSauBung.Id, 18_000_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgTreSoSinh.Id, 4_800_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgVipSauSinh.Id, 15_500_000m, "fixed", "enabled");
+        await EnsureNurseServiceAsync(context, nurseProfileB.Id, pkgChuyenSauBung.Id, 15_000_000m, "fixed", "enabled");
 
         await EnsureDaNangNurseSeedAsync(
             context,
@@ -788,6 +788,21 @@ public static class MomCareSeedData
             "Basic Package",
             "Standard Package",
             "Premium Package",
+            // Previous names (renamed in this migration)
+            "Theo dõi sức khỏe mẹ",
+            "Theo dõi sức khỏe bé",
+            "Massage sau sinh",
+            "Hỗ trợ tâm lý",
+            "Tư vấn khẩn",
+            "Gói Mini Tư Vấn Nhanh",
+            "Gói Demo Chăm Sóc 3 Buổi",
+            "Gói Chăm Sóc Thông Tuyến Sữa",
+            "Gói Chăm Sóc Bầu Giảm Nhức Mỏi",
+            "Gói Chăm Sóc Trẻ Sơ Sinh",
+            "Gói Chăm Sóc Phục Hồi",
+            "Gói Chăm Sóc VIP Sau Sinh",
+            "Gói Chăm Sóc Chuyên Sâu",
+            "Gói Chăm Sóc Chuyên Sâu Bụng & Chăm Sóc Da",
         };
 
         var legacyServices = await context.Services

@@ -266,8 +266,10 @@ public class CarePlanService : ICarePlanService
         var includedKeys = (service.IncludedServiceKeys ?? string.Empty)
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
-        return service.Name.Contains("Theo dõi sức khỏe mẹ", StringComparison.OrdinalIgnoreCase)
+        return service.Name.Contains("Theo dõi phục hồi mẹ", StringComparison.OrdinalIgnoreCase)
+            || service.Name.Contains("Theo dõi sức khỏe mẹ", StringComparison.OrdinalIgnoreCase)
             || service.Name.Contains("Theo doi suc khoe me", StringComparison.OrdinalIgnoreCase)
+            || service.Name.Contains("Theo doi phuc hoi me", StringComparison.OrdinalIgnoreCase)
             || includedKeys.Contains("mother-health-monitoring", StringComparer.OrdinalIgnoreCase);
     }
 

@@ -71,12 +71,21 @@ public class ServiceMatcher
         ["tam be"] = ["cham-be-so-sinh"],
         ["massage"] = ["phuc-hoi-suc-khoe", "giam_dau"],
         ["tam ly"] = ["tu_van_tam_ly"],
+        ["tinh than"] = ["tu_van_tam_ly"],
+        ["tham van"] = ["tu_van_tam_ly"],
         ["suc khoe me"] = ["cham-me-sau-sinh"],
+        ["phuc hoi me"] = ["cham-me-sau-sinh"],
         ["suc khoe be"] = ["cham-be-so-sinh"],
+        ["phat trien be"] = ["cham-be-so-sinh"],
         ["dinh duong"] = ["ho_tro_tieu_hoa"],
         ["dem"] = ["ho_tro_giac_ngu_be"],
         ["nha"] = ["ho-tro-gia-dinh"],
         ["khan"] = ["cham-me-sau-sinh"],
+        ["tam so sinh"] = ["cham-be-so-sinh"],
+        ["so sinh"] = ["cham-be-so-sinh"],
+        ["phuc hoi sau sinh"] = ["phuc-hoi-suc-khoe"],
+        ["voc dang"] = ["phuc-hoi-suc-khoe"],
+        ["tuyen sua"] = ["ho_tro_cho_bu"],
     };
 
     public List<(string ServiceId, int Score, List<string> MatchedNeeds)> Match(

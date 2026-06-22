@@ -21,7 +21,8 @@ public class ServicesController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Browse([FromQuery] bool? isActive, [FromQuery] string? search)
     {
-        var services = await _serviceCatalogService.BrowseAsync(isActive, search);
+        var language = Request.Headers.AcceptLanguage.FirstOrDefault();
+        var services = await _serviceCatalogService.BrowseAsync(isActive, search, language);
         return Ok(services);
     }
 
@@ -29,7 +30,8 @@ public class ServicesController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetDetail(int id)
     {
-        var service = await _serviceCatalogService.GetByIdAsync(id);
+        var language = Request.Headers.AcceptLanguage.FirstOrDefault();
+        var service = await _serviceCatalogService.GetByIdAsync(id, language);
         if (service == null)
         {
             return NotFound();

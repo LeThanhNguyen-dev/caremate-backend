@@ -23,7 +23,8 @@ public class NurseServicesController : ControllerBase
     public async Task<IActionResult> AddService([FromBody] CreateNurseServiceDto dto)
     {
         var nurseUserId = GetUserId();
-        var result = await _serviceManagementService.AddServiceAsync(nurseUserId, dto);
+        var language = Request.Headers.AcceptLanguage.FirstOrDefault();
+        var result = await _serviceManagementService.AddServiceAsync(nurseUserId, dto, language);
 
         if (result == null)
         {
@@ -37,7 +38,8 @@ public class NurseServicesController : ControllerBase
     public async Task<IActionResult> GetMyServices()
     {
         var nurseUserId = GetUserId();
-        var services = await _serviceManagementService.GetMyServicesAsync(nurseUserId);
+        var language = Request.Headers.AcceptLanguage.FirstOrDefault();
+        var services = await _serviceManagementService.GetMyServicesAsync(nurseUserId, language);
         return Ok(services);
     }
 
@@ -45,7 +47,8 @@ public class NurseServicesController : ControllerBase
     public async Task<IActionResult> UpdateService(int serviceId, [FromBody] UpdateNurseServiceDto dto)
     {
         var nurseUserId = GetUserId();
-        var result = await _serviceManagementService.UpdateServiceAsync(nurseUserId, serviceId, dto);
+        var language = Request.Headers.AcceptLanguage.FirstOrDefault();
+        var result = await _serviceManagementService.UpdateServiceAsync(nurseUserId, serviceId, dto, language);
 
         if (result == null)
         {

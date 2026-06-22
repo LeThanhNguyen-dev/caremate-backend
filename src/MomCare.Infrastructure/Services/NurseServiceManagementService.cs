@@ -16,7 +16,7 @@ public class NurseServiceManagementService : INurseServiceManagementService
         _context = context;
     }
 
-    public async Task<NurseServiceDto?> AddServiceAsync(int nurseUserId, CreateNurseServiceDto dto)
+    public async Task<NurseServiceDto?> AddServiceAsync(int nurseUserId, CreateNurseServiceDto dto, string? language = null)
     {
         // Verify nurse profile exists and is verified
         var nurseProfile = await _context.NurseProfiles
@@ -57,20 +57,10 @@ public class NurseServiceManagementService : INurseServiceManagementService
         _context.NurseServices.Add(nurseService);
         await _context.SaveChangesAsync();
 
-        return new NurseServiceDto
-        {
-            Id = nurseService.Id,
-            NurseProfileId = nurseService.NurseProfileId,
-            ServiceId = nurseService.ServiceId,
-            ServiceName = service.Name,
-            Price = nurseService.Price,
-            Unit = nurseService.Unit,
-            Status = nurseService.Status,
-            CreatedAt = DateTime.UtcNow
-        };
+        return ToNurseServiceDto(nurseService, service, language);
     }
 
-    public async Task<IEnumerable<NurseServiceDto>> GetMyServicesAsync(int nurseUserId)
+    public async Task<IEnumerable<NurseServiceDto>> GetMyServicesAsync(int nurseUserId, string? language = null)
     {
         var nurseProfile = await _context.NurseProfiles
             .FirstOrDefaultAsync(np => np.UserId == nurseUserId);
@@ -80,24 +70,15 @@ public class NurseServiceManagementService : INurseServiceManagementService
             return Enumerable.Empty<NurseServiceDto>();
         }
 
-        return await _context.NurseServices
+        var nurseServices = await _context.NurseServices
             .Include(ns => ns.Service)
             .Where(ns => ns.NurseProfileId == nurseProfile.Id)
-            .Select(ns => new NurseServiceDto
-            {
-                Id = ns.Id,
-                NurseProfileId = ns.NurseProfileId,
-                ServiceId = ns.ServiceId,
-                ServiceName = ns.Service.Name,
-                Price = ns.Price,
-                Unit = ns.Unit,
-                Status = ns.Status,
-                CreatedAt = DateTime.UtcNow
-            })
             .ToListAsync();
+
+        return nurseServices.Select(ns => ToNurseServiceDto(ns, ns.Service, language));
     }
 
-    public async Task<NurseServiceDto?> UpdateServiceAsync(int nurseUserId, int serviceId, UpdateNurseServiceDto dto)
+    public async Task<NurseServiceDto?> UpdateServiceAsync(int nurseUserId, int serviceId, UpdateNurseServiceDto dto, string? language = null)
     {
         var nurseProfile = await _context.NurseProfiles
             .FirstOrDefaultAsync(np => np.UserId == nurseUserId);
@@ -130,17 +111,7 @@ public class NurseServiceManagementService : INurseServiceManagementService
 
         await _context.SaveChangesAsync();
 
-        return new NurseServiceDto
-        {
-            Id = nurseService.Id,
-            NurseProfileId = nurseService.NurseProfileId,
-            ServiceId = nurseService.ServiceId,
-            ServiceName = nurseService.Service.Name,
-            Price = nurseService.Price,
-            Unit = nurseService.Unit,
-            Status = nurseService.Status,
-            CreatedAt = DateTime.UtcNow
-        };
+        return ToNurseServiceDto(nurseService, nurseService.Service, language);
     }
 
     public async Task<bool> RemoveServiceAsync(int nurseUserId, int serviceId)
@@ -165,5 +136,21 @@ public class NurseServiceManagementService : INurseServiceManagementService
         await _context.SaveChangesAsync();
 
         return true;
+    }
+
+    private static NurseServiceDto ToNurseServiceDto(NurseServiceModel nurseService, Service service, string? language = null)
+    {
+        bool isEn = language?.StartsWith("en", StringComparison.OrdinalIgnoreCase) == true;
+        return new NurseServiceDto
+        {
+            Id = nurseService.Id,
+            NurseProfileId = nurseService.NurseProfileId,
+            ServiceId = nurseService.ServiceId,
+            ServiceName = isEn && !string.IsNullOrWhiteSpace(service.NameEn) ? service.NameEn : service.Name,
+            Price = nurseService.Price,
+            Unit = nurseService.Unit,
+            Status = nurseService.Status,
+            CreatedAt = DateTime.UtcNow
+        };
     }
 }

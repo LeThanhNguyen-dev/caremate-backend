@@ -16,6 +16,12 @@ public class Service
     [Column("description")]
     public string? Description { get; set; }
 
+    [Column("name_en")]
+    public string? NameEn { get; set; }
+
+    [Column("description_en")]
+    public string? DescriptionEn { get; set; }
+
     [Column("category")]
     public string Category { get; set; } = "cham-soc-sau-sinh";
 

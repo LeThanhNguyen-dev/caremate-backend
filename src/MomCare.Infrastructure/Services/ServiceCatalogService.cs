@@ -16,7 +16,7 @@ public class ServiceCatalogService : IServiceCatalogService
         _context = context;
     }
 
-    public async Task<IEnumerable<ServiceDetailDto>> BrowseAsync(bool? isActive, string? search)
+    public async Task<IEnumerable<ServiceDetailDto>> BrowseAsync(bool? isActive, string? search, string? language = null)
     {
         var query = _context.Services.AsQueryable();
 
@@ -29,20 +29,20 @@ public class ServiceCatalogService : IServiceCatalogService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var keyword = search.Trim();
-            query = query.Where(s => s.Name.Contains(keyword));
+            query = query.Where(s => s.Name.Contains(keyword) || (s.NameEn != null && s.NameEn.Contains(keyword)));
         }
 
         var services = await query
             .OrderBy(s => s.Name)
             .ToListAsync();
 
-        return services.Select(MapToDto);
+        return services.Select(s => MapToDto(s, language));
     }
 
-    public async Task<ServiceDetailDto?> GetByIdAsync(int id)
+    public async Task<ServiceDetailDto?> GetByIdAsync(int id, string? language = null)
     {
         var service = await _context.Services.FirstOrDefaultAsync(s => s.Id == id);
-        return service == null ? null : MapToDto(service);
+        return service == null ? null : MapToDto(service, language);
     }
 
     public async Task<ServiceDetailDto> CreateAsync(UpsertServiceDto dto)
@@ -52,6 +52,8 @@ public class ServiceCatalogService : IServiceCatalogService
             Name = dto.Name,
             Category = dto.Category,
             Description = dto.Description,
+            NameEn = dto.NameEn,
+            DescriptionEn = dto.DescriptionEn,
             BasePrice = dto.BasePrice,
             EstimatedDurationMinutes = dto.EstimatedDurationMinutes,
             ServiceKind = dto.ServiceKind,
@@ -79,6 +81,8 @@ public class ServiceCatalogService : IServiceCatalogService
         service.Name = dto.Name;
         service.Category = dto.Category;
         service.Description = dto.Description;
+        service.NameEn = dto.NameEn;
+        service.DescriptionEn = dto.DescriptionEn;
         service.BasePrice = dto.BasePrice;
         service.EstimatedDurationMinutes = dto.EstimatedDurationMinutes;
         service.ServiceKind = dto.ServiceKind;
@@ -107,14 +111,17 @@ public class ServiceCatalogService : IServiceCatalogService
         return await _context.SaveChangesAsync() > 0;
     }
 
-    private static ServiceDetailDto MapToDto(Service service)
+    private static ServiceDetailDto MapToDto(Service service, string? language = null)
     {
+        bool isEn = language?.StartsWith("en", StringComparison.OrdinalIgnoreCase) == true;
         return new ServiceDetailDto
         {
             Id = service.Id,
-            Name = service.Name,
+            Name = isEn && !string.IsNullOrWhiteSpace(service.NameEn) ? service.NameEn : service.Name,
             Category = service.Category,
-            Description = service.Description,
+            Description = isEn && !string.IsNullOrWhiteSpace(service.DescriptionEn) ? service.DescriptionEn : service.Description,
+            NameEn = service.NameEn,
+            DescriptionEn = service.DescriptionEn,
             BasePrice = service.BasePrice,
             EstimatedDurationMinutes = service.EstimatedDurationMinutes,
             ServiceKind = service.ServiceKind,

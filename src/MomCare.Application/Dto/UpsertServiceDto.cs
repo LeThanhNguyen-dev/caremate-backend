@@ -5,6 +5,8 @@ public class UpsertServiceDto
     public required string Name { get; set; }
     public required string Category { get; set; }
     public string? Description { get; set; }
+    public string? NameEn { get; set; }
+    public string? DescriptionEn { get; set; }
     public decimal BasePrice { get; set; }
     public int EstimatedDurationMinutes { get; set; }
     public string ServiceKind { get; set; } = "single";

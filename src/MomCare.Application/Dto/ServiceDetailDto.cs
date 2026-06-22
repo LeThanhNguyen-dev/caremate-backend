@@ -6,6 +6,8 @@ public class ServiceDetailDto
     public string Name { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public string? NameEn { get; set; }
+    public string? DescriptionEn { get; set; }
     public decimal BasePrice { get; set; }
     public int EstimatedDurationMinutes { get; set; }
     public string ServiceKind { get; set; } = "single";

@@ -25,13 +25,6 @@ public class AdminService : IAdminService
     private const decimal PlatformFeeRate = 0.15m;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private static readonly string[] RequiredDocumentTypes =
-    [
-        DocumentTypes.IdCardFront,
-        DocumentTypes.IdCardBack,
-        DocumentTypes.Certificate
-    ];
-
     public AdminService(
         MomCareContext context,
         UserManager<ApplicationUser> userManager,
@@ -344,19 +337,6 @@ public class AdminService : IAdminService
         if (profile.VerificationSubmissionStatus != "submitted")
         {
             throw new ArgumentException("Only submitted nurse profiles can be reviewed.");
-        }
-
-        var submittedDocumentTypes = profile.Documents
-            .Select(d => d.Type)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var missingDocumentTypes = RequiredDocumentTypes
-            .Where(requiredType => !submittedDocumentTypes.Contains(requiredType))
-            .ToList();
-
-        if (missingDocumentTypes.Count > 0)
-        {
-            throw new ArgumentException($"Verification dossier is incomplete. Missing: {string.Join(", ", missingDocumentTypes)}.");
         }
 
         if (reviewDto.IsApproved)

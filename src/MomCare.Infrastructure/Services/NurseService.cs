@@ -365,14 +365,6 @@ public class NurseService : INurseService
             throw new ArgumentException("This verification dossier has already been submitted and is waiting for review.");
         }
 
-        var hasFront = profile.Documents.Any(d => d.Type == DocumentTypes.IdCardFront);
-        var hasBack = profile.Documents.Any(d => d.Type == DocumentTypes.IdCardBack);
-        var hasCertificate = profile.Documents.Any(d => d.Type == DocumentTypes.Certificate);
-        if (!hasFront || !hasBack || !hasCertificate)
-        {
-            throw new ArgumentException("Verification dossier is incomplete. Required: ID card front, ID card back, and certificate.");
-        }
-
         profile.VerificationSubmissionStatus = "submitted";
         profile.IsVerified = "unverified";
         profile.RejectionReason = null;

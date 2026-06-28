@@ -25,4 +25,5 @@ public interface IAdminService
     Task<CccdOcrResultDto?> OcrNurseDocumentAsync(int documentId, CancellationToken cancellationToken);
     Task<IEnumerable<NurseDocumentOcrLogDto>> GetNurseOcrLogsAsync(int nurseUserId);
     Task<bool> UpdateNurseDocumentStatusAsync(int nurseUserId, int documentId, string status, ReviewNurseDocumentDto dto);
+    Task<bool> DeleteNurseDocumentAsync(int nurseUserId, int documentId);
 }

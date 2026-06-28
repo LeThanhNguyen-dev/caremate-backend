@@ -1155,6 +1155,52 @@ public class AdminService : IAdminService
         return true;
     }
 
+    public async Task<bool> DeleteNurseDocumentAsync(int nurseUserId, int documentId)
+    {
+        var profile = await _context.NurseProfiles
+            .FirstOrDefaultAsync(x => x.UserId == nurseUserId);
+
+        if (profile == null)
+        {
+            return false;
+        }
+
+        var document = await _context.Documents
+            .FirstOrDefaultAsync(x => x.Id == documentId && x.NurseProfileId == profile.Id);
+
+        if (document == null)
+        {
+            return false;
+        }
+
+        var ocrResults = await _context.NurseDocumentOcrResults
+            .Where(x => x.NurseDocumentId == document.Id)
+            .ToListAsync();
+
+        _context.NurseDocumentOcrResults.RemoveRange(ocrResults);
+        _context.Documents.Remove(document);
+        profile.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        try
+        {
+            await _cloudinaryService.DeleteAsync(document.PublicId);
+        }
+        catch
+        {
+            // The DB record is the source of truth for admin/user visibility.
+        }
+
+        await _notificationService.CreateAsync(
+            nurseUserId,
+            "Cáº­p nháº­t há»“ sÆ¡ xÃ¡c minh",
+            $"TÃ i liá»‡u '{document.Type}' Ä‘Ã£ bá»‹ quáº£n trá»‹ viÃªn xÃ³a khá»i há»“ sÆ¡.",
+            "verification");
+
+        return true;
+    }
+
     private static string? BuildVietQrUrl(string? bankBin, string? accountNumber, decimal? amount, int bookingId)
     {
         if (string.IsNullOrWhiteSpace(bankBin) || string.IsNullOrWhiteSpace(accountNumber))

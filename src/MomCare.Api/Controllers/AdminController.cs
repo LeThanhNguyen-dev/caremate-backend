@@ -249,4 +249,13 @@ public class AdminController : ControllerBase
 
         return Ok(new { message = "Document rejected" });
     }
+
+    [HttpDelete("nurses/{nurseUserId:int}/documents/{documentId:int}")]
+    public async Task<IActionResult> DeleteNurseDocument(int nurseUserId, int documentId)
+    {
+        var result = await _adminService.DeleteNurseDocumentAsync(nurseUserId, documentId);
+        if (!result) return NotFound(new { message = "Document not found" });
+
+        return Ok(new { message = "Document deleted" });
+    }
 }

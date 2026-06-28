@@ -365,6 +365,12 @@ public class NurseService : INurseService
             throw new ArgumentException("This verification dossier has already been submitted and is waiting for review.");
         }
 
+        var hasCertificate = profile.Documents.Any(d => d.Type == DocumentTypes.Certificate);
+        if (!hasCertificate)
+        {
+            throw new ArgumentException("Ít nhất cần có chứng chỉ hành nghề để gửi hồ sơ xác minh.");
+        }
+
         profile.VerificationSubmissionStatus = "submitted";
         profile.IsVerified = "unverified";
         profile.RejectionReason = null;

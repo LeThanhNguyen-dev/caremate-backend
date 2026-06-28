@@ -1,0 +1,171 @@
+7d1547df-7e72-4cb2-87de-d4ad7b612dc2	reasoning	2424	0	28	f	Gemini API key is not configured.	t	reasoning_v1	2026-06-15 04:11:57.197752+00
+e98898e6-f598-4783-afa3-d42e6b7fa10a	generate	10	0	981	f	Groq request failed: Groq API returned 400: {"error":{"message":"unknown field `max_tokens` in request body","type":"invalid_request_error"}}\n	t	v1	2026-06-17 09:28:50.79987+00
+286838b8-fa93-4225-a45a-fbc6c82a3919	generate	262	0	211	f	Groq request failed: Groq API returned 400: {"error":{"message":"unknown field `max_tokens` in request body","type":"invalid_request_error"}}\n	t	v1	2026-06-17 09:28:51.983948+00
+6a349ef7-8338-4a7f-826b-d1a7b278d3ae	generate	10	0	208	f	Groq request failed: Groq API returned 400: {"error":{"message":"unknown field `max_tokens` in request body","type":"invalid_request_error"}}\n	t	v1	2026-06-17 09:29:03.245979+00
+0c56850e-da6b-457d-9879-9eaadf831b7f	generate	10	0	415	f	Groq request failed: Groq API returned 400: {"error":{"message":"unknown field `max_tokens` in request body","type":"invalid_request_error"}}\n	t	v1	2026-06-17 09:30:42.986041+00
+94aa1353-9dfe-4019-84b9-d3d8411fa067	generate	296	0	234	f	Groq request failed: Groq API returned 400: {"error":{"message":"unknown field `max_tokens` in request body","type":"invalid_request_error"}}\n	t	v1	2026-06-17 09:30:44.689145+00
+925c4f56-dc33-4ead-9413-12a5bd769ec9	generate	332	155	833	t	\N	f	v1	2026-06-17 09:33:52.510748+00
+b93d8c31-9929-4b15-84ee-3329feb1529c	generate	484	160	622	t	\N	f	v1	2026-06-17 09:34:10.866069+00
+594282b9-e62c-4d6d-b431-2a8bf6560ab5	generate	664	40	855	t	\N	f	v1	2026-06-17 09:42:52.435368+00
+2f076951-fa8e-45a5-84f4-6ace45f7c68f	generate	696	64	824	t	\N	f	v1	2026-06-17 09:45:28.855055+00
+4e408ecd-682b-4ca9-a8a8-6b2c187fe5b9	generate	755	0	812	t	\N	f	v1	2026-06-17 09:45:55.556287+00
+22ca41a5-5568-407d-89b0-0b6f0caed2c5	generate	638	0	927	t	\N	f	v1	2026-06-17 09:46:19.549558+00
+662b9bfd-7f40-470e-bb3e-24e167a4a426	generate	409	36	517	t	\N	f	v1	2026-06-17 09:46:55.028462+00
+f1a48408-f103-418c-91a5-c2265c66f39f	generate	506	31	674	t	\N	f	v1	2026-06-17 09:48:29.832832+00
+7062c2be-88a2-48c7-b92d-c76fc1e9420c	generate	576	44	1198	t	\N	f	v1	2026-06-17 09:53:58.766896+00
+50b3fece-53d1-4f26-9605-ea6a31c75579	generate	576	43	700	t	\N	f	v1	2026-06-17 09:58:27.530728+00
+942ddd79-1055-41cc-bc96-b71b346d7b67	generate	574	63	691	t	\N	f	v1	2026-06-17 09:58:35.853603+00
+2c4df673-3bd7-4790-9c92-215f6b75130d	generate	608	105	666	t	\N	f	v1	2026-06-17 09:58:52.4492+00
+e7153de7-87a9-49c8-9627-1a53eac5ed42	admin_ai_insight	1339	205	1337	t	\N	f	service_optimization_v1	2026-06-17 10:33:53.498368+00
+ad11e118-30e4-40f1-a1fa-93bb9f5326a3	admin_ai_insight	1339	358	1593	t	\N	f	service_optimization_v1	2026-06-17 10:34:03.737539+00
+a9cee480-db8b-4839-b2a3-db4559085947	generate	2428	498	3167	t	\N	f	v1	2026-06-17 10:34:48.030254+00
+cadc9773-5577-4979-b294-b2170dab0667	reasoning	2410	498	3171	t	\N	f	reasoning_v1	2026-06-17 10:34:48.033299+00
+ff8124f1-4eec-4544-b2f9-4deeae3602dd	generate	475	40	10321	t	\N	f	v1	2026-06-17 10:34:58.964263+00
+ea7ca75c-b1b4-45cc-acec-b21f4a46b8c9	generate	2442	589	2759	t	\N	f	v1	2026-06-17 10:40:36.863818+00
+4c546f93-bb88-438a-830b-dafacf8e54f7	reasoning	2424	589	2761	f	Expected end of string, but instead reached end of data. Path: $.reasoning | LineNumber: 65 | BytePositionInLine: 190.	t	reasoning_v1	2026-06-17 10:40:36.864682+00
+4ec6cad5-39cd-4706-8cf3-3a0c358594fd	generate	501	0	7283	t	\N	f	v1	2026-06-17 10:40:49.354782+00
+03e85410-2c12-4a93-8f12-54141330da1c	reasoning	2424	538	2693	t	\N	f	reasoning_v1	2026-06-17 10:51:50.191816+00
+1549badb-e254-4daf-92c2-df9581bd0b23	generate	2442	538	2692	t	\N	f	v1	2026-06-17 10:51:50.192131+00
+e595f079-e222-4935-b858-b7205c4566da	generate	448	0	8389	t	\N	f	v1	2026-06-17 10:51:59.164575+00
+54452e71-26c4-48ad-9ed0-d17b31409df6	generate	2451	489	2754	t	\N	f	v1	2026-06-17 11:02:42.451806+00
+d67d9f45-ab5d-43ec-a184-0d26440173f9	reasoning	2433	489	2762	t	\N	f	reasoning_v1	2026-06-17 11:02:42.4535+00
+8703b6cc-c5d1-4f36-9a46-9851f0ba989d	generate	2445	404	4138	t	\N	f	v1	2026-06-17 11:03:36.301387+00
+0b434db1-7e16-45c7-910f-b3654f87fd1e	reasoning	2427	403	4170	f	Expected depth to be zero at the end of the JSON payload. There is an open JSON object or array that should be closed. Path: $.serviceScores[8].score | LineNumber: 52 | BytePositionInLine: 14.	t	reasoning_v1	2026-06-17 11:03:36.331507+00
+69bd21af-f019-40dd-b7c6-2fba74a0d98a	generate	504	0	7266	t	\N	f	v1	2026-06-17 11:03:48.816934+00
+045b6c0a-3e1c-43ee-8f16-1693a948b193	generate	2748	354	3485	t	\N	f	v1	2026-06-17 11:11:37.733065+00
+9d0e3860-00cb-4db2-a51e-3a4305145b65	reasoning	2730	353	3527	f	Expected start of a property name or value, but instead reached end of data. Path: $.planItems[2] | LineNumber: 49 | BytePositionInLine: 76.	t	reasoning_v1	2026-06-17 11:11:37.766907+00
+105fc331-f54d-401f-9788-c1a8086818d5	generate	504	0	10219	t	\N	f	v1	2026-06-17 11:11:49.591953+00
+066f4160-6d84-48a7-8802-3f574aaa6d67	reasoning	2730	0	8009	f	A task was canceled.	t	reasoning_v1	2026-06-17 11:12:22.310667+00
+f2ce9616-5ea0-4ce5-a27b-f0c61c534015	generate	2748	0	8000	f	A task was canceled.	t	v1	2026-06-17 11:12:22.302182+00
+f7c494ca-9ff8-423c-8362-acdf341f0b87	reasoning	2730	627	3160	t	\N	f	reasoning_v1	2026-06-17 11:17:29.560859+00
+c53b5ca9-714a-4249-a4a0-7755197aa8eb	generate	2748	627	3159	t	\N	f	v1	2026-06-17 11:17:29.56083+00
+e51601fd-1a6d-4207-b88e-1ea9e2927270	generate	2748	0	8015	f	A task was canceled.	t	v1	2026-06-17 11:18:11.314154+00
+c3da4897-c2e9-48fc-b06c-d9d2cc7fcb2f	reasoning	2730	0	8016	f	A task was canceled.	t	reasoning_v1	2026-06-17 11:18:11.314732+00
+b9c4b74b-4f9e-4672-a83e-cd223828c07d	generate	2743	547	4625	t	\N	f	v1	2026-06-17 11:18:38.632745+00
+17fa0c0b-1caf-403c-bc7c-752fbad961c5	reasoning	2725	547	4625	t	\N	f	reasoning_v1	2026-06-17 11:18:38.632361+00
+c3ca23eb-fe03-4d88-b46f-fffa43c97a2c	generate	518	0	949	t	\N	f	v1	2026-06-17 11:20:02.219636+00
+a8064761-7dba-40b1-a561-b9add4f3c51d	generate	675	43	715	t	\N	f	v1	2026-06-17 11:22:40.692819+00
+3d52f2c1-b041-4531-b319-ae22c7b1db25	generate	659	95	561	t	\N	f	v1	2026-06-17 11:22:46.746763+00
+7b2c7a82-fbfe-4121-9a98-26387f4e9abc	generate	2748	600	2173	t	\N	f	v1	2026-06-17 11:23:21.453176+00
+65b715a0-5edd-4425-864e-74f55c01a966	reasoning	2730	600	2174	t	\N	f	reasoning_v1	2026-06-17 11:23:21.452912+00
+5d46a3b7-9e0f-46d5-8a72-9812febf4dbb	generate	504	0	826	t	\N	f	v1	2026-06-17 11:23:22.898002+00
+aa359249-ec41-4987-9f65-c772f8f18a2e	generate	2748	550	3541	t	\N	f	v1	2026-06-17 11:31:10.248594+00
+720158a9-edb8-4a8d-b93f-8495e18c436c	reasoning	2730	550	3549	t	\N	f	reasoning_v1	2026-06-17 11:31:10.250305+00
+46e7ac3a-d909-467d-9296-c2a82587ad3d	generate	149	38	6038	t	\N	f	v1	2026-06-17 11:31:17.58171+00
+26e98248-c48c-452b-ad10-e973eaa3d6ea	generate	729	75	662	t	\N	f	v1	2026-06-18 02:24:04.198357+00
+b996d6ac-dcd6-46b0-9be3-4084ef64b0f0	generate	2748	329	1398	t	\N	f	v1	2026-06-18 02:24:33.329322+00
+d4f04898-6625-4068-91a2-ead9f065414d	reasoning	2730	329	1405	t	\N	f	reasoning_v1	2026-06-18 02:24:33.334195+00
+694354a5-2bad-4a8b-9899-a804c3c9f7fa	generate	517	0	8332	t	\N	f	v1	2026-06-18 02:24:41.915999+00
+e4c563fb-5d4a-4afe-9be2-547456d27a82	generate	2743	328	1914	t	\N	f	v1	2026-06-18 02:29:16.440035+00
+d977ab0d-55ac-4924-9784-3531b394aa34	reasoning	2725	328	1914	t	\N	f	reasoning_v1	2026-06-18 02:29:16.43956+00
+ad35e80e-2ab9-45c9-b109-89c43d2a8a7d	generate	724	80	1063	t	\N	f	v1	2026-06-18 02:31:41.062322+00
+0e28327a-401e-40f7-b5f6-c8d6a5970dcd	generate	2656	0	2975	t	\N	f	v1	2026-06-18 02:35:33.138717+00
+0104bd56-186b-4201-b9c8-887f7512e79b	reasoning	2638	0	3028	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 02:35:33.189691+00
+3e465926-bbbe-403d-8397-2f08c6897ebf	generate	517	0	1198	t	\N	f	v1	2026-06-18 02:35:34.457582+00
+de262f78-9496-46f6-b9a0-4f31ce4d0c18	reasoning	2638	468	2379	t	\N	f	reasoning_v1	2026-06-18 02:37:04.92611+00
+df5f65ba-6fcb-4ccb-ac27-a01d957b9617	reasoning	2638	0	0	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 02:36:28.170772+00
+fddcda24-0361-405a-b022-f8f9cc546ab1	generate	2656	468	2379	t	\N	f	v1	2026-06-18 02:37:04.926955+00
+b315cb8c-648b-488d-bfd4-f21ec9baa10b	generate	2752	339	2718	t	\N	f	v1	2026-06-18 02:51:38.941172+00
+4f137966-78b2-493b-b882-093b58283747	reasoning	2734	339	2730	t	\N	f	reasoning_v1	2026-06-18 02:51:38.942961+00
+c1c9841b-eaa1-41c3-bea3-8c5a7d7cb331	generate	149	0	5108	t	\N	f	v1	2026-06-18 02:51:45.369237+00
+154a202f-4e25-4309-a832-17d8000f6822	reasoning	2721	437	2256	t	\N	f	reasoning_v1	2026-06-18 02:52:52.566191+00
+9cb0c924-d20a-4fcd-9ba5-799db8e4429d	generate	2739	437	2255	t	\N	f	v1	2026-06-18 02:52:52.566584+00
+f9678a86-3cd9-487f-bfb5-db04e2b415d3	generate	476	0	11052	t	\N	f	v1	2026-06-18 02:53:04.192165+00
+f080b312-bef2-461f-9f05-a07abaea4eb9	generate	2722	121	2286	t	\N	f	v1	2026-06-18 03:23:31.959636+00
+9076e341-d138-49e5-bc26-dea9a2b242e8	reasoning	2704	121	2297	t	\N	f	reasoning_v1	2026-06-18 03:23:31.961271+00
+4381e02c-968f-444b-bda9-452b507d5d52	reasoning	2704	121	0	t	\N	f	reasoning_v1	2026-06-18 03:23:53.129669+00
+a66a7c2c-b4a7-454c-abca-c60c7c9e151b	generate	2721	95	6598	t	\N	f	v1	2026-06-18 03:24:24.417761+00
+342f2215-c1eb-4206-a1be-9fabbe4229dc	reasoning	2703	95	6598	t	\N	f	reasoning_v1	2026-06-18 03:24:24.417318+00
+695b91f6-58af-48ef-bb1f-48e84230812e	generate	2709	151	1700	t	\N	f	v1	2026-06-18 03:25:24.984729+00
+18ccceac-0cd9-4f2b-aff2-d405e6989dea	reasoning	2691	151	1701	t	\N	f	reasoning_v1	2026-06-18 03:25:24.984315+00
+efad2568-d9a9-42fd-a539-329d798a2766	generate	149	37	4942	t	\N	f	v1	2026-06-18 03:25:30.384738+00
+5ecb8fc2-e259-47e9-a276-77b3c7e6e185	generate	2703	105	1287	t	\N	f	v1	2026-06-18 03:30:01.911096+00
+c1ff25cb-2903-416d-8dea-26de18d3c447	reasoning	2685	105	1288	t	\N	f	reasoning_v1	2026-06-18 03:30:01.910608+00
+a7b9cace-ea11-466b-b422-58d31a467e1f	reasoning	2703	110	1711	t	\N	f	reasoning_v1	2026-06-18 03:36:08.140049+00
+3db4ea05-85fa-465c-988f-10fc4364298b	generate	2721	110	1711	t	\N	f	v1	2026-06-18 03:36:08.140527+00
+d93843d5-4ee9-46c7-bbc8-608dc2dd8ec7	generate	515	0	9110	t	\N	f	v1	2026-06-18 03:36:17.815463+00
+ccd4e881-76cd-42b6-aa93-7ca3ace247da	generate	2730	0	2902	t	\N	f	v1	2026-06-18 03:44:39.0332+00
+0a9a4cb0-71b7-4c03-9aca-a924c218356a	reasoning	2712	0	2938	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 03:44:39.068016+00
+6f2cebc0-80e2-4795-8613-320ffa0e38a5	reasoning	2712	0	1	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 03:44:55.404127+00
+4dad9129-1c61-4ec4-9150-80e3ae872832	generate	696	76	644	t	\N	f	v1	2026-06-18 03:45:05.167704+00
+f555c091-902a-4ce4-949f-c84f0af2b9d0	reasoning	2712	0	1	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 03:45:13.679487+00
+fbd4a83b-63f3-4573-87e5-3518fa07aa47	generate	2989	0	3108	t	\N	f	v1	2026-06-18 03:47:58.050764+00
+35624edb-250f-4435-8b4d-084facb52fe2	reasoning	2971	0	3145	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 03:47:58.081699+00
+4148f311-57fb-4b6e-8476-4ae2d601fbaf	reasoning	2971	0	1	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 03:49:29.637951+00
+4d1ac152-cdca-4169-9079-d27e420eb1f4	reasoning	2971	0	0	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 03:49:47.02499+00
+d9a4855f-c487-45b3-8825-16069e75c510	generate	3370	129	3007	t	\N	f	v1	2026-06-18 04:02:44.11431+00
+449b2b4a-605d-47f5-891d-17c98545364e	reasoning	3352	129	3049	f	Expected depth to be zero at the end of the JSON payload. There is an open JSON object or array that should be closed. Path: $.serviceScores[1] | LineNumber: 10 | BytePositionInLine: 236.	t	reasoning_v1	2026-06-18 04:02:44.149596+00
+b6058687-a5a5-4840-9149-877376612012	generate	3374	0	7994	f	A task was canceled.	t	v1	2026-06-18 04:03:09.050957+00
+d0c4db8f-0ba3-4c76-899e-a736ce8f2d12	reasoning	3356	0	8026	f	A task was canceled.	t	reasoning_v1	2026-06-18 04:03:09.055663+00
+3af34e9f-d939-4384-b71d-ed756e7acbc2	generate	3356	0	2893	t	\N	f	v1	2026-06-18 04:08:47.247462+00
+b82d7c98-53b8-4566-a956-f6553fb05030	reasoning	3338	0	2926	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 04:08:47.273265+00
+9c102c95-c9f0-49a4-82e0-57f816906993	generate	504	0	11382	t	\N	f	v1	2026-06-18 04:08:59.273836+00
+741410bf-1a79-4f36-828d-b3f3a81ed02b	generate	3428	0	2906	t	\N	f	v1	2026-06-18 04:15:11.992865+00
+092f1de3-a1b3-40ca-bddb-d0bad7603fb5	reasoning	3410	0	2941	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 04:15:12.02218+00
+f473d297-227f-4d1c-8cb0-f7e421b87641	generate	504	0	11084	t	\N	f	v1	2026-06-18 04:15:24.436534+00
+47f3fcac-556b-4a00-af9b-11ff89539221	generate	744	72	637	t	\N	f	v1	2026-06-18 04:16:45.353639+00
+9927e385-154f-417b-94d4-aa06f271b951	generate	723	6	737	t	\N	f	v1	2026-06-18 04:16:59.216476+00
+421bb1f6-42a6-4af3-9425-0e4d47363bad	generate	669	31	847	t	\N	f	v1	2026-06-18 04:17:06.624632+00
+a024a663-c21e-4fd0-935e-880db2f1ee8f	generate	620	103	736	t	\N	f	v1	2026-06-18 04:17:26.842322+00
+b64ab660-c2e7-48de-bf91-2892ef8fcb32	generate	3403	0	3465	t	\N	f	v1	2026-06-18 04:21:52.693936+00
+90b229fd-10b6-427a-8597-a2c929f045c9	reasoning	3385	0	3467	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 04:21:52.695078+00
+9f98e81c-3009-4170-be1d-1936ba8d73b2	generate	3403	276	2876	t	\N	f	v1	2026-06-18 04:27:44.691979+00
+56d4579c-f059-4ab9-bcd3-3fc0c40b3af2	reasoning	3385	276	2883	t	\N	f	reasoning_v1	2026-06-18 04:27:44.693382+00
+e71ffeb8-a6cc-4afc-95e4-fdc985f3d1b7	reasoning	3385	276	2	t	\N	f	reasoning_v1	2026-06-18 04:29:26.231459+00
+a3b5d6fc-22d1-42e5-a029-e11a73b13911	generate	3390	0	3636	t	\N	f	v1	2026-06-18 05:40:21.56069+00
+1f5a3aa8-d16c-4e07-be73-a764ed9205e9	reasoning	3372	0	3701	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 05:40:21.595714+00
+86e82938-6d67-4744-aa48-2870c7a015b2	generate	146	37	5947	t	\N	f	v1	2026-06-18 05:40:28.438014+00
+6d7d978d-d27c-4460-9ac3-78cb731c1973	reasoning	3385	0	2701	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-18 05:41:30.348616+00
+685b4192-1001-43a8-bef8-c778808a53c1	generate	3403	0	2698	t	\N	f	v1	2026-06-18 05:41:30.348177+00
+d0c260c0-3637-4f96-889a-91ab7b8eeb01	generate	149	23	878	t	\N	f	v1	2026-06-18 05:41:31.966975+00
+392097ad-11f1-4a03-b41a-d1a1219ba375	generate	492	0	1033	t	\N	f	v1	2026-06-18 06:02:29.640758+00
+00841184-5b6d-4ac4-88cd-e6a48e2473c8	generate	506	0	935	t	\N	f	v1	2026-06-18 06:03:05.983547+00
+147001b9-356f-4b82-b595-68306afe8cf8	generate	366	64	930	t	\N	f	v1	2026-06-18 11:03:20.460709+00
+07a2baaa-5f5f-4b89-bf3f-76440869495f	generate	506	0	1249	t	\N	f	v1	2026-06-18 11:18:03.010347+00
+51030dee-4bc6-4f90-8b16-de725df9c720	generate	520	0	889	t	\N	f	v1	2026-06-18 11:28:26.915198+00
+3567ad87-b3d1-4b06-9579-be75ae91547f	generate	494	0	1529	t	\N	f	v1	2026-06-18 11:37:38.022314+00
+34d219ee-40fb-475a-b29d-aad8c3324ca6	generate	506	0	1028	t	\N	f	v1	2026-06-18 11:39:52.515681+00
+4115325c-5b31-4d52-a19b-4302eebaaa20	generate	634	50	2982	t	\N	f	v1	2026-06-18 12:40:36.1071+00
+5ac0a569-a700-44fc-be74-38bf36583b5c	generate	613	9	675	t	\N	f	v1	2026-06-18 12:40:48.364668+00
+36baaf57-3d28-4ec4-be4c-6bb3de6aa65f	generate	539	110	804	t	\N	f	v1	2026-06-18 12:42:32.587776+00
+df705af9-6d61-491e-9fe1-870a7dcfdbcd	generate	602	211	1113	t	\N	f	v1	2026-06-18 12:42:43.768248+00
+9b30d08e-8e5f-4c21-9c1f-b15f11c0225f	generate	492	0	1226	t	\N	f	v1	2026-06-18 13:06:55.033364+00
+49f177d1-e4bd-4b9f-a780-98fafc701ac1	generate	492	0	1048	t	\N	f	v1	2026-06-18 13:45:19.724261+00
+378da150-337c-4c57-b45b-a74de1a8b11e	generate	508	0	1690	t	\N	f	v1	2026-06-18 14:24:00.023552+00
+3dd926ab-a9f6-4566-a77e-41f0084ad799	generate	494	0	938	t	\N	f	v1	2026-06-18 14:24:53.01767+00
+8fbba3bf-f1ea-4ae1-af38-1045ec55920f	generate	523	0	1650	t	\N	f	v1	2026-06-18 14:39:28.351608+00
+1984e9d9-ae52-4bb6-8076-c5d1b5074bc0	generate	548	0	1977	t	\N	f	v1	2026-06-18 14:39:40.099455+00
+935ea0f5-080f-41b3-8c8d-0b8e9cca6e2a	generate	581	0	1017	t	\N	f	v1	2026-06-18 14:43:28.213473+00
+1914f4ae-1076-4120-b5a1-49062f1793ea	generate	152	0	1149	t	\N	f	v1	2026-06-18 14:44:39.167548+00
+ca9a2ffc-061c-4229-be64-3a131e9b3903	generate	452	0	1097	t	\N	f	v1	2026-06-18 14:44:55.804631+00
+a0ba1ecf-5f4a-40c0-8334-766c91a3de7a	generate	498	0	1074	t	\N	f	v1	2026-06-18 14:45:01.866488+00
+f371f733-7b2a-4fb7-81b5-da4b2be7970a	generate	480	0	1079	t	\N	f	v1	2026-06-18 14:48:20.712717+00
+1e7ac759-1e2c-4686-9f11-b16b095a4b46	generate	523	0	2757	t	\N	f	v1	2026-06-18 14:56:14.548006+00
+71bcb1d3-8717-4d2d-9ed1-26c9a4a60ede	generate	155	40	1391	t	\N	f	v1	2026-06-19 01:56:39.75666+00
+92632556-02a6-41e4-b474-024d4b520314	generate	3403	219	3502	t	\N	f	v1	2026-06-19 02:02:29.299564+00
+e4cf2b6b-2dfe-4680-8466-fc792514cdac	reasoning	3385	219	3551	f	Expected end of string, but instead reached end of data. Path: $.serviceScores[3].reason | LineNumber: 0 | BytePositionInLine: 1070.	t	reasoning_v1	2026-06-19 02:02:29.34773+00
+57fa3a20-633d-49e3-8a17-cedeb889ae97	generate	523	0	1316	t	\N	f	v1	2026-06-19 02:31:27.218833+00
+1222ff81-5d06-4a13-a1b2-2be785604ef4	generate	3324	210	2475	t	\N	f	v1	2026-06-19 02:42:30.783691+00
+502b8c3a-6f46-4fd5-994e-456e35b71387	reasoning	3306	210	2483	t	\N	f	reasoning_v1	2026-06-19 02:42:30.786434+00
+3aab9d03-7200-477d-a759-7ea1a91c1cb9	generate	542	52	13088	t	\N	f	v1	2026-06-19 02:42:43.945255+00
+9d893c30-e746-45d7-9951-58e3fa3f3750	generate	3363	0	2641	t	\N	f	v1	2026-06-19 02:44:02.461315+00
+aeaa186d-d460-4ff9-b3c8-2e6144434afb	reasoning	3345	0	2648	f	The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.	t	reasoning_v1	2026-06-19 02:44:02.462804+00
+04b941d9-1a32-4223-9641-a5a9458f82ef	generate	153	40	1942	t	\N	f	v1	2026-06-19 02:44:04.900796+00
+0783ab40-64a5-4fb6-af6a-d138df717535	generate	3366	0	25003	f	A task was canceled.	t	v1	2026-06-19 02:44:48.234418+00
+8d51e5f4-f9b9-4d84-a0fd-038411fe8c7b	reasoning	3348	0	25013	f	A task was canceled.	t	reasoning_v1	2026-06-19 02:44:48.243137+00
+6e23df6c-e7bc-40fc-830b-0152e3f27e50	generate	581	0	945	t	\N	f	v1	2026-06-19 02:45:24.203038+00
+6548837c-438a-4bb4-9276-91e960cb2b8c	generate	3389	277	2563	t	\N	f	v1	2026-06-19 03:55:32.014936+00
+d3b8dc30-d08f-43d4-a6f9-fd4c55658f20	reasoning	3371	277	2565	t	\N	f	reasoning_v1	2026-06-19 03:55:32.015151+00
+86fb8c89-4317-4a2c-9649-92910e67525e	generate	518	101	1298	t	\N	f	v1	2026-06-20 03:56:21.612229+00
+08a09b79-bd67-4ac7-ad14-3f2b989692a5	generate	555	0	1087	t	\N	f	v1	2026-06-20 03:57:00.897696+00
+4f1703e1-9a46-4761-8b22-ff20e4efb3c4	generate	4260	0	241	f	Groq request failed: Groq API returned 413: {"error":{"message":"Request too large for model `openai/gpt-oss-20b` in organization `org_01kva61e3sek0bgsgmemmb6a5j` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Requested 9719, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}\n	t	v1	2026-06-20 03:57:56.40155+00
+6bd3fd0e-511b-4bbd-92d3-f37bd37744f0	reasoning	4242	0	266	f	Groq request failed: Groq API returned 413: {"error":{"message":"Request too large for model `openai/gpt-oss-20b` in organization `org_01kva61e3sek0bgsgmemmb6a5j` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Requested 9719, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}\n	t	reasoning_v1	2026-06-20 03:57:56.425829+00
+f6ebdc06-9823-40be-b34f-581b19855bb0	generate	155	40	862	t	\N	f	v1	2026-06-20 03:57:57.352568+00
+8e6e37ca-95cd-4635-9574-525cbfd955c7	generate	4269	0	230	f	Groq request failed: Groq API returned 413: {"error":{"message":"Request too large for model `openai/gpt-oss-20b` in organization `org_01kva61e3sek0bgsgmemmb6a5j` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Requested 9735, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}\n	t	v1	2026-06-20 03:58:18.86561+00
+e0410cf9-5762-4106-bfcb-7e0f669197ac	reasoning	4251	0	235	f	Groq request failed: Groq API returned 413: {"error":{"message":"Request too large for model `openai/gpt-oss-20b` in organization `org_01kva61e3sek0bgsgmemmb6a5j` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Requested 9735, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}\n	t	reasoning_v1	2026-06-20 03:58:18.867917+00
+b51cee9f-a471-4b22-8e4a-31838d05db12	generate	548	0	1670	t	\N	f	v1	2026-06-22 09:49:09.535241+00
+92a7d026-0394-4f75-a768-b0ce525912b1	generate	273	43	702	t	\N	f	v1	2026-06-22 09:49:27.089384+00
+88594578-0722-482d-917b-8f26e6a27bca	generate	323	133	666	t	\N	f	v1	2026-06-22 09:49:37.500149+00
+\.
+
+

@@ -1,0 +1,8 @@
+1	Administrator	admin	ADMIN	\N
+2	Customer	customer	CUSTOMER	\N
+3	Nurse	nurse	NURSE	\N
+4	Nurse (Unconfirmed)	nurse_unconfirmed	NURSE_UNCONFIRMED	\N
+5	Nurse (Confirmed)	nurse_confirmed	NURSE_CONFIRMED	\N
+\.
+
+

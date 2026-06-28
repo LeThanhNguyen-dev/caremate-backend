@@ -1,0 +1,52 @@
+1	2	25 Nguyễn Văn Linh, quận Hải Châu, Đà Nẵng	Bình Hiên	Hải Châu	16.0605	108.221	t	customer_home
+2	3	120 Hồ Nghinh, quận Sơn Trà, Đà Nẵng	Phước Mỹ	Sơn Trà	16.0686	108.2431	t	customer_home
+3	4	Chợ Hàn Đà Nẵng, 116 Bạch Đằng, Hải Châu 1, Hải Châu, Đà Nẵng	Hải Châu 1	Hải Châu	16.068244159000074	108.22487182000003	t	nurse_base
+5	9	343 Nguyễn Hữu Thọ, Hòa Cường Bắc, Hải Châu, Hòa Cường Bắc, Hải Châu, Đà Nẵng	Hòa Cường Bắc	Hải Châu	16.037195645000054	108.21020308800007	t	customer_home
+48	55	344 Nguyễn Duy Hiệu, Sơn Phong, Hội An, Quảng Nam, Sơn Phong, Hội An, Đà Nẵng	Sơn Phong	Hội An	15.878096623000033	108.33494387400003	t	nurse_base
+6	10	Chợ Hàn Đà Nẵng, 116 Bạch Đằng, Hải Châu 1, Hải Châu, Đà Nẵng	Hải Châu 1	Hải Châu	16.068244159000074	108.22487182000003	t	nurse_base
+7	11	Chợ Cồn, Hùng Vương, Hải Châu 2, Hải Châu, Đà Nẵng	Hải Châu 2	Hải Châu	16.0680564	108.2143082	t	nurse_base
+8	12	Cầu Rồng, An Hải Tây, Sơn Trà, Đà Nẵng	An Hải Tây	Hải Châu	16.061082357512515	108.22786173973377	t	nurse_base
+9	13	Bệnh viện Đa khoa Quốc tế Vinmec Đà Nẵng, 4 đường 30 Tháng 4, Hòa Cường Bắc, Hải Châu, Đà Nẵng	Hòa Cường Bắc	Hải Châu	16.03940394500006	108.21151897400006	t	nurse_base
+10	14	Nguyễn Văn Linh, Phước Ninh, Hải Châu, Đà Nẵng	Phước Ninh	Hải Châu	16.0609273	108.2189461	t	nurse_base
+11	15	Duy Tân, Hòa Thuận Tây, Hải Châu, Đà Nẵng	Hòa Thuận Tây	Hải Châu	16.0504684	108.2095168	t	nurse_base
+12	16	Hàm Nghi, Thạc Gián, Thanh Khê, Đà Nẵng	Thạc Gián	Thanh Khê	16.0628962	108.2107061	t	nurse_base
+13	17	Điện Biên Phủ, Thanh Khê Đông, Thanh Khê, Đà Nẵng	Thanh Khê Đông	Thanh Khê	16.065761	108.1924117	t	nurse_base
+14	18	Lê Duẩn, Chính Gián, Thanh Khê, Đà Nẵng	Chính Gián	Thanh Khê	16.069294	108.2095453	t	nurse_base
+15	19	Nguyễn Tất Thành, Xuân Hà, Thanh Khê, Đà Nẵng	Xuân Hà	Thanh Khê	16.0776	108.1889	t	nurse_base
+16	20	Trần Cao Vân, Thanh Khê, Đà Nẵng	Thanh Khê	Thanh Khê	16.0707	108.2006	t	nurse_base
+17	21	Mẹ Nhu, Thanh Khê Tây, Thanh Khê, Đà Nẵng	Thanh Khê Tây	Thanh Khê	16.0748	108.1797	t	nurse_base
+18	22	Cầu Sông Hàn, An Hải Bắc, Sơn Trà, Đà Nẵng	An Hải Bắc	Sơn Trà	16.072319367279547	108.22772329782113	t	nurse_base
+19	23	Phạm Văn Đồng, An Hải Bắc, Sơn Trà, Đà Nẵng	An Hải Bắc	Sơn Trà	16.070559509819137	108.23706079591314	t	nurse_base
+20	24	Hồ Nghinh, Phước Mỹ, Sơn Trà, Đà Nẵng	Phước Mỹ	Sơn Trà	16.06676487624661	108.24317303171603	t	nurse_base
+21	25	A La Carte Danang Beach, Võ Nguyên Giáp, Phước Mỹ, Sơn Trà, Đà Nẵng	Phước Mỹ	Sơn Trà	16.0687309	108.244693	t	nurse_base
+22	26	Phường Mân Thái, Sơn Trà, Đà Nẵng	Mân Thái	Sơn Trà	16.08934956125003	108.24009102975006	t	nurse_base
+23	27	Phường Thọ Quang, Sơn Trà, Đà Nẵng	Thọ Quang	Sơn Trà	16.13084410325007	108.2500609712501	t	nurse_base
+24	28	Võ Nguyên Giáp, Mỹ An, Ngũ Hành Sơn, Đà Nẵng	Mỹ An	Ngũ Hành Sơn	16.052298235401214	108.24817960245824	t	nurse_base
+25	29	Lê Văn Hiến, Khuê Mỹ, Ngũ Hành Sơn, Đà Nẵng	Khuê Mỹ	Ngũ Hành Sơn	16.0178054	108.2535484	t	nurse_base
+26	30	Trần Đại Nghĩa, Hòa Hải, Ngũ Hành Sơn, Đà Nẵng	Hòa Hải	Ngũ Hành Sơn	15.9851814	108.2566269	t	nurse_base
+27	31	298 Võ Nguyên Giáp, Mỹ An, Ngũ Hành Sơn, Đà Nẵng	Mỹ An	Ngũ Hành Sơn	16.0503276	108.2484905	t	nurse_base
+28	32	Phường Khuê Mỹ, Ngũ Hành Sơn, Đà Nẵng	Khuê Mỹ	Ngũ Hành Sơn	16.02810771350005	108.24825368650005	t	nurse_base
+29	33	Bãi biển Mỹ Khê, Võ Nguyên Giáp, Đà Nẵng	Phước Mỹ	Ngũ Hành Sơn	16.060879	108.2466345	t	nurse_base
+30	34	Mê Linh, Hòa Khánh Bắc, Liên Chiểu, Đà Nẵng	Hòa Khánh Bắc	Liên Chiểu	16.087888114927807	108.12273119146593	t	nurse_base
+31	35	Nguyễn Lương Bằng, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng	Hòa Hiệp Nam	Liên Chiểu	16.09610569448002	108.13736368966741	t	nurse_base
+32	36	Tôn Đức Thắng, Hòa Minh, Liên Chiểu, Đà Nẵng	Hòa Minh	Liên Chiểu	16.05987818592002	108.1633243119634	t	nurse_base
+33	37	Hòa Khánh, Đà Nẵng	Hòa Khánh	Liên Chiểu	16.0554759	108.1250791	t	nurse_base
+34	38	Nam Ô, Hòa Hiệp Nam, Liên Chiểu, Đà Nẵng	Hòa Hiệp Nam	Liên Chiểu	16.1057327	108.136637	t	nurse_base
+35	39	Âu Cơ, Hòa Khánh Bắc, Liên Chiểu, Đà Nẵng	Hòa Khánh Bắc	Liên Chiểu	16.0735	108.1356	t	nurse_base
+36	40	Cách Mạng Tháng 8, Khuê Trung, Cẩm Lệ, Đà Nẵng	Khuê Trung	Cẩm Lệ	16.018453552910724	108.20753793646035	t	nurse_base
+37	41	Ông Ích Đường, Khuê Trung, Cẩm Lệ, Đà Nẵng	Khuê Trung	Cẩm Lệ	16.019805848793826	108.20334397595265	t	nurse_base
+38	42	Hòa Xuân, Cẩm Lệ, Đà Nẵng	Hòa Xuân	Cẩm Lệ	15.978817598750027	108.20333914625007	t	nurse_base
+39	43	Nguyễn Phước Lan, Hòa Xuân, Cẩm Lệ, Đà Nẵng	Hòa Xuân	Cẩm Lệ	15.9879	108.2072	t	nurse_base
+40	44	Lê Đại Hành, Hòa Thọ Đông, Cẩm Lệ, Đà Nẵng	Hòa Thọ Đông	Cẩm Lệ	16.02272535041191	108.20212317496076	t	nurse_base
+41	45	Chợ Cẩm Lệ, Hoàng Xuân Hãn, Khuê Trung, Cẩm Lệ, Đà Nẵng	Khuê Trung	Cẩm Lệ	16.014031286000034	108.20693976000007	t	nurse_base
+42	46	Trung tâm hành chính Hòa Vang, Đà Nẵng	Hòa Phong	Hòa Vang	15.9783739	108.0361555	t	nurse_base
+43	47	Túy Loan, Hòa Phong, Hòa Vang, Đà Nẵng	Hòa Phong	Hòa Vang	15.9878	108.1267	t	nurse_base
+44	48	Bà Nà Hills, thôn An Sơn, Hòa Ninh, Hòa Vang, Đà Nẵng	Hòa Ninh	Hòa Vang	15.997725143000025	107.98802187400008	t	nurse_base
+45	49	Hòa Phú, Hòa Vang, Đà Nẵng	Hòa Phú	Hòa Vang	15.9783739	108.0361555	t	nurse_base
+46	50	Xã Hòa Tiến, Hòa Vang, Đà Nẵng	Hòa Tiến	Hòa Vang	15.969297787000073	108.18080644000008	t	nurse_base
+47	51	Xã Hòa Nhơn, Hòa Vang, Đà Nẵng	Hòa Nhơn	Hòa Vang	16.00045612400004	108.14523418900006	t	nurse_base
+4	5	Cafe 39, 39 Hồ Nghinh, Phước Mỹ, Sơn Trà, Phước Mỹ, Sơn Trà, Đà Nẵng	Phước Mỹ	Sơn Trà	16.076845522000042	108.24291309700004	t	nurse_base
+49	56	324 Nguyễn Hữu Thọ, Khuê Trung, Cẩm Lệ, Đà Nẵng	Khuê Trung	Cẩm Lệ	16.03557205000004	108.20952606000009	t	customer_home
+\.
+
+

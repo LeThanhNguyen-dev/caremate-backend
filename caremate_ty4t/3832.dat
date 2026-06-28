@@ -1,0 +1,7 @@
+55f29c16-ef65-4900-b3b7-2643095250c1	1	System Admin	PUT	/api/admin/nurses/55/documents/92/approve	\N	200	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36	2026-06-12 14:33:02.46948+00
+b1483b93-17e2-463c-ab18-a2a970737314	1	System Admin	POST	/api/admin/nurses/documents/93/ocr	\N	200	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36	2026-06-12 14:33:07.560945+00
+2a28bb11-9a83-400f-b606-bf5af77f947f	1	System Admin	POST	/api/admin/ai-insights/generate	\N	200	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36	2026-06-17 10:33:53.541892+00
+dc1583b5-27d4-4f00-9fb3-1193445c7609	1	System Admin	POST	/api/admin/ai-insights/generate	\N	200	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36	2026-06-17 10:34:03.739552+00
+\.
+
+

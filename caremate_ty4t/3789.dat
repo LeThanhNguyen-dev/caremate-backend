@@ -1,0 +1,41 @@
+5	9	Tin nhắn mới	Bạn có một tin nhắn mới.	chat	t	2026-05-27 02:59:24.175594+00
+8	9	Cập nhật thanh toán	Thanh toán của bạn cho lịch hẹn #4 hiện đã thanh toán.	payment	t	2026-05-27 03:29:33.088774+00
+9	9	Cập nhật trạng thái lịch hẹn	Lịch hẹn #4 đã chuyển sang trạng thái đã xác nhận.	booking	t	2026-05-27 03:33:04.178573+00
+10	9	Cập nhật trạng thái lịch hẹn	Lịch hẹn #4 đã chuyển sang trạng thái đang thực hiện.	booking	t	2026-05-27 03:33:10.939535+00
+11	9	Cập nhật trạng thái lịch hẹn	Lịch hẹn #4 đã chuyển sang trạng thái đã hoàn thành.	booking	t	2026-05-27 03:33:13.456974+00
+2	4	Đánh giá mới	Bạn vừa nhận được một đánh giá 5 sao.	review	t	2026-05-24 07:46:05.778837+00
+6	4	Yêu cầu đặt lịch mới	Lịch hẹn #4 đang chờ bạn xác nhận.	booking	t	2026-05-27 03:29:32.791323+00
+7	4	Cập nhật thanh toán	Thanh toán cho lịch hẹn #4 hiện đã thanh toán.	payment	t	2026-05-27 03:29:33.083185+00
+3	1	Khiếu nại đang mở	Có một khiếu nại đang chờ quản trị viên xem xét.	system	t	2026-05-24 07:46:05.781613+00
+4	1	Tin nhắn mới	Bạn có một tin nhắn mới.	chat	t	2026-05-27 02:59:07.288603+00
+14	1	Bài viết có lượt thích mới	Lan Nguyen đã thích bài viết "🌸 MẸ ƠI, KIỆT SỨC SAU SINH KHÔNG PHẢI ĐIỀU BÌNH THƯỜNG ĐÂU!".	community_like	t	2026-06-09 08:15:40.707547+00
+15	1	Bình luận mới	Lan Nguyen đã bình luận về bài viết "🌸 MẸ ƠI, KIỆT SỨC SAU SINH KHÔNG PHẢI ĐIỀU BÌNH THƯỜNG ĐÂU!".	community_comment	t	2026-06-09 08:16:18.481833+00
+16	1	Bài viết có lượt thích mới	Nguyên đã thích bài viết "🌸 MẸ ƠI, KIỆT SỨC SAU SINH KHÔNG PHẢI ĐIỀU BÌNH THƯỜNG ĐÂU!".	community_like	t	2026-06-09 08:16:37.330932+00
+1	2	Lịch hẹn đã hoàn thành	Lịch hẹn của bạn đã được hoàn thành thành công.	booking	t	2026-05-24 07:46:05.592512+00
+12	2	Cập nhật trạng thái lịch hẹn	Lịch hẹn #3 đã chuyển sang trạng thái đã hoàn thành.	booking	t	2026-06-09 04:48:03.398779+00
+13	2	Buổi chăm sóc đã hoàn tất	Lịch hẹn #3 đã hoàn tất. Hãy đánh giá nhanh buổi chăm sóc để CareMate theo dõi chất lượng dịch vụ.	review	t	2026-06-09 04:48:03.457786+00
+17	2	Bình luận mới	Nguyên đã bình luận về bài viết "🌸 MẸ ƠI, KIỆT SỨC SAU SINH KHÔNG PHẢI ĐIỀU BÌNH THƯỜNG ĐÂU!".	community_comment	t	2026-06-09 08:17:24.154745+00
+18	1	Bài viết có lượt thích mới	Lan Nguyen đã thích bài viết "💗 BÉ HAY ĐẦY HƠI, KHÓ CHỊU SAU KHI BÚ?".	community_like	f	2026-06-10 06:14:36.188349+00
+19	1	Bình luận mới	Lan Nguyen đã bình luận về bài viết "💗 BÉ HAY ĐẦY HƠI, KHÓ CHỊU SAU KHI BÚ?".	community_comment	f	2026-06-10 06:15:25.260907+00
+20	1	Bài viết có lượt thích mới	Phương Mi đã thích bài viết "💗 BÉ HAY ĐẦY HƠI, KHÓ CHỊU SAU KHI BÚ?".	community_like	f	2026-06-10 12:43:57.217318+00
+21	1	Bài viết có lượt thích mới	Phương Mi đã thích bài viết "🌸 MẸ ƠI, KIỆT SỨC SAU SINH KHÔNG PHẢI ĐIỀU BÌNH THƯỜNG ĐÂU!".	community_like	f	2026-06-10 12:44:06.500291+00
+22	52	Bình luận mới	Tommy nghiện đã bình luận về bài viết "Bé khóc không phải lúc nào cũng vì “khó tính” đâu mẹ nhé!".	community_comment	f	2026-06-10 13:52:28.7332+00
+23	52	Bài viết có lượt thích mới	Tommy nghiện đã thích bài viết "Bé khóc không phải lúc nào cũng vì “khó tính” đâu mẹ nhé!".	community_like	f	2026-06-10 13:52:30.946762+00
+24	52	Bài viết có lượt thích mới	Thẻo đã thích bài viết "Bé khóc không phải lúc nào cũng vì “khó tính” đâu mẹ nhé!".	community_like	f	2026-06-11 02:06:02.780944+00
+25	52	Bình luận mới	Thẻo đã bình luận về bài viết "Bé khóc không phải lúc nào cũng vì “khó tính” đâu mẹ nhé!".	community_comment	f	2026-06-11 02:06:37.776024+00
+26	53	Bình luận mới	Thẻo đã bình luận về bài viết "Cháu nhà tôi khóc nhiều quá, tôi nghĩ nó muốn nói gì với ...".	community_comment	f	2026-06-11 02:07:57.140455+00
+27	53	Bài viết có lượt thích mới	Thẻo đã thích bài viết "Cháu nhà tôi khóc nhiều quá, tôi nghĩ nó muốn nói gì với ...".	community_like	f	2026-06-11 02:07:57.82397+00
+30	54	Cập nhật thanh toán	Thanh toán của bạn cho lịch hẹn #5 hiện đã thanh toán.	payment	t	2026-06-12 03:00:52.13756+00
+31	54	Cập nhật trạng thái lịch hẹn	Lịch hẹn #5 đã chuyển sang trạng thái đã xác nhận.	booking	t	2026-06-12 03:01:22.717378+00
+32	54	Y tá đã check-in	Y tá đã bắt đầu buổi 1/3: Khởi động và đánh giá ban đầu.	booking	t	2026-06-12 03:02:07.535923+00
+33	54	Buổi chăm sóc đã hoàn tất	Buổi 1/3 đã hoàn tất. Hãy đánh giá nhanh buổi này để CareMate tổng hợp chất lượng gói. Tiến độ: 1/3.	review	t	2026-06-12 03:04:45.599448+00
+28	4	Yêu cầu đặt gói dịch vụ	Gói "Gói Demo Chăm Sóc 3 Buổi" (3 ngày) - Lịch hẹn #5 đang chờ bạn xác nhận.	booking	t	2026-06-12 03:00:51.967242+00
+29	4	Cập nhật thanh toán	Thanh toán cho lịch hẹn #5 hiện đã thanh toán.	payment	t	2026-06-12 03:00:52.128843+00
+34	4	Khách hàng đánh giá buổi chăm sóc	Buổi 1/3 vừa được đánh giá 5/5 sao.	booking	t	2026-06-12 03:05:15.838029+00
+35	55	Cập nhật hồ sơ xác minh	Tài liệu 'id_card_front' đã được duyệt.	verification	f	2026-06-12 14:33:02.367866+00
+36	2	Cập nhật khiếu nại	Khiếu nại của lịch hẹn #3 hiện đã từ chối.	dispute	f	2026-06-12 14:33:51.358221+00
+37	5	Cập nhật khiếu nại	Khiếu nại của lịch hẹn #3 hiện đã từ chối.	dispute	f	2026-06-12 14:33:51.51806+00
+38	52	Bài viết có lượt thích mới	Lương Thị Thúy Huyên đã thích bài viết "Bé khóc không phải lúc nào cũng vì “khó tính” đâu mẹ nhé!".	community_like	f	2026-06-18 14:24:24.980711+00
+\.
+
+

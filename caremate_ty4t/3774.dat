@@ -1,0 +1,20 @@
+20260521092551_InitialPostgreSql	9.0.1
+20260522090000_AddProfessionalHealthAiOutput	9.0.1
+20260522093000_AddHealthRiskScoring	9.0.1
+20260523140722_AddSupportChatConversations	9.0.1
+20260525084019_AddCommunityCommentReplies	9.0.1
+20260525090857_AddCommunityCommentLikes	9.0.1
+20260601090000_AddAdvancedHealthCheckInContext	9.0.1
+20260604090000_AddHealthCheckInContextData	9.0.1
+20260602022228_AddCustomerSessionFeedback	9.0.1
+20260602024500_AddCustomerSessionFeedbackTags	9.0.1
+20260609102021_AddCareMateAiEngineV3SnapshotFix	9.0.1
+20260612041847_AddNurseDocumentOcrResults	9.0.1
+20260612042829_AddPayOsWebhookLogs	9.0.1
+20260612043448_AddAuditLogs	9.0.1
+20260613040426_AddCarePlanAndAiChat	9.0.1
+20260615035719_AddAiChatAndCarePlanTelemetry	9.0.1
+20260622065436_AddServiceTranslations	9.0.1
+\.
+
+

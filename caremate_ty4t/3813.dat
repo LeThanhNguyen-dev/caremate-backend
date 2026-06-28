@@ -1,0 +1,19 @@
+1	1	pending_confirm	2	seed-created	2026-05-21 08:00:00+00
+2	1	confirmed	4	seed-confirmed	2026-05-21 09:00:00+00
+3	1	in_progress	4	seed-started	2026-05-22 09:00:00+00
+4	1	completed	4	seed-completed	2026-05-22 11:00:00+00
+5	2	pending_confirm	3	seed-created	2026-05-24 08:00:00+00
+6	3	pending_confirm	2	seed-created	2026-05-22 18:00:00+00
+7	3	confirmed	5	seed-confirmed	2026-05-22 19:00:00+00
+8	3	in_progress	5	seed-started	2026-05-23 21:00:00+00
+9	4	pending_confirm	9	Booking created	2026-05-27 03:29:32.670052+00
+10	4	confirmed	4	\N	2026-05-27 03:33:04.172088+00
+11	4	in_progress	4	\N	2026-05-27 03:33:10.932611+00
+12	4	completed	4	\N	2026-05-27 03:33:13.446006+00
+13	3	completed	5	\N	2026-06-09 04:48:03.358678+00
+14	5	pending_confirm	54	Package booking created (3 days)	2026-06-12 03:00:51.925311+00
+15	5	confirmed	4	\N	2026-06-12 03:01:22.707523+00
+16	5	in_progress	4	Tự động chuyển sang đang thực hiện khi y tá check-in.	2026-06-12 03:02:07.513941+00
+\.
+
+

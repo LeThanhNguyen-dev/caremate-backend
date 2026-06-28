@@ -334,11 +334,6 @@ public class AdminService : IAdminService
 
         if (profile == null) return false;
 
-        if (profile.VerificationSubmissionStatus != "submitted")
-        {
-            throw new ArgumentException("Only submitted nurse profiles can be reviewed.");
-        }
-
         if (reviewDto.IsApproved)
         {
             await EnsureRoleExistsAsync(AppRoles.NurseConfirmed, "Nurse (Confirmed)");

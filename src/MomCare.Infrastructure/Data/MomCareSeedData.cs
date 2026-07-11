@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -171,10 +171,10 @@ public static class MomCareSeedData
         {
             context.AvailabilitySlots.RemoveRange(oldSlots);
         }
-
+        // mamay
         // Nurse A: one past + two future
         await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(-2).AddHours(8), today.AddDays(-2).AddHours(12));
-        await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(1).AddHours(8), today.AddDays(1).AddHours(12)); 
+        await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(1).AddHours(8), today.AddDays(1).AddHours(12));
         await EnsureAvailabilitySlotAsync(context, nurseProfileA.Id, today.AddDays(2).AddHours(13), today.AddDays(2).AddHours(17));
 
         // Nurse B: one past + two future
@@ -682,17 +682,24 @@ public static class MomCareSeedData
         {
             string title;
             string desc;
-            
-            if (i == 1) {
+
+            if (i == 1)
+            {
                 title = "Khởi đầu chăm sóc";
                 desc = "Khám đánh giá tổng quát ngày đầu tiên và thiết lập phác đồ chăm sóc phù hợp.";
-            } else if (i == days) {
+            }
+            else if (i == days)
+            {
                 title = "Buổi cuối – tổng kết";
                 desc = "Thực hiện dịch vụ buổi cuối, hướng dẫn gia đình tự chăm sóc sau khi kết thúc gói.";
-            } else if (i % 3 == 0) {
+            }
+            else if (i % 3 == 0)
+            {
                 title = "Đánh giá định kỳ";
                 desc = "Chăm sóc theo liệu trình, đồng thời kiểm tra tiến độ phục hồi của mẹ và bé.";
-            } else {
+            }
+            else
+            {
                 title = $"Chăm sóc ngày {i}";
                 desc = "Thực hiện các dịch vụ theo liệu trình hàng ngày để đảm bảo sức khỏe và sự thư giãn.";
             }
@@ -718,7 +725,8 @@ public static class MomCareSeedData
                 desc = $"Tập trung vào {BuildDailyServiceSummary(serviceKeys, i)} để duy trì tiến độ chăm sóc ổn định cho mẹ và bé.";
             }
 
-            list.Add(new {
+            list.Add(new
+            {
                 day = i,
                 title = title,
                 description = desc,

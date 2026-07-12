@@ -69,6 +69,8 @@ public static class MomCareSeedData
 
         await context.SaveChangesAsync();
 
+        await FixDuplicatePackagesAsync(context);
+
         var nurseProfileA = await EnsureNurseProfileAsync(
             context,
             nurseA.Id,
@@ -852,6 +854,38 @@ public static class MomCareSeedData
         foreach (var service in legacyServices)
         {
             service.Status = "inactive";
+        }
+    }
+
+    private static async Task FixDuplicatePackagesAsync(MomCareContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            "UPDATE services SET status = 'inactive' WHERE id BETWEEN 64 AND 72");
+
+        await FixPackageNamesAsync(context);
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task FixPackageNamesAsync(MomCareContext context)
+    {
+        for (int id = 38; id <= 46; id++)
+        {
+            var service = await context.Services.FindAsync(id);
+            if (service == null) continue;
+
+            service.Name = id switch
+            {
+                38 => "Gói Dùng Thử Trải Nghiệm Chăm Sóc Sau Sinh Tại Nhà",
+                39 => "Gói Hỗ Trợ Tuyến Sữa & Xử Lý Tắc Tia Sữa Sau Sinh",
+                40 => "Gói Massage Giảm Nhức Mỏi & Phục Hồi Cơ Thể Sau Sinh",
+                41 => "Gói Chăm Sóc Toàn Diện Trẻ Sơ Sinh Tại Nhà",
+                42 => "Gói Massage Phục Hồi Mẹ & Tắm Bé Kết Hợp",
+                43 => "Gói Phục Hồi Sức Khỏe & Tinh Thần Sau Sinh Toàn Diện",
+                44 => "Gói VIP Chăm Sóc Toàn Diện Mẹ & Bé Sau Sinh",
+                45 => "Gói Chăm Sóc Chuyên Sâu Mẹ & Bé Toàn Diện",
+                46 => "Gói Phục Hồi Vóc Dáng & Định Hình Cơ Thể Sau Sinh",
+                _ => service.Name
+            };
         }
     }
 

@@ -70,6 +70,7 @@ public static class MomCareSeedData
         await context.SaveChangesAsync();
 
         await FixDuplicatePackagesAsync(context);
+        await FixDuplicateSinglesAsync(context);
 
         var nurseProfileA = await EnsureNurseProfileAsync(
             context,
@@ -887,6 +888,13 @@ public static class MomCareSeedData
                 _ => service.Name
             };
         }
+    }
+
+    private static async Task FixDuplicateSinglesAsync(MomCareContext context)
+    {
+        await context.Database.ExecuteSqlRawAsync(
+            "UPDATE services SET status = 'inactive' WHERE id BETWEEN 47 AND 63");
+        await context.SaveChangesAsync();
     }
 
     private static async Task<NurseProfile> EnsureNurseProfileAsync(

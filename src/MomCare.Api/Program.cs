@@ -127,6 +127,7 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
     options.AddPolicy("auth", context => FixedWindow(context, 5, TimeSpan.FromMinutes(5)));
+    options.AddPolicy("signup", context => FixedWindow(context, 30, TimeSpan.FromMinutes(5)));
     options.AddPolicy("refresh-token", context => FixedWindow(context, 20, TimeSpan.FromMinutes(5)));
     options.AddPolicy("upload", context => FixedWindow(context, 5, TimeSpan.FromMinutes(10)));
     options.AddPolicy("booking", context => FixedWindow(context, 10, TimeSpan.FromMinutes(1)));

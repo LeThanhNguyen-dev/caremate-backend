@@ -18,7 +18,7 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
     [HttpPost("register")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting("signup")]
     public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
     {
         var result = await _authService.RegisterAsync(registerDto);
@@ -32,7 +32,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("signup/customer")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting("signup")]
     public async Task<IActionResult> RegisterCustomer([FromBody] RegisterDto registerDto)
     {
         registerDto.Role = "customer";
@@ -47,7 +47,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("signup/nurse")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting("signup")]
     public async Task<IActionResult> RegisterNurse([FromBody] RegisterNurseDto registerDto)
     {
         var result = await _authService.RegisterNurseAsync(registerDto);
